@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -244,7 +244,7 @@ const Home = () => {
 
             {songs.length > 5 && (
               <HorizontalSection title="Trending Now" subtitle="What's hot right now">
-                {[...songs].sort(() => Math.random() - 0.5).slice(0, 8).map((song, i) => (
+                {songs.slice(0, 8).map((song, i) => (
                   <SongCard key={song.id} song={song} index={i} />
                 ))}
               </HorizontalSection>
@@ -252,7 +252,7 @@ const Home = () => {
 
             {songs.length > 3 && (
               <HorizontalSection title="Recommended for You" subtitle="Based on your taste">
-                {[...songs].reverse().slice(0, 8).map((song, i) => (
+                {songs.slice().reverse().slice(0, 8).map((song, i) => (
                   <SongCard key={song.id} song={song} index={i} />
                 ))}
               </HorizontalSection>

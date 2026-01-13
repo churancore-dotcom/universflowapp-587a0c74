@@ -1,10 +1,11 @@
+import React, { memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, SkipForward, ChevronUp } from 'lucide-react';
+import { Play, Pause, SkipForward, X } from 'lucide-react';
 import { usePlayer } from '@/contexts/PlayerContext';
-import { iosSpring, iosBounce } from '@/lib/animations';
+import { iosBounce } from '@/lib/animations';
 import LikeButton from './LikeButton';
 
-const MiniPlayer = () => {
+const MiniPlayer = memo(() => {
   const {
     currentSong,
     isPlaying,
@@ -12,6 +13,7 @@ const MiniPlayer = () => {
     duration,
     togglePlay,
     nextSong,
+    stopSong,
     setExpanded
   } = usePlayer();
 
@@ -31,59 +33,46 @@ const MiniPlayer = () => {
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
-        transition={iosSpring}
+        transition={{ type: "spring", stiffness: 400, damping: 30 }}
       >
-        {/* iOS-style progress bar */}
+        {/* Progress bar */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/10">
-          <motion.div
-            className="h-full"
+          <div
+            className="h-full transition-[width] duration-100"
             style={{
               width: `${progressPercent}%`,
               background: 'linear-gradient(90deg, hsl(211 100% 50%), hsl(328 100% 54%))',
             }}
-            layoutId="progress-bar"
-            transition={{ duration: 0.1 }}
           />
         </div>
 
         <div className="flex items-center justify-between px-4 py-3">
-          {/* Song info - iOS style */}
+          {/* Song info */}
           <motion.div
             className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
             onClick={() => setExpanded(true)}
             whileTap={{ scale: 0.98, opacity: 0.8 }}
             transition={iosBounce}
           >
-            <motion.div
-              className="relative w-12 h-12 rounded-xl overflow-hidden bg-muted/50 flex-shrink-0 shadow-lg"
-              layoutId="album-art"
-              whileHover={{ scale: 1.05 }}
-              transition={iosBounce}
-            >
+            <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-muted/50 flex-shrink-0 shadow-lg">
               {currentSong.cover_url ? (
                 <img
                   src={currentSong.cover_url}
                   alt={currentSong.title}
                   className="w-full h-full object-cover"
+                  loading="lazy"
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-primary/40 to-accent/40" />
               )}
               {isPlaying && (
-                <motion.div
-                  className="absolute inset-0 bg-black/30 flex items-center justify-center"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.2 }}
-                >
+                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                   <div className="flex items-end gap-[3px] h-4">
-                    {[...Array(3)].map((_, i) => (
+                    {[0, 1, 2].map((i) => (
                       <motion.div
                         key={i}
                         className="w-[3px] bg-white rounded-full"
-                        animate={{
-                          height: [5, 14, 5],
-                        }}
+                        animate={{ height: [5, 14, 5] }}
                         transition={{
                           duration: 0.5,
                           repeat: Infinity,
@@ -93,29 +82,22 @@ const MiniPlayer = () => {
                       />
                     ))}
                   </div>
-                </motion.div>
+                </div>
               )}
-            </motion.div>
+            </div>
             
             <div className="min-w-0">
-              <motion.p
-                className="font-medium text-[15px] truncate leading-tight"
-                layoutId="song-title"
-              >
+              <p className="font-medium text-[15px] truncate leading-tight">
                 {currentSong.title}
-              </motion.p>
-              <motion.p
-                className="text-[13px] text-muted-foreground truncate mt-0.5"
-                layoutId="song-artist"
-              >
+              </p>
+              <p className="text-[13px] text-muted-foreground truncate mt-0.5">
                 {currentSong.artist}
-              </motion.p>
+              </p>
             </div>
           </motion.div>
 
-          {/* Controls - Mobile optimized */}
+          {/* Controls */}
           <div className="flex items-center gap-1">
-            {/* Like button - mobile visible */}
             <LikeButton songId={currentSong.id} size="sm" className="mr-1" />
             
             <motion.button
@@ -125,7 +107,6 @@ const MiniPlayer = () => {
                 togglePlay();
               }}
               whileTap={{ scale: 0.88 }}
-              whileHover={{ scale: 1.05 }}
               transition={iosBounce}
             >
               {isPlaying ? (
@@ -146,21 +127,27 @@ const MiniPlayer = () => {
             >
               <SkipForward className="w-5 h-5" fill="currentColor" />
             </motion.button>
-          </div>
 
-          {/* Expand button - iOS chevron */}
-          <motion.button
-            className="p-2.5 rounded-full ml-1"
-            onClick={() => setExpanded(true)}
-            whileTap={{ scale: 0.85 }}
-            transition={iosBounce}
-          >
-            <ChevronUp className="w-5 h-5 text-muted-foreground" />
-          </motion.button>
+            {/* Close/Stop button */}
+            <motion.button
+              className="p-2 rounded-full flex items-center justify-center text-muted-foreground hover:text-white ml-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                stopSong();
+              }}
+              whileTap={{ scale: 0.85 }}
+              transition={iosBounce}
+              aria-label="Close player"
+            >
+              <X className="w-5 h-5" />
+            </motion.button>
+          </div>
         </div>
       </motion.div>
     </AnimatePresence>
   );
-};
+});
+
+MiniPlayer.displayName = 'MiniPlayer';
 
 export default MiniPlayer;

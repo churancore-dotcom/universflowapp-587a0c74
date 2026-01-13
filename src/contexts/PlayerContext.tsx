@@ -27,6 +27,7 @@ interface PlayerContextType {
   togglePlay: () => void;
   pause: () => void;
   play: () => void;
+  stopSong: () => void;
   nextSong: () => void;
   prevSong: () => void;
   seek: (time: number) => void;
@@ -336,6 +337,30 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [currentSong]);
 
+  const stopSong = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current.src = '';
+    }
+    if (nextAudioRef.current) {
+      nextAudioRef.current.pause();
+      nextAudioRef.current.src = '';
+    }
+    if (crossfadeIntervalRef.current) {
+      clearInterval(crossfadeIntervalRef.current);
+      crossfadeIntervalRef.current = null;
+    }
+    isCrossfading.current = false;
+    setCurrentSong(null);
+    setIsPlaying(false);
+    setProgress(0);
+    setDuration(0);
+    setQueueState([]);
+    setCurrentIndex(0);
+    setExpanded(false);
+  }, []);
+
   const nextSong = useCallback(() => {
     // Cancel crossfade if manually skipping
     if (crossfadeIntervalRef.current) {
@@ -433,6 +458,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       togglePlay,
       pause,
       play,
+      stopSong,
       nextSong,
       prevSong,
       seek,

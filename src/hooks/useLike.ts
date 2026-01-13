@@ -1,18 +1,32 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
+// Cache for like states to reduce DB calls
+const likeCache = new Map<string, boolean>();
+
 export const useLike = (songId: string) => {
   const { user } = useAuth();
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(() => likeCache.get(`${user?.id}-${songId}`) ?? false);
   const [isLoading, setIsLoading] = useState(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     if (user && songId) {
-      checkIfLiked();
+      const cacheKey = `${user.id}-${songId}`;
+      if (likeCache.has(cacheKey)) {
+        setIsLiked(likeCache.get(cacheKey)!);
+      } else {
+        checkIfLiked();
+      }
     }
-  }, [user, songId]);
+  }, [user?.id, songId]);
 
   const checkIfLiked = async () => {
     if (!user) return;
@@ -24,7 +38,11 @@ export const useLike = (songId: string) => {
       .eq('song_id', songId)
       .maybeSingle();
 
-    setIsLiked(!!data);
+    const liked = !!data;
+    likeCache.set(`${user.id}-${songId}`, liked);
+    if (mountedRef.current) {
+      setIsLiked(liked);
+    }
   };
 
   const toggleLike = useCallback(async () => {
@@ -36,9 +54,13 @@ export const useLike = (songId: string) => {
     if (isLoading) return;
 
     setIsLoading(true);
+    // Optimistic update
+    const newLiked = !isLiked;
+    setIsLiked(newLiked);
+    likeCache.set(`${user.id}-${songId}`, newLiked);
 
     try {
-      if (isLiked) {
+      if (!newLiked) {
         // Unlike
         const { error } = await supabase
           .from('user_library')
@@ -47,26 +69,26 @@ export const useLike = (songId: string) => {
           .eq('song_id', songId);
 
         if (error) throw error;
-        setIsLiked(false);
         toast.success('Removed from library');
       } else {
         // Like
         const { error } = await supabase
           .from('user_library')
-          .insert({
-            user_id: user.id,
-            song_id: songId,
-          });
+          .insert({ user_id: user.id, song_id: songId });
 
         if (error) throw error;
-        setIsLiked(true);
         toast.success('Added to library ❤️');
       }
     } catch (error) {
       console.error('Error toggling like:', error);
+      // Rollback on error
+      setIsLiked(!newLiked);
+      likeCache.set(`${user.id}-${songId}`, !newLiked);
       toast.error('Failed to update library');
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [user, songId, isLiked, isLoading]);
 
@@ -82,12 +104,9 @@ export const useRecentlyPlayed = () => {
     try {
       await supabase
         .from('recently_played')
-        .insert({
-          user_id: user.id,
-          song_id: songId,
-        });
+        .insert({ user_id: user.id, song_id: songId });
     } catch (error) {
-      console.error('Error tracking play:', error);
+      // Silent fail
     }
   }, [user]);
 
