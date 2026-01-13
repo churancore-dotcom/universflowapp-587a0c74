@@ -100,6 +100,43 @@
   html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
+    touch-action: pan-x pan-y;
+    -webkit-touch-callout: none;
+  }
+
+  /* Disable text selection and zooming for native app feel */
+  body {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    overscroll-behavior: none;
+  }
+
+  /* Allow text selection only in specific elements */
+  input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
+
+  /* Disable image dragging */
+  img {
+    -webkit-user-drag: none;
+    -khtml-user-drag: none;
+    -moz-user-drag: none;
+    -o-user-drag: none;
+    user-drag: none;
+    pointer-events: none;
+  }
+
+  /* Re-enable pointer events on interactive images */
+  button img, a img, .interactive-image {
+    pointer-events: auto;
   }
 }
 
