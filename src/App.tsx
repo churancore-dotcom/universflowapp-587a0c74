@@ -70,15 +70,10 @@ const AnimatedRoutes = () => {
 
 const AppRoutes = () => {
   const [showSplash, setShowSplash] = useState(true);
-  const { user, isLoading } = useAuth();
-
-  useEffect(() => {
-    if (!isLoading && user) setShowSplash(false);
-  }, [isLoading, user]);
 
   return (
     <AnimatePresence mode="wait">
-      {showSplash && !user ? (
+      {showSplash ? (
         <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />
       ) : (
         <AnimatedRoutes key="routes" />
