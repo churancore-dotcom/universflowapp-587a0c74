@@ -147,21 +147,15 @@ const FullscreenPlayer = () => {
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-primary/60 to-accent/60 flex items-center justify-center">
                       <div className="flex items-end gap-1.5 h-28">
-                        {[...Array(5)].map((_, i) => (
-                          <motion.div
+                        {[0, 1, 2, 3, 4].map((i) => (
+                          <div
                             key={i}
-                            className="w-3.5 rounded-full"
+                            className={`w-3.5 rounded-full bg-gradient-to-t from-white/50 to-white ${
+                              isPlaying ? 'animate-equalizer' : ''
+                            }`}
                             style={{
-                              background: 'linear-gradient(to top, rgba(255,255,255,0.5), white)',
-                            }}
-                            animate={isPlaying ? {
-                              height: [20, 80 + Math.random() * 30, 20],
-                            } : { height: 24 }}
-                            transition={{
-                              duration: 0.6 + Math.random() * 0.2,
-                              repeat: Infinity,
-                              ease: "easeInOut",
-                              delay: i * 0.08,
+                              animationDelay: `${i * 0.12}s`,
+                              height: isPlaying ? undefined : '24px',
                             }}
                           />
                         ))}

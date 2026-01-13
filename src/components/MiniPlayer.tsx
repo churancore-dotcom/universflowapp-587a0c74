@@ -5,6 +5,26 @@ import { usePlayer } from '@/contexts/PlayerContext';
 import { iosBounce } from '@/lib/animations';
 import LikeButton from './LikeButton';
 
+// Smooth audio wave component - replaces ugly up-down animation
+const AudioWave = memo(({ isPlaying }: { isPlaying: boolean }) => (
+  <div className="flex items-end gap-[2px] h-4">
+    {[0, 1, 2].map((i) => (
+      <div
+        key={i}
+        className={`w-[3px] bg-white rounded-full transition-all duration-300 ${
+          isPlaying ? 'animate-audio-wave' : 'h-[5px]'
+        }`}
+        style={{
+          animationDelay: `${i * 0.15}s`,
+          height: isPlaying ? undefined : '5px',
+        }}
+      />
+    ))}
+  </div>
+));
+
+AudioWave.displayName = 'AudioWave';
+
 const MiniPlayer = memo(() => {
   const {
     currentSong,
@@ -67,21 +87,7 @@ const MiniPlayer = memo(() => {
               )}
               {isPlaying && (
                 <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                  <div className="flex items-end gap-[3px] h-4">
-                    {[0, 1, 2].map((i) => (
-                      <motion.div
-                        key={i}
-                        className="w-[3px] bg-white rounded-full"
-                        animate={{ height: [5, 14, 5] }}
-                        transition={{
-                          duration: 0.5,
-                          repeat: Infinity,
-                          delay: i * 0.12,
-                          ease: "easeInOut",
-                        }}
-                      />
-                    ))}
-                  </div>
+                  <AudioWave isPlaying={isPlaying} />
                 </div>
               )}
             </div>

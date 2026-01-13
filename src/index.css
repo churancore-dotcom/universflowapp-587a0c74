@@ -445,6 +445,50 @@
   50% { transform: scaleY(1); }
 }
 
+/* Smooth audio wave animation - replaces jerky up-down */
+@keyframes audio-wave {
+  0%, 100% { 
+    height: 5px;
+  }
+  25% { 
+    height: 14px;
+  }
+  50% { 
+    height: 8px;
+  }
+  75% { 
+    height: 12px;
+  }
+}
+
+.animate-audio-wave {
+  animation: audio-wave 1.2s ease-in-out infinite;
+}
+
+/* Smooth equalizer bars for fullscreen player */
+@keyframes equalizer-smooth {
+  0%, 100% { 
+    height: 20px;
+    opacity: 0.7;
+  }
+  25% { 
+    height: 60px;
+    opacity: 1;
+  }
+  50% { 
+    height: 35px;
+    opacity: 0.85;
+  }
+  75% { 
+    height: 50px;
+    opacity: 0.95;
+  }
+}
+
+.animate-equalizer {
+  animation: equalizer-smooth 1.4s ease-in-out infinite;
+}
+
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }

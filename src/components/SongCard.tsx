@@ -12,6 +12,32 @@ interface SongCardProps {
   index?: number;
 }
 
+// Smooth audio wave using CSS animation
+const AudioWave = memo(({ isPlaying, size = 'md' }: { isPlaying: boolean; size?: 'sm' | 'md' }) => {
+  const barCount = size === 'sm' ? 3 : 4;
+  const barWidth = size === 'sm' ? 'w-1' : 'w-1.5';
+  const height = size === 'sm' ? 'h-8' : 'h-10';
+  
+  return (
+    <div className={`flex items-end gap-1 ${height}`}>
+      {Array.from({ length: barCount }).map((_, i) => (
+        <div
+          key={i}
+          className={`${barWidth} bg-white/50 rounded-full transition-all duration-300 ${
+            isPlaying ? 'animate-audio-wave' : ''
+          }`}
+          style={{
+            animationDelay: `${i * 0.15}s`,
+            height: isPlaying ? undefined : '10px',
+          }}
+        />
+      ))}
+    </div>
+  );
+});
+
+AudioWave.displayName = 'AudioWave';
+
 const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
   const { currentSong, isPlaying, playSong, togglePlay } = usePlayer();
   const { isDownloaded, getDownloadedUrl } = useDownloads();
@@ -50,21 +76,7 @@ const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-            <div className="flex items-end gap-1 h-10">
-              {[0, 1, 2, 3].map((i) => (
-                <motion.div
-                  key={i}
-                  className="w-1.5 bg-white/50 rounded-full"
-                  animate={isCurrentSong && isPlaying ? { height: [6, 28, 6] } : { height: 10 }}
-                  transition={{
-                    duration: 0.6,
-                    repeat: Infinity,
-                    delay: i * 0.15,
-                    ease: "easeInOut",
-                  }}
-                />
-              ))}
-            </div>
+            <AudioWave isPlaying={isCurrentSong && isPlaying} />
           </div>
         )}
         
@@ -89,9 +101,7 @@ const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
         )}
         
         {/* Play button overlay */}
-        <motion.div
-          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-        >
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
           <motion.div
             className="w-14 h-14 rounded-full bg-white/95 flex items-center justify-center shadow-2xl"
             whileTap={{ scale: 0.9 }}
@@ -103,23 +113,20 @@ const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
               <Play className="w-6 h-6 text-black ml-1" fill="black" />
             )}
           </motion.div>
-        </motion.div>
+        </div>
 
-        {/* Playing indicator */}
+        {/* Playing indicator - smooth wave */}
         {isCurrentSong && (
           <div className="absolute bottom-3 right-3">
-            <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shadow-lg glow-sm">
-              <div className="flex items-end gap-0.5 h-3.5">
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg glow-sm">
+              <div className="flex items-end gap-[2px] h-4">
                 {[0, 1, 2].map((i) => (
-                  <motion.div
+                  <div
                     key={i}
-                    className="w-[3px] bg-white rounded-full"
-                    animate={isPlaying ? { height: [3, 12, 3] } : { height: 5 }}
-                    transition={{
-                      duration: 0.5,
-                      repeat: Infinity,
-                      delay: i * 0.12,
-                      ease: "easeInOut",
+                    className={`w-[3px] bg-white rounded-full ${isPlaying ? 'animate-audio-wave' : ''}`}
+                    style={{
+                      animationDelay: `${i * 0.12}s`,
+                      height: isPlaying ? undefined : '5px',
                     }}
                   />
                 ))}
