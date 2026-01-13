@@ -51,43 +51,106 @@ const Auth = () => {
   return (
     <FadeTransition>
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Ultra-realistic ambient background with depth */}
+      {/* Universe-themed ambient background matching splash screen */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Primary cosmic glow */}
         <motion.div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full"
+          className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full"
           style={{
-            background: 'radial-gradient(ellipse, hsl(211 100% 50% / 0.15), transparent 60%)',
+            background: 'radial-gradient(circle, hsl(211 100% 50% / 0.3), transparent 60%)',
             filter: 'blur(60px)',
           }}
           animate={{
-            scale: [1, 1.1, 1],
+            scale: [1, 1.4, 1],
             opacity: [0.4, 0.6, 0.4],
+            x: [-50, 50, -50],
+            y: [-30, 30, -30],
           }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
         />
+        {/* Secondary pink glow */}
         <motion.div
-          className="absolute bottom-0 left-1/4 w-[600px] h-[500px] rounded-full"
+          className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full"
           style={{
-            background: 'radial-gradient(ellipse, hsl(328 100% 54% / 0.12), transparent 60%)',
+            background: 'radial-gradient(circle, hsl(328 100% 54% / 0.25), transparent 60%)',
+            filter: 'blur(60px)',
+          }}
+          animate={{
+            scale: [1.3, 1, 1.3],
+            opacity: [0.3, 0.5, 0.3],
+            x: [30, -30, 30],
+            y: [20, -20, 20],
+          }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+        />
+        {/* Tertiary purple glow */}
+        <motion.div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, hsl(270 100% 60% / 0.2), transparent 60%)',
             filter: 'blur(80px)',
           }}
           animate={{
-            scale: [1.1, 1, 1.1],
-            x: [-20, 20, -20],
+            scale: [1, 1.2, 1],
+            opacity: [0.2, 0.35, 0.2],
           }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 1 }}
         />
-        <motion.div
-          className="absolute top-1/3 right-0 w-[400px] h-[400px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, hsl(280 100% 60% / 0.1), transparent 70%)',
-            filter: 'blur(50px)',
-          }}
-          animate={{
-            y: [-30, 30, -30],
-          }}
-          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-        />
+
+        {/* Shooting Stars */}
+        {[...Array(4)].map((_, i) => {
+          const startX = Math.random() * 80 + 10;
+          const startY = Math.random() * 30;
+          const duration = 1.5 + Math.random() * 1;
+          const delay = i * 1.5 + Math.random() * 2;
+          
+          return (
+            <motion.div
+              key={`shooting-star-${i}`}
+              className="absolute"
+              style={{
+                top: `${startY}%`,
+                left: `${startX}%`,
+                width: '80px',
+                height: '2px',
+                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.8), rgba(200,220,255,1))',
+                borderRadius: '50%',
+                filter: 'blur(0.5px)',
+                boxShadow: '0 0 6px 2px rgba(200,220,255,0.6)',
+              }}
+              initial={{ x: 0, y: 0, opacity: 0, rotate: 35, scale: 0.5 }}
+              animate={{
+                x: [0, 250],
+                y: [0, 180],
+                opacity: [0, 1, 1, 0],
+                scale: [0.5, 1, 1, 0.3],
+              }}
+              transition={{
+                duration: duration,
+                delay: delay,
+                repeat: Infinity,
+                repeatDelay: 4 + Math.random() * 4,
+                ease: "easeOut",
+              }}
+            />
+          );
+        })}
+
+        {/* Twinkling stars background */}
+        {[...Array(30)].map((_, i) => (
+          <motion.div
+            key={`star-${i}`}
+            className="absolute rounded-full bg-white"
+            style={{
+              width: Math.random() * 2 + 1 + 'px',
+              height: Math.random() * 2 + 1 + 'px',
+              top: Math.random() * 100 + '%',
+              left: Math.random() * 100 + '%',
+            }}
+            animate={{ opacity: [0.2, 0.8, 0.2] }}
+            transition={{ duration: 2 + Math.random() * 3, delay: Math.random() * 2, repeat: Infinity }}
+          />
+        ))}
       </div>
 
       <motion.div
@@ -96,7 +159,7 @@ const Auth = () => {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={iosSpring}
       >
-        {/* Logo with 3D effect */}
+        {/* Universe Logo matching splash screen */}
         <motion.div 
           className="flex flex-col items-center mb-12"
           initial={{ opacity: 0, y: 30 }}
@@ -105,40 +168,153 @@ const Auth = () => {
         >
           <motion.div
             className="relative"
-            whileHover={{ scale: 1.05, rotateY: 10 }}
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             transition={iosBounce}
           >
-            <motion.div 
-              className="w-24 h-24 rounded-[28px] flex items-center justify-center relative overflow-hidden"
+            {/* Outer cosmic ring */}
+            <motion.div
+              className="absolute -inset-4 rounded-full"
               style={{
-                background: 'linear-gradient(135deg, hsl(211 100% 50%), hsl(280 100% 60%), hsl(328 100% 54%))',
-                boxShadow: '0 20px 60px -10px hsl(211 100% 50% / 0.4), 0 10px 30px -5px hsl(328 100% 54% / 0.3)',
+                background: 'conic-gradient(from 0deg, hsl(211 100% 60%), hsl(270 80% 60%), hsl(328 100% 60%), hsl(211 100% 60%))',
+                opacity: 0.4,
+                filter: 'blur(6px)',
+              }}
+              animate={{ rotate: 360 }}
+              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+            />
+            
+            {/* Orbital ring with stars */}
+            <motion.div
+              className="absolute -inset-3 rounded-full border border-white/20"
+              animate={{ rotate: -360 }}
+              transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+            >
+              {[0, 120, 240].map((angle, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute w-1.5 h-1.5 rounded-full bg-white"
+                  style={{
+                    top: '50%',
+                    left: '50%',
+                    transform: `rotate(${angle}deg) translateX(calc(50% + 16px)) translateY(-50%)`,
+                    boxShadow: '0 0 8px 2px rgba(255,255,255,0.8)',
+                  }}
+                  animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] }}
+                  transition={{ duration: 2, delay: i * 0.3, repeat: Infinity }}
+                />
+              ))}
+            </motion.div>
+
+            {/* Main galaxy sphere logo */}
+            <motion.div
+              className="w-20 h-20 rounded-full flex items-center justify-center relative overflow-hidden"
+              style={{
+                background: 'radial-gradient(circle at 35% 35%, #1a1a2e 0%, #0f0f1a 50%, #000000 100%)',
+                boxShadow: '0 0 40px 15px rgba(100,150,255,0.3), inset 0 0 30px rgba(100,150,255,0.2)',
               }}
               animate={{
                 boxShadow: [
-                  '0 20px 60px -10px hsl(211 100% 50% / 0.4), 0 10px 30px -5px hsl(328 100% 54% / 0.3)',
-                  '0 25px 80px -10px hsl(211 100% 50% / 0.5), 0 15px 40px -5px hsl(328 100% 54% / 0.4)',
-                  '0 20px 60px -10px hsl(211 100% 50% / 0.4), 0 10px 30px -5px hsl(328 100% 54% / 0.3)',
-                ],
+                  '0 0 40px 15px rgba(100,150,255,0.3), inset 0 0 30px rgba(100,150,255,0.2)',
+                  '0 0 60px 20px rgba(150,100,255,0.4), inset 0 0 40px rgba(150,100,255,0.3)',
+                  '0 0 40px 15px rgba(100,150,255,0.3), inset 0 0 30px rgba(100,150,255,0.2)',
+                ]
               }}
-              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-white/25 to-transparent" />
-              <Music className="w-12 h-12 text-white relative z-10" strokeWidth={1.5} />
+              {/* Galaxy spiral */}
+              <motion.div
+                className="absolute inset-0"
+                style={{
+                  background: 'conic-gradient(from 0deg at 50% 50%, transparent 0deg, rgba(100,150,255,0.15) 60deg, transparent 120deg, rgba(200,100,255,0.1) 180deg, transparent 240deg, rgba(255,100,150,0.1) 300deg, transparent 360deg)',
+                }}
+                animate={{ rotate: 360 }}
+                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+              />
+              
+              {/* Nebula clouds */}
+              <div
+                className="absolute inset-2 rounded-full"
+                style={{
+                  background: 'radial-gradient(ellipse at 30% 40%, rgba(100,150,255,0.3) 0%, transparent 50%), radial-gradient(ellipse at 70% 60%, rgba(200,100,255,0.2) 0%, transparent 40%)',
+                  filter: 'blur(6px)',
+                }}
+              />
+              
+              {/* Star field inside logo */}
+              {[...Array(12)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute rounded-full bg-white"
+                  style={{
+                    width: Math.random() * 1.5 + 0.5 + 'px',
+                    height: Math.random() * 1.5 + 0.5 + 'px',
+                    top: 10 + Math.random() * 80 + '%',
+                    left: 10 + Math.random() * 80 + '%',
+                  }}
+                  animate={{ opacity: [0.2, 1, 0.2] }}
+                  transition={{ duration: 1 + Math.random() * 2, delay: Math.random() * 2, repeat: Infinity }}
+                />
+              ))}
+
+              {/* Central bright core */}
+              <motion.div
+                className="absolute w-10 h-10 rounded-full"
+                style={{
+                  background: 'radial-gradient(circle at 40% 40%, #ffffff 0%, #a0c4ff 20%, #6b8cff 40%, transparent 70%)',
+                  filter: 'blur(3px)',
+                }}
+                animate={{
+                  scale: [1, 1.2, 1],
+                  opacity: [0.8, 1, 0.8],
+                }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              />
+
+              {/* Universe "U" symbol */}
+              <motion.svg
+                width="36"
+                height="36"
+                viewBox="0 0 64 64"
+                className="relative z-10"
+              >
+                <defs>
+                  <linearGradient id="uGradientAuth" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#ffffff" />
+                    <stop offset="50%" stopColor="#a0c4ff" />
+                    <stop offset="100%" stopColor="#c4a0ff" />
+                  </linearGradient>
+                  <filter id="glowAuth">
+                    <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+                    <feMerge>
+                      <feMergeNode in="coloredBlur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                </defs>
+                <path
+                  d="M18 18 L18 38 C18 48 26 54 32 54 C38 54 46 48 46 38 L46 18"
+                  stroke="url(#uGradientAuth)"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  fill="none"
+                  filter="url(#glowAuth)"
+                />
+              </motion.svg>
             </motion.div>
           </motion.div>
           
           <motion.h1 
-            className="mt-5 text-4xl font-bold tracking-tight"
+            className="mt-6 text-3xl font-bold tracking-tight"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
           >
-            <span className="gradient-text">Sonique</span>
+            <span className="gradient-text">Univers</span>
+            <span className="text-white ml-2">Flow</span>
           </motion.h1>
           <motion.p
-            className="mt-1 text-muted-foreground text-sm"
+            className="mt-2 text-muted-foreground text-sm font-medium tracking-wide"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
