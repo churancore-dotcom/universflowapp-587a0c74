@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Music, Image, X, Check, Loader2 } from 'lucide-react';
+import { Upload, Music, Image, X, Check, Loader2, AlertCircle, FileAudio } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,17 @@ import { toast } from 'sonner';
 const genres = ['Pop', 'Rock', 'Hip Hop', 'R&B', 'Electronic', 'Jazz', 'Classical', 'Country', 'Indie', 'Metal'];
 const moods = ['Happy', 'Sad', 'Energetic', 'Calm', 'Romantic', 'Dark', 'Uplifting', 'Chill'];
 
+// File validation constants
+const MAX_AUDIO_SIZE = 100 * 1024 * 1024; // 100MB
+const MAX_COVER_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_AUDIO_TYPES = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg', 'audio/mp4', 'audio/x-m4a'];
+const ALLOWED_COVER_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+interface ValidationError {
+  type: 'audio' | 'cover';
+  message: string;
+}
+
 const UploadMusic = () => {
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -19,6 +30,8 @@ const UploadMusic = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isDraggingAudio, setIsDraggingAudio] = useState(false);
   const [isDraggingCover, setIsDraggingCover] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [audioDuration, setAudioDuration] = useState<number>(0);
   
   const [metadata, setMetadata] = useState({
     title: '',
@@ -29,12 +42,63 @@ const UploadMusic = () => {
     bpm: '',
   });
 
-  const handleAudioDrop = useCallback((e: React.DragEvent) => {
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  };
+
+  const validateAudioFile = (file: File): string | null => {
+    if (!ALLOWED_AUDIO_TYPES.includes(file.type) && !file.name.match(/\.(mp3|wav|flac|aac|ogg|m4a)$/i)) {
+      return 'Invalid audio format. Supported: MP3, WAV, FLAC, AAC, OGG, M4A';
+    }
+    if (file.size > MAX_AUDIO_SIZE) {
+      return `Audio file too large. Maximum size: ${formatFileSize(MAX_AUDIO_SIZE)}`;
+    }
+    return null;
+  };
+
+  const validateCoverFile = (file: File): string | null => {
+    if (!ALLOWED_COVER_TYPES.includes(file.type)) {
+      return 'Invalid image format. Supported: JPG, PNG, WebP, GIF';
+    }
+    if (file.size > MAX_COVER_SIZE) {
+      return `Cover image too large. Maximum size: ${formatFileSize(MAX_COVER_SIZE)}`;
+    }
+    return null;
+  };
+
+  const getAudioDuration = (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const audio = new Audio();
+      audio.onloadedmetadata = () => {
+        resolve(Math.round(audio.duration));
+      };
+      audio.onerror = () => resolve(0);
+      audio.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handleAudioDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingAudio(false);
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('audio/')) {
+    
+    if (file) {
+      const error = validateAudioFile(file);
+      if (error) {
+        setValidationErrors(prev => [...prev.filter(e => e.type !== 'audio'), { type: 'audio', message: error }]);
+        toast.error(error);
+        return;
+      }
+      
+      setValidationErrors(prev => prev.filter(e => e.type !== 'audio'));
       setAudioFile(file);
+      
+      // Get audio duration
+      const duration = await getAudioDuration(file);
+      setAudioDuration(duration);
+      
       // Auto-fill title from filename
       const name = file.name.replace(/\.[^/.]+$/, '');
       setMetadata(prev => ({ ...prev, title: prev.title || name }));
@@ -45,16 +109,37 @@ const UploadMusic = () => {
     e.preventDefault();
     setIsDraggingCover(false);
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
+    
+    if (file) {
+      const error = validateCoverFile(file);
+      if (error) {
+        setValidationErrors(prev => [...prev.filter(e => e.type !== 'cover'), { type: 'cover', message: error }]);
+        toast.error(error);
+        return;
+      }
+      
+      setValidationErrors(prev => prev.filter(e => e.type !== 'cover'));
       setCoverFile(file);
       setCoverPreview(URL.createObjectURL(file));
     }
   }, []);
 
-  const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAudioSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const error = validateAudioFile(file);
+      if (error) {
+        setValidationErrors(prev => [...prev.filter(e => e.type !== 'audio'), { type: 'audio', message: error }]);
+        toast.error(error);
+        return;
+      }
+      
+      setValidationErrors(prev => prev.filter(e => e.type !== 'audio'));
       setAudioFile(file);
+      
+      const duration = await getAudioDuration(file);
+      setAudioDuration(duration);
+      
       const name = file.name.replace(/\.[^/.]+$/, '');
       setMetadata(prev => ({ ...prev, title: prev.title || name }));
     }
@@ -63,6 +148,14 @@ const UploadMusic = () => {
   const handleCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const error = validateCoverFile(file);
+      if (error) {
+        setValidationErrors(prev => [...prev.filter(e => e.type !== 'cover'), { type: 'cover', message: error }]);
+        toast.error(error);
+        return;
+      }
+      
+      setValidationErrors(prev => prev.filter(e => e.type !== 'cover'));
       setCoverFile(file);
       setCoverPreview(URL.createObjectURL(file));
     }
@@ -94,6 +187,7 @@ const UploadMusic = () => {
 
       // Upload cover if exists
       let coverUrl = null;
+      let coverSize = 0;
       if (coverFile) {
         const coverExt = coverFile.name.split('.').pop();
         const coverPath = `${Date.now()}-${Math.random().toString(36).substring(7)}.${coverExt}`;
@@ -105,11 +199,12 @@ const UploadMusic = () => {
         if (!coverError) {
           const { data } = supabase.storage.from('covers').getPublicUrl(coverPath);
           coverUrl = data.publicUrl;
+          coverSize = coverFile.size;
         }
       }
       setUploadProgress(75);
 
-      // Insert song record
+      // Insert song record with file metadata
       const { error: dbError } = await supabase.from('songs').insert({
         title: metadata.title,
         artist: metadata.artist,
@@ -120,6 +215,9 @@ const UploadMusic = () => {
         audio_url: audioUrl.publicUrl,
         cover_url: coverUrl,
         is_visible: true,
+        file_size: audioFile.size,
+        duration: audioDuration,
+        cover_size: coverSize,
       });
 
       if (dbError) throw dbError;
@@ -132,6 +230,7 @@ const UploadMusic = () => {
         setAudioFile(null);
         setCoverFile(null);
         setCoverPreview(null);
+        setAudioDuration(0);
         setMetadata({ title: '', artist: '', album: '', genre: '', mood: '', bpm: '' });
         setUploadProgress(0);
         setIsUploading(false);
@@ -144,6 +243,12 @@ const UploadMusic = () => {
     }
   };
 
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <motion.div
@@ -153,6 +258,16 @@ const UploadMusic = () => {
       >
         <h1 className="text-3xl font-display font-bold">Upload Music</h1>
         <p className="text-muted-foreground mt-1">Add new tracks to your music library</p>
+        <div className="flex flex-wrap gap-4 mt-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <FileAudio className="w-3 h-3" />
+            Max audio: {formatFileSize(MAX_AUDIO_SIZE)}
+          </span>
+          <span className="flex items-center gap-1">
+            <Image className="w-3 h-3" />
+            Max cover: {formatFileSize(MAX_COVER_SIZE)}
+          </span>
+        </div>
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -172,6 +287,8 @@ const UploadMusic = () => {
                   ? 'border-primary bg-primary/10'
                   : audioFile
                   ? 'border-green-500/50 bg-green-500/5'
+                  : validationErrors.some(e => e.type === 'audio')
+                  ? 'border-destructive/50 bg-destructive/5'
                   : 'border-white/10 hover:border-white/20'
               }`}
               onDragOver={(e) => { e.preventDefault(); setIsDraggingAudio(true); }}
@@ -200,11 +317,11 @@ const UploadMusic = () => {
                     <div className="text-left">
                       <p className="font-medium truncate max-w-[200px]">{audioFile.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {(audioFile.size / 1024 / 1024).toFixed(2)} MB
+                        {formatFileSize(audioFile.size)} • {audioDuration > 0 ? formatDuration(audioDuration) : 'Loading...'}
                       </p>
                     </div>
                     <button
-                      onClick={(e) => { e.stopPropagation(); setAudioFile(null); }}
+                      onClick={(e) => { e.stopPropagation(); setAudioFile(null); setAudioDuration(0); }}
                       className="p-2 hover:bg-white/10 rounded-full"
                     >
                       <X className="w-4 h-4" />
@@ -220,12 +337,22 @@ const UploadMusic = () => {
                     <Music className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
                     <p className="font-medium">Drop audio file here</p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      or click to browse (MP3, WAV, FLAC, AAC)
+                      MP3, WAV, FLAC, AAC, OGG, M4A (max {formatFileSize(MAX_AUDIO_SIZE)})
                     </p>
                   </motion.div>
                 )}
               </AnimatePresence>
             </motion.div>
+            {validationErrors.find(e => e.type === 'audio') && (
+              <motion.p 
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-2 text-sm text-destructive flex items-center gap-1"
+              >
+                <AlertCircle className="w-4 h-4" />
+                {validationErrors.find(e => e.type === 'audio')?.message}
+              </motion.p>
+            )}
           </div>
 
           {/* Cover Upload */}
@@ -237,6 +364,8 @@ const UploadMusic = () => {
                   ? 'border-primary bg-primary/10'
                   : coverFile
                   ? 'border-accent/50 bg-accent/5'
+                  : validationErrors.some(e => e.type === 'cover')
+                  ? 'border-destructive/50 bg-destructive/5'
                   : 'border-white/10 hover:border-white/20'
               }`}
               onDragOver={(e) => { e.preventDefault(); setIsDraggingCover(true); }}
@@ -264,6 +393,9 @@ const UploadMusic = () => {
                       alt="Cover preview"
                       className="w-32 h-32 rounded-xl object-cover mx-auto"
                     />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {coverFile && formatFileSize(coverFile.size)}
+                    </p>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -285,12 +417,22 @@ const UploadMusic = () => {
                     <Image className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
                     <p className="font-medium">Drop cover image here</p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      JPG, PNG, WebP (recommended 500x500)
+                      JPG, PNG, WebP (max {formatFileSize(MAX_COVER_SIZE)})
                     </p>
                   </motion.div>
                 )}
               </AnimatePresence>
             </motion.div>
+            {validationErrors.find(e => e.type === 'cover') && (
+              <motion.p 
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-2 text-sm text-destructive flex items-center gap-1"
+              >
+                <AlertCircle className="w-4 h-4" />
+                {validationErrors.find(e => e.type === 'cover')?.message}
+              </motion.p>
+            )}
           </div>
         </motion.div>
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Music, Edit2, Trash2, Eye, EyeOff, Search, MoreVertical, Play, X, Save } from 'lucide-react';
+import { Music, Edit2, Trash2, Eye, EyeOff, Search, MoreVertical, Play, X, Save, HardDrive, Clock, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,9 @@ interface Song {
   is_visible: boolean;
   play_count: number;
   created_at: string;
+  file_size: number;
+  duration: number;
+  download_count: number;
 }
 
 const ManageSongs = () => {
@@ -27,6 +30,7 @@ const ManageSongs = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [editForm, setEditForm] = useState({ title: '', artist: '', album: '', genre: '' });
+  const [totalStats, setTotalStats] = useState({ size: 0, duration: 0, downloads: 0 });
 
   useEffect(() => {
     fetchSongs();
@@ -47,8 +51,35 @@ const ManageSongs = () => {
 
     if (!error && data) {
       setSongs(data);
+      
+      // Calculate totals
+      const size = data.reduce((acc, s) => acc + (s.file_size || 0), 0);
+      const duration = data.reduce((acc, s) => acc + (s.duration || 0), 0);
+      const downloads = data.reduce((acc, s) => acc + (s.download_count || 0), 0);
+      setTotalStats({ size, duration, downloads });
     }
     setLoading(false);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (!bytes || bytes === 0) return '-';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  };
+
+  const formatDuration = (seconds: number) => {
+    if (!seconds || seconds === 0) return '-';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatTotalDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins} min`;
   };
 
   const toggleVisibility = async (song: Song) => {
@@ -123,12 +154,57 @@ const ManageSongs = () => {
         <p className="text-muted-foreground mt-1">Edit, hide, or delete songs from your library</p>
       </motion.div>
 
+      {/* Quick Stats */}
+      <motion.div
+        className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="glass rounded-xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+            <Music className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold">{songs.length}</p>
+            <p className="text-xs text-muted-foreground">Total Songs</p>
+          </div>
+        </div>
+        <div className="glass rounded-xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-accent/20 flex items-center justify-center">
+            <HardDrive className="w-5 h-5 text-accent" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold">{formatFileSize(totalStats.size)}</p>
+            <p className="text-xs text-muted-foreground">Total Size</p>
+          </div>
+        </div>
+        <div className="glass rounded-xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+            <Clock className="w-5 h-5 text-green-500" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold">{formatTotalDuration(totalStats.duration)}</p>
+            <p className="text-xs text-muted-foreground">Total Duration</p>
+          </div>
+        </div>
+        <div className="glass rounded-xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+            <Download className="w-5 h-5 text-orange-500" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold">{totalStats.downloads.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Downloads</p>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Search */}
       <motion.div
         className="mb-6"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
+        transition={{ delay: 0.2 }}
       >
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -146,7 +222,7 @@ const ManageSongs = () => {
         className="glass rounded-2xl overflow-hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
+        transition={{ delay: 0.3 }}
       >
         {loading ? (
           <div className="p-12 text-center">
@@ -164,7 +240,8 @@ const ManageSongs = () => {
                 <tr className="border-b border-white/5">
                   <th className="text-left p-4 text-sm font-medium text-muted-foreground">Song</th>
                   <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden md:table-cell">Album</th>
-                  <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">Genre</th>
+                  <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">Duration</th>
+                  <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden xl:table-cell">Size</th>
                   <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden sm:table-cell">Plays</th>
                   <th className="text-left p-4 text-sm font-medium text-muted-foreground">Status</th>
                   <th className="text-right p-4 text-sm font-medium text-muted-foreground">Actions</th>
@@ -197,7 +274,8 @@ const ManageSongs = () => {
                         </div>
                       </td>
                       <td className="p-4 text-muted-foreground hidden md:table-cell">{song.album || '-'}</td>
-                      <td className="p-4 text-muted-foreground hidden lg:table-cell">{song.genre || '-'}</td>
+                      <td className="p-4 text-muted-foreground hidden lg:table-cell">{formatDuration(song.duration)}</td>
+                      <td className="p-4 text-muted-foreground hidden xl:table-cell">{formatFileSize(song.file_size)}</td>
                       <td className="p-4 text-muted-foreground hidden sm:table-cell">{song.play_count.toLocaleString()}</td>
                       <td className="p-4">
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${

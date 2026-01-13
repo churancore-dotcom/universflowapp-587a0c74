@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, Music, Users, PlayCircle, Calendar } from 'lucide-react';
+import { TrendingUp, Music, Users, PlayCircle, Calendar, HardDrive, Download, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Progress } from '@/components/ui/progress';
 
 interface TopSong {
   id: string;
@@ -9,6 +10,15 @@ interface TopSong {
   artist: string;
   cover_url: string | null;
   play_count: number;
+}
+
+interface StorageStats {
+  totalMusicSize: number;
+  totalCoverSize: number;
+  totalSongs: number;
+  totalDownloads: number;
+  avgFileSize: number;
+  totalDuration: number;
 }
 
 const Analytics = () => {
@@ -19,9 +29,18 @@ const Analytics = () => {
     uniqueListeners: 0,
     songsThisMonth: 0,
   });
+  const [storageStats, setStorageStats] = useState<StorageStats>({
+    totalMusicSize: 0,
+    totalCoverSize: 0,
+    totalSongs: 0,
+    totalDownloads: 0,
+    avgFileSize: 0,
+    totalDuration: 0,
+  });
 
   useEffect(() => {
     fetchAnalytics();
+    fetchStorageStats();
   }, []);
 
   const fetchAnalytics = async () => {
@@ -56,6 +75,50 @@ const Analytics = () => {
       songsThisMonth: allSongs?.filter(s => new Date(s.created_at) >= thisMonth).length || 0,
     });
   };
+
+  const fetchStorageStats = async () => {
+    const { data: songs } = await supabase
+      .from('songs')
+      .select('file_size, cover_size, duration, download_count');
+
+    if (songs) {
+      const totalMusicSize = songs.reduce((acc, s) => acc + (s.file_size || 0), 0);
+      const totalCoverSize = songs.reduce((acc, s) => acc + (s.cover_size || 0), 0);
+      const totalDownloads = songs.reduce((acc, s) => acc + (s.download_count || 0), 0);
+      const totalDuration = songs.reduce((acc, s) => acc + (s.duration || 0), 0);
+      
+      setStorageStats({
+        totalMusicSize,
+        totalCoverSize,
+        totalSongs: songs.length,
+        totalDownloads,
+        avgFileSize: songs.length > 0 ? totalMusicSize / songs.length : 0,
+        totalDuration,
+      });
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+    return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+  };
+
+  const formatDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    }
+    return `${mins} min`;
+  };
+
+  // Assuming 1GB storage limit for visualization (adjust as needed)
+  const STORAGE_LIMIT = 1024 * 1024 * 1024; // 1GB
+  const totalStorage = storageStats.totalMusicSize + storageStats.totalCoverSize;
+  const storagePercentage = Math.min((totalStorage / STORAGE_LIMIT) * 100, 100);
 
   return (
     <div className="p-8">
@@ -94,13 +157,74 @@ const Analytics = () => {
         })}
       </div>
 
+      {/* Storage Dashboard */}
+      <motion.div
+        className="glass rounded-2xl p-6 mb-8"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <div className="flex items-center gap-2 mb-6">
+          <HardDrive className="w-5 h-5 text-primary" />
+          <h2 className="text-xl font-display font-bold">Storage Overview</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <div className="text-center p-4 bg-muted/30 rounded-xl">
+            <Music className="w-8 h-8 mx-auto mb-2 text-primary" />
+            <p className="text-2xl font-bold">{storageStats.totalSongs}</p>
+            <p className="text-sm text-muted-foreground">Total Songs</p>
+          </div>
+          <div className="text-center p-4 bg-muted/30 rounded-xl">
+            <HardDrive className="w-8 h-8 mx-auto mb-2 text-accent" />
+            <p className="text-2xl font-bold">{formatFileSize(totalStorage)}</p>
+            <p className="text-sm text-muted-foreground">Total Storage</p>
+          </div>
+          <div className="text-center p-4 bg-muted/30 rounded-xl">
+            <Download className="w-8 h-8 mx-auto mb-2 text-green-500" />
+            <p className="text-2xl font-bold">{storageStats.totalDownloads.toLocaleString()}</p>
+            <p className="text-sm text-muted-foreground">Total Downloads</p>
+          </div>
+          <div className="text-center p-4 bg-muted/30 rounded-xl">
+            <BarChart3 className="w-8 h-8 mx-auto mb-2 text-orange-500" />
+            <p className="text-2xl font-bold">{formatDuration(storageStats.totalDuration)}</p>
+            <p className="text-sm text-muted-foreground">Total Duration</p>
+          </div>
+        </div>
+
+        {/* Storage Progress Bar */}
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Storage Used</span>
+            <span className="font-medium">
+              {formatFileSize(totalStorage)} / {formatFileSize(STORAGE_LIMIT)}
+            </span>
+          </div>
+          <Progress value={storagePercentage} className="h-3" />
+          <div className="flex gap-4 text-xs text-muted-foreground mt-3">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-primary" />
+              Music: {formatFileSize(storageStats.totalMusicSize)}
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-accent" />
+              Covers: {formatFileSize(storageStats.totalCoverSize)}
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+              Avg per song: {formatFileSize(storageStats.avgFileSize)}
+            </span>
+          </div>
+        </div>
+      </motion.div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Top Songs */}
         <motion.div
           className="glass rounded-2xl p-6"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.4 }}
         >
           <div className="flex items-center gap-2 mb-6">
             <TrendingUp className="w-5 h-5 text-primary" />
@@ -120,7 +244,7 @@ const Analytics = () => {
                   className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all"
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + index * 0.05 }}
+                  transition={{ delay: 0.5 + index * 0.05 }}
                 >
                   <span className={`w-6 text-center font-display font-bold ${
                     index < 3 ? 'text-primary' : 'text-muted-foreground'
@@ -152,7 +276,7 @@ const Analytics = () => {
           className="glass rounded-2xl p-6"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: 0.5 }}
         >
           <div className="flex items-center gap-2 mb-6">
             <PlayCircle className="w-5 h-5 text-accent" />
@@ -172,7 +296,7 @@ const Analytics = () => {
                   className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5 + index * 0.03 }}
+                  transition={{ delay: 0.6 + index * 0.03 }}
                 >
                   <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center overflow-hidden">
                     {play.songs?.cover_url ? (

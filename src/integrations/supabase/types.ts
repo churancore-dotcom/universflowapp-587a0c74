@@ -183,10 +183,14 @@ export type Database = {
           album: string | null
           artist: string
           audio_url: string
+          bitrate: number | null
           bpm: number | null
+          cover_size: number | null
           cover_url: string | null
           created_at: string
+          download_count: number | null
           duration: number | null
+          file_size: number | null
           genre: string | null
           id: string
           is_visible: boolean
@@ -199,10 +203,14 @@ export type Database = {
           album?: string | null
           artist: string
           audio_url: string
+          bitrate?: number | null
           bpm?: number | null
+          cover_size?: number | null
           cover_url?: string | null
           created_at?: string
+          download_count?: number | null
           duration?: number | null
+          file_size?: number | null
           genre?: string | null
           id?: string
           is_visible?: boolean
@@ -215,10 +223,14 @@ export type Database = {
           album?: string | null
           artist?: string
           audio_url?: string
+          bitrate?: number | null
           bpm?: number | null
+          cover_size?: number | null
           cover_url?: string | null
           created_at?: string
+          download_count?: number | null
           duration?: number | null
+          file_size?: number | null
           genre?: string | null
           id?: string
           is_visible?: boolean
