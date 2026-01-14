@@ -115,8 +115,8 @@ const Analytics = () => {
     return `${mins} min`;
   };
 
-  // Assuming 1GB storage limit for visualization (adjust as needed)
-  const STORAGE_LIMIT = 1024 * 1024 * 1024; // 1GB
+  // Storage limit for visualization (100GB for Pro plan)
+  const STORAGE_LIMIT = 100 * 1024 * 1024 * 1024; // 100GB
   const totalStorage = storageStats.totalMusicSize + storageStats.totalCoverSize;
   const storagePercentage = Math.min((totalStorage / STORAGE_LIMIT) * 100, 100);
 
