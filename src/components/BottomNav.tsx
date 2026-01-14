@@ -18,14 +18,20 @@ const BottomNav = () => {
 
   return (
     <motion.nav
-      className={`fixed left-0 right-0 z-40 ios-tab-bar safe-area-pb ${
+      className={`fixed left-0 right-0 z-50 safe-area-pb ${
         currentSong ? 'bottom-[76px]' : 'bottom-0'
       }`}
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ ...iosSpring, delay: 0.3 }}
+      style={{ 
+        background: 'rgba(0, 0, 0, 0.85)',
+        backdropFilter: 'blur(20px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+        borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+      }}
     >
-      <div className="flex items-center justify-around py-2 px-2">
+      <div className="flex items-center justify-around py-3 px-4">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;
