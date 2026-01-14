@@ -132,7 +132,7 @@ const Home = () => {
   return (
     <TabTransition>
       <motion.div 
-        className="min-h-screen bg-black pb-44 relative"
+        className="min-h-screen bg-black pb-52 relative"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={iosSpring}
