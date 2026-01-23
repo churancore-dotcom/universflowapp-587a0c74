@@ -12,6 +12,7 @@ import AddToPlaylistModal from './AddToPlaylistModal';
 import CreatePlaylistModal from './CreatePlaylistModal';
 import SongReactions from './SongReactions';
 import { useAudioVisualizer } from '@/hooks/useAudioVisualizer';
+import AlbumArtAnimations from './player/AlbumArtAnimations';
 
 const formatTime = (seconds: number) => {
   if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
@@ -86,10 +87,6 @@ const FullscreenPlayer = () => {
     }
   };
 
-  // Calculate real-time glow based on audio frequencies
-  const glowIntensity = bassFrequency * 0.8;
-  const pulseScale = 1 + bassFrequency * 0.12;
-
   if (!currentSong || !isExpanded) return null;
 
   // Safe progress values
@@ -163,7 +160,7 @@ const FullscreenPlayer = () => {
               </motion.button>
             </div>
 
-            {/* Album Art - with real audio frequency visualization */}
+            {/* Album Art - with unique per-song animations */}
             <div className="flex-1 flex items-center justify-center py-6">
               <motion.div
                 className="relative w-full max-w-[320px] aspect-square"
@@ -174,54 +171,21 @@ const FullscreenPlayer = () => {
                 }}
                 transition={appleSpring}
               >
-                {/* Real frequency-reactive glow rings */}
-                {isPlaying && (
-                  <>
-                    {/* Bass frequency ring */}
-                    <motion.div
-                      className="absolute inset-0 rounded-2xl pointer-events-none"
-                      style={{
-                        background: `radial-gradient(circle, rgba(250, 45, 72, ${0.3 + glowIntensity * 0.5}) 0%, transparent 70%)`,
-                      }}
-                      animate={{
-                        scale: pulseScale,
-                        opacity: 0.5 + bassFrequency * 0.5,
-                      }}
-                      transition={{ duration: 0.05, ease: 'linear' }}
-                    />
-                    {/* Mid frequency ring */}
-                    <motion.div
-                      className="absolute inset-0 rounded-2xl pointer-events-none"
-                      style={{
-                        background: `radial-gradient(circle, rgba(255, 100, 130, ${0.2 + midFrequency * 0.4}) 0%, transparent 60%)`,
-                      }}
-                      animate={{
-                        scale: 1.15 + midFrequency * 0.25,
-                        opacity: 0.3 + midFrequency * 0.4,
-                      }}
-                      transition={{ duration: 0.05, ease: 'linear' }}
-                    />
-                    {/* High frequency ring */}
-                    <motion.div
-                      className="absolute inset-0 rounded-2xl pointer-events-none"
-                      style={{
-                        background: `radial-gradient(circle, rgba(255, 150, 180, ${0.1 + highFrequency * 0.3}) 0%, transparent 50%)`,
-                      }}
-                      animate={{
-                        scale: 1.3 + highFrequency * 0.2,
-                        opacity: 0.2 + highFrequency * 0.3,
-                      }}
-                      transition={{ duration: 0.05, ease: 'linear' }}
-                    />
-                  </>
-                )}
+                {/* Unique per-song animations based on song ID */}
+                <AlbumArtAnimations
+                  isPlaying={isPlaying}
+                  bassFrequency={bassFrequency}
+                  midFrequency={midFrequency}
+                  highFrequency={highFrequency}
+                  songId={currentSong.id}
+                />
 
                 {/* Album artwork */}
                 <motion.div 
                   className="relative w-full h-full rounded-xl overflow-hidden shadow-2xl z-10"
                   animate={{
                     boxShadow: isPlaying 
-                      ? `0 0 ${60 + bassFrequency * 40}px ${15 + bassFrequency * 15}px rgba(250, 45, 72, ${0.25 + bassFrequency * 0.2}), 0 30px 60px -15px rgba(0, 0, 0, 0.8)`
+                      ? `0 0 ${60 + bassFrequency * 40}px ${15 + bassFrequency * 15}px hsl(var(--primary) / ${0.25 + bassFrequency * 0.2}), 0 30px 60px -15px rgba(0, 0, 0, 0.8)`
                       : '0 20px 40px -15px rgba(0, 0, 0, 0.6)',
                     scale: isPlaying ? 1 + bassFrequency * 0.03 : 1,
                   }}
@@ -235,7 +199,7 @@ const FullscreenPlayer = () => {
                       draggable={false}
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
+                    <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
                       <div className="text-white/60 text-6xl">♪</div>
                     </div>
                   )}
