@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Music, Check, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,7 +20,7 @@ interface AddToPlaylistModalProps {
   onCreateNew: () => void;
 }
 
-const AddToPlaylistModal = ({ isOpen, onClose, song, onCreateNew }: AddToPlaylistModalProps) => {
+const AddToPlaylistModal = forwardRef<HTMLDivElement, AddToPlaylistModalProps>(({ isOpen, onClose, song, onCreateNew }, ref) => {
   const { user } = useAuth();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
@@ -212,6 +212,8 @@ const AddToPlaylistModal = ({ isOpen, onClose, song, onCreateNew }: AddToPlaylis
       )}
     </AnimatePresence>
   );
-};
+});
+
+AddToPlaylistModal.displayName = 'AddToPlaylistModal';
 
 export default AddToPlaylistModal;
