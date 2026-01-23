@@ -5,10 +5,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { PlayerProvider } from "./contexts/PlayerContext";
+import { PlayerProvider, usePlayer } from "./contexts/PlayerContext";
 import { DownloadProvider } from "./contexts/DownloadContext";
 import SplashScreen from "./components/SplashScreen";
 import DownloadQueuePanel from "./components/DownloadQueuePanel";
+import PrerollAd from "./components/ads/PrerollAd";
 import Auth from "./pages/Auth";
 import Home from "./pages/Home";
 import Search from "./pages/Search";
@@ -105,17 +106,31 @@ const AnimatedRoutes = () => {
   );
 };
 
+const PrerollAdWrapper = () => {
+  const { showPrerollAd, onPrerollAdComplete } = usePlayer();
+  return (
+    <PrerollAd 
+      isOpen={showPrerollAd} 
+      onComplete={onPrerollAdComplete}
+      onSkip={onPrerollAdComplete}
+    />
+  );
+};
+
 const AppRoutes = () => {
   const [showSplash, setShowSplash] = useState(true);
 
   return (
-    <AnimatePresence mode="wait">
-      {showSplash ? (
-        <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />
-      ) : (
-        <AnimatedRoutes key="routes" />
-      )}
-    </AnimatePresence>
+    <>
+      <AnimatePresence mode="wait">
+        {showSplash ? (
+          <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />
+        ) : (
+          <AnimatedRoutes key="routes" />
+        )}
+      </AnimatePresence>
+      <PrerollAdWrapper />
+    </>
   );
 };
 

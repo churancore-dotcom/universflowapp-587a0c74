@@ -27,6 +27,7 @@ interface PlayerContextType {
   crossfade: boolean;
   crossfadeDuration: number;
   audioElement: HTMLAudioElement | null;
+  showPrerollAd: boolean;
   playSong: (song: Song, offlineUrl?: string | null) => void;
   togglePlay: () => void;
   pause: () => void;
@@ -43,6 +44,7 @@ interface PlayerContextType {
   setExpanded: (expanded: boolean) => void;
   toggleCrossfade: () => void;
   setCrossfadeDuration: (seconds: number) => void;
+  onPrerollAdComplete: () => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -61,6 +63,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [crossfade, setCrossfade] = useState(true);
   const [crossfadeDuration, setCrossfadeDurationState] = useState(3);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [showPrerollAd, setShowPrerollAd] = useState(false);
+  const [pendingSong, setPendingSong] = useState<{ song: Song; offlineUrl?: string | null } | null>(null);
+  const [songsPlayedSinceAd, setSongsPlayedSinceAd] = useState(0);
+  const AD_FREQUENCY = 3; // Show ad every 3 songs
   
   // Single audio element - simpler approach
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -306,7 +312,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }, stepDuration);
   }, [queue, currentIndex, shuffle, repeat, crossfadeDuration, volume, getNextIndex]);
 
-  const playSong = useCallback(async (song: Song, offlineUrl?: string | null) => {
+  const playActualSong = useCallback(async (song: Song, offlineUrl?: string | null) => {
     if (!audioRef.current) return;
 
     // Cancel any ongoing crossfade
@@ -352,6 +358,30 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Silent fail
     }
   }, [volume, queue]);
+
+  const playSong = useCallback(async (song: Song, offlineUrl?: string | null) => {
+    // Check if we should show a pre-roll ad (every AD_FREQUENCY songs)
+    const shouldShowAd = songsPlayedSinceAd >= AD_FREQUENCY - 1;
+    
+    if (shouldShowAd) {
+      // Store pending song and show ad
+      setPendingSong({ song, offlineUrl });
+      setShowPrerollAd(true);
+      setSongsPlayedSinceAd(0);
+    } else {
+      // Play directly
+      setSongsPlayedSinceAd(prev => prev + 1);
+      await playActualSong(song, offlineUrl);
+    }
+  }, [songsPlayedSinceAd, playActualSong]);
+
+  const onPrerollAdComplete = useCallback(() => {
+    setShowPrerollAd(false);
+    if (pendingSong) {
+      playActualSong(pendingSong.song, pendingSong.offlineUrl);
+      setPendingSong(null);
+    }
+  }, [pendingSong, playActualSong]);
 
   const togglePlay = useCallback(() => {
     if (!audioRef.current || !currentSong) return;
@@ -526,6 +556,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       crossfade,
       crossfadeDuration,
       audioElement,
+      showPrerollAd,
       playSong,
       togglePlay,
       pause,
@@ -542,6 +573,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setExpanded,
       toggleCrossfade,
       setCrossfadeDuration: setCrossfadeDurationFn,
+      onPrerollAdComplete,
     }}>
       {children}
     </PlayerContext.Provider>
