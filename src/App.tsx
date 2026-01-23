@@ -28,6 +28,10 @@ import ManagePlaylists from "./pages/admin/ManagePlaylists";
 import ManageUsers from "./pages/admin/ManageUsers";
 import ManageSubscriptions from "./pages/admin/ManageSubscriptions";
 import DonationHistory from "./pages/admin/DonationHistory";
+import AppSettings from "./pages/admin/AppSettings";
+import FeatureFlags from "./pages/admin/FeatureFlags";
+import Announcements from "./pages/admin/Announcements";
+import ContentModeration from "./pages/admin/ContentModeration";
 import AdminSettings from "./pages/admin/Settings";
 import Analytics from "./pages/admin/Analytics";
 import ActivityLogs from "./pages/admin/ActivityLogs";
@@ -83,6 +87,10 @@ const AnimatedRoutes = () => {
           <Route path="users" element={<ManageUsers />} />
           <Route path="subscriptions" element={<ManageSubscriptions />} />
           <Route path="donations" element={<DonationHistory />} />
+          <Route path="app-settings" element={<AppSettings />} />
+          <Route path="features" element={<FeatureFlags />} />
+          <Route path="announcements" element={<Announcements />} />
+          <Route path="moderation" element={<ContentModeration />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="logs" element={<ActivityLogs />} />
           <Route path="bulk" element={<BulkActions />} />
