@@ -1,6 +1,4 @@
-import Median from 'median-js-bridge';
-
-// Global detection for Median native app
+// Global detection for Median native app - no dependencies
 const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
 
 export const isMedianApp = userAgent.indexOf('MedianIOS') > -1 || userAgent.indexOf('MedianAndroid') > -1;
@@ -14,4 +12,8 @@ if (typeof window !== 'undefined') {
   (window as any).isMedianAndroid = isMedianAndroid;
 }
 
-export { Median };
+// Lazy load Median SDK only when needed
+export const getMedian = async () => {
+  const { default: Median } = await import('median-js-bridge');
+  return Median;
+};
