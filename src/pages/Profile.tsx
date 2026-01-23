@@ -13,6 +13,7 @@ import FriendActivity from '@/components/FriendActivity';
 import FriendsManager from '@/components/FriendsManager';
 import DedicationsInbox from '@/components/DedicationsInbox';
 import Crossfade from '@/components/Crossfade';
+import AdvancedAudioSettings from '@/components/AdvancedAudioSettings';
 import { SheetTransition } from '@/components/PageTransition';
 import { iosSpring, iosBounce } from '@/lib/animations';
 
@@ -458,6 +459,7 @@ const Profile = () => {
       <FriendsManager isOpen={showFriendsManager} onClose={() => setShowFriendsManager(false)} />
       <DedicationsInbox isOpen={showDedications} onClose={() => setShowDedications(false)} />
       <Crossfade isOpen={showCrossfade} onClose={() => setShowCrossfade(false)} />
+      <AdvancedAudioSettings isOpen={showAudioSettings} onClose={() => setShowAudioSettings(false)} />
       </motion.div>
     </SheetTransition>
   );
