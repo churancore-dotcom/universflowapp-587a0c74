@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useRef, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
 interface AlbumArtAnimationsProps {
@@ -17,551 +17,656 @@ const getAnimationType = (songId: string): number => {
     hash = ((hash << 5) - hash) + char;
     hash = hash & hash;
   }
-  return Math.abs(hash) % 10; // 10 different animation types
+  return Math.abs(hash) % 8; // 8 different animation types
 };
 
-// Animation 1: Pulsing Rings
-const PulsingRings = memo(({ bass, mid }: { bass: number; mid: number; high: number }) => (
-  <>
-    {[0, 1, 2, 3].map((i) => (
-      <motion.div
-        key={i}
-        className="absolute inset-0 rounded-2xl border-2 border-primary/30"
-        animate={{
-          scale: 1.1 + (i * 0.15) + bass * 0.3,
-          opacity: 0.4 - (i * 0.1) + mid * 0.2,
-        }}
-        transition={{ duration: 0.08, ease: 'linear' }}
-      />
-    ))}
-    <motion.div
-      className="absolute inset-0 rounded-2xl"
-      style={{
-        background: `radial-gradient(circle, hsl(var(--primary) / ${0.3 + bass * 0.4}) 0%, transparent 70%)`,
-      }}
-      animate={{ scale: 1 + bass * 0.15 }}
-      transition={{ duration: 0.05 }}
-    />
-  </>
-));
-PulsingRings.displayName = 'PulsingRings';
-
-// Animation 2: Rotating Particles
-const RotatingParticles = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => {
-  const particles = useMemo(() => Array.from({ length: 12 }, (_, i) => ({
+// Animation 1: Electric Pulse Storm
+const ElectricPulseStorm = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => {
+  const bolts = useMemo(() => Array.from({ length: 16 }, (_, i) => ({
     id: i,
-    angle: (i * 30) * (Math.PI / 180),
+    angle: (i * 22.5),
+    delay: i * 0.05,
   })), []);
 
   return (
     <>
+      {/* Electric core */}
       <motion.div
-        className="absolute inset-0"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-      >
-        {particles.map((p) => (
-          <motion.div
-            key={p.id}
-            className="absolute w-3 h-3 rounded-full bg-gradient-to-br from-primary to-primary/70"
-            style={{
-              left: '50%',
-              top: '50%',
-              transform: `translate(-50%, -50%) rotate(${p.id * 30}deg) translateY(-${140 + bass * 30}px)`,
-            }}
-            animate={{
-              scale: 0.5 + (p.id % 3 === 0 ? bass : p.id % 3 === 1 ? mid : high) * 1.5,
-              opacity: 0.6 + bass * 0.4,
-            }}
-            transition={{ duration: 0.05 }}
-          />
-        ))}
-      </motion.div>
-      <motion.div
-        className="absolute inset-[-20%] rounded-full border border-primary/20"
-        animate={{
-          scale: 1.2 + mid * 0.2,
-          rotate: -45,
+        className="absolute inset-[20%] rounded-full"
+        style={{
+          background: `radial-gradient(circle, 
+            hsl(var(--primary) / ${0.8 + bass * 0.2}) 0%, 
+            hsl(var(--primary) / ${0.4 + mid * 0.3}) 40%, 
+            transparent 70%)`,
+          filter: `blur(${8 + bass * 15}px)`,
         }}
-        transition={{ duration: 0.1 }}
+        animate={{
+          scale: [1, 1.3 + bass * 0.5, 1],
+        }}
+        transition={{ duration: 0.15, repeat: Infinity }}
+      />
+      
+      {/* Lightning bolts */}
+      {bolts.map((bolt) => (
+        <motion.div
+          key={bolt.id}
+          className="absolute left-1/2 top-1/2 origin-bottom"
+          style={{
+            width: '3px',
+            height: `${80 + bass * 60}px`,
+            background: `linear-gradient(to top, 
+              hsl(var(--primary) / ${0.9 + high * 0.1}), 
+              hsl(var(--primary) / 0.3), 
+              transparent)`,
+            transform: `translate(-50%, -100%) rotate(${bolt.angle}deg)`,
+            filter: 'blur(1px)',
+            boxShadow: `0 0 ${10 + bass * 20}px hsl(var(--primary) / 0.8)`,
+          }}
+          animate={{
+            scaleY: [0.3, 1 + bass * 0.8, 0.3],
+            opacity: [0.3, 1, 0.3],
+          }}
+          transition={{
+            duration: 0.12,
+            repeat: Infinity,
+            delay: bolt.delay,
+          }}
+        />
+      ))}
+
+      {/* Outer shockwave rings */}
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={`ring-${i}`}
+          className="absolute inset-[-20%] rounded-full border-2"
+          style={{
+            borderColor: `hsl(var(--primary) / ${0.5 - i * 0.15})`,
+            boxShadow: `0 0 ${20 + bass * 30}px hsl(var(--primary) / ${0.3 - i * 0.1})`,
+          }}
+          animate={{
+            scale: [1 + i * 0.1, 1.4 + bass * 0.6 + i * 0.15, 1 + i * 0.1],
+            opacity: [0.6, 0.2, 0.6],
+          }}
+          transition={{
+            duration: 0.2,
+            repeat: Infinity,
+            delay: i * 0.06,
+          }}
+        />
+      ))}
+    </>
+  );
+});
+ElectricPulseStorm.displayName = 'ElectricPulseStorm';
+
+// Animation 2: Liquid Morphing Blob
+const LiquidMorphingBlob = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => {
+  const [morphPhase, setMorphPhase] = useState(0);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMorphPhase(p => (p + 1) % 360);
+    }, 50);
+    return () => clearInterval(interval);
+  }, []);
+
+  const blobPath = useMemo(() => {
+    const points = 12;
+    const baseRadius = 120;
+    const variance = 30 + bass * 50;
+    
+    let path = '';
+    for (let i = 0; i <= points; i++) {
+      const angle = (i / points) * Math.PI * 2;
+      const offset = Math.sin(angle * 3 + morphPhase * 0.1) * variance * (1 + mid);
+      const r = baseRadius + offset;
+      const x = 160 + Math.cos(angle) * r;
+      const y = 160 + Math.sin(angle) * r;
+      path += i === 0 ? `M ${x} ${y}` : ` Q ${x + 10} ${y + 10} ${x} ${y}`;
+    }
+    return path + ' Z';
+  }, [morphPhase, bass, mid]);
+
+  return (
+    <>
+      <svg className="absolute inset-[-25%] w-[150%] h-[150%]" viewBox="0 0 320 320">
+        <defs>
+          <filter id="goo">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+            <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 25 -12" result="goo" />
+          </filter>
+          <linearGradient id="blobGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={`hsl(var(--primary))`} stopOpacity={0.8 + bass * 0.2} />
+            <stop offset="50%" stopColor={`hsl(var(--primary))`} stopOpacity={0.5 + mid * 0.3} />
+            <stop offset="100%" stopColor={`hsl(var(--primary))`} stopOpacity={0.3 + high * 0.2} />
+          </linearGradient>
+        </defs>
+        <motion.path
+          d={blobPath}
+          fill="url(#blobGradient)"
+          filter="url(#goo)"
+          animate={{
+            scale: 1 + bass * 0.15,
+          }}
+          style={{ transformOrigin: 'center' }}
+        />
+      </svg>
+      
+      {/* Inner glow pulse */}
+      <motion.div
+        className="absolute inset-[10%] rounded-full"
+        style={{
+          background: `radial-gradient(circle, hsl(var(--primary) / ${0.6 + bass * 0.4}) 0%, transparent 70%)`,
+          filter: `blur(${15 + bass * 20}px)`,
+        }}
+        animate={{
+          scale: [1, 1.2 + bass * 0.3, 1],
+        }}
+        transition={{ duration: 0.15, repeat: Infinity }}
       />
     </>
   );
 });
-RotatingParticles.displayName = 'RotatingParticles';
+LiquidMorphingBlob.displayName = 'LiquidMorphingBlob';
 
-// Animation 3: Wave Ripples
-const WaveRipples = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => (
-  <>
-    {[0, 1, 2, 3, 4].map((i) => (
-      <motion.div
-        key={i}
-        className="absolute inset-0 rounded-2xl border-primary/40"
-        style={{
-          borderWidth: `${2 - i * 0.3}px`,
-          borderStyle: 'solid',
-          opacity: 0.5 - i * 0.1,
-        }}
-        animate={{
-          scale: 1 + (i * 0.12) + bass * 0.25,
-          opacity: [0.5, 0.3, 0.5],
-        }}
-        transition={{
-          scale: { duration: 0.08 },
-          opacity: { duration: 0.5, repeat: Infinity, delay: i * 0.1 },
-        }}
-      />
-    ))}
-    <motion.div
-      className="absolute inset-[-10%] rounded-full opacity-30"
-      style={{
-        background: `conic-gradient(from 0deg, transparent, hsl(var(--primary) / ${0.4 + high * 0.3}), transparent, hsl(var(--primary) / ${0.3 + mid * 0.2}), transparent)`,
-      }}
-      animate={{ rotate: 360 }}
-      transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
-    />
-  </>
-));
-WaveRipples.displayName = 'WaveRipples';
-
-// Animation 4: Geometric Pulse
-const GeometricPulse = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => (
-  <>
-    <motion.div
-      className="absolute inset-[-15%]"
-      style={{
-        clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
-        background: `linear-gradient(135deg, hsl(var(--primary) / ${0.2 + bass * 0.3}) 0%, hsl(var(--primary) / ${0.1 + mid * 0.2}) 100%)`,
-      }}
-      animate={{
-        scale: 1.1 + bass * 0.2,
-        rotate: bass * 10,
-      }}
-      transition={{ duration: 0.08 }}
-    />
-    <motion.div
-      className="absolute inset-[5%]"
-      style={{
-        clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
-        background: `linear-gradient(45deg, hsl(var(--primary) / ${0.3 + mid * 0.3}) 0%, transparent 100%)`,
-      }}
-      animate={{
-        scale: 1.05 + mid * 0.15,
-        rotate: -mid * 15,
-      }}
-      transition={{ duration: 0.06 }}
-    />
-    <motion.div
-      className="absolute inset-0 rounded-2xl"
-      style={{
-        background: `radial-gradient(circle, hsl(var(--primary) / ${0.4 + high * 0.3}) 0%, transparent 60%)`,
-      }}
-      animate={{ scale: 1 + high * 0.1 }}
-      transition={{ duration: 0.05 }}
-    />
-  </>
-));
-GeometricPulse.displayName = 'GeometricPulse';
-
-// Animation 5: Spectrum Bars (circular)
-const SpectrumBars = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => {
-  const bars = useMemo(() => Array.from({ length: 24 }, (_, i) => ({
+// Animation 3: Particle Explosion
+const ParticleExplosion = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => {
+  const particles = useMemo(() => Array.from({ length: 40 }, (_, i) => ({
     id: i,
-    angle: i * 15,
+    angle: Math.random() * 360,
+    distance: 80 + Math.random() * 100,
+    size: 3 + Math.random() * 6,
+    speed: 0.8 + Math.random() * 0.4,
   })), []);
 
   return (
     <>
-      {bars.map((bar) => {
-        const freq = bar.id % 3 === 0 ? bass : bar.id % 3 === 1 ? mid : high;
+      {/* Central burst */}
+      <motion.div
+        className="absolute inset-[25%] rounded-full"
+        style={{
+          background: `radial-gradient(circle, 
+            hsl(var(--primary)) 0%, 
+            hsl(var(--primary) / 0.5) 50%, 
+            transparent 70%)`,
+          filter: `blur(${5 + bass * 15}px)`,
+        }}
+        animate={{
+          scale: [0.8, 1.5 + bass * 0.8, 0.8],
+          opacity: [0.5, 1, 0.5],
+        }}
+        transition={{ duration: 0.12, repeat: Infinity }}
+      />
+
+      {/* Exploding particles */}
+      {particles.map((p) => {
+        const freq = p.id % 3 === 0 ? bass : p.id % 3 === 1 ? mid : high;
         return (
           <motion.div
-            key={bar.id}
-            className="absolute bg-gradient-to-t from-primary to-primary/70"
+            key={p.id}
+            className="absolute rounded-full"
             style={{
-              width: '3px',
-              height: '20px',
+              width: p.size + freq * 8,
+              height: p.size + freq * 8,
               left: '50%',
               top: '50%',
-              transformOrigin: 'center bottom',
-              transform: `translate(-50%, -100%) rotate(${bar.angle}deg) translateY(-130px)`,
-              borderRadius: '2px',
+              background: `radial-gradient(circle, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.3) 100%)`,
+              boxShadow: `0 0 ${8 + freq * 15}px hsl(var(--primary) / 0.8)`,
             }}
             animate={{
-              scaleY: 1 + freq * 3,
-              opacity: 0.5 + freq * 0.5,
+              x: Math.cos(p.angle * Math.PI / 180) * (p.distance + freq * 80) - p.size / 2,
+              y: Math.sin(p.angle * Math.PI / 180) * (p.distance + freq * 80) - p.size / 2,
+              opacity: [0.3, 1, 0.3],
+              scale: [0.5, 1 + freq * 0.5, 0.5],
             }}
-            transition={{ duration: 0.05 }}
+            transition={{
+              duration: 0.15 * p.speed,
+              repeat: Infinity,
+            }}
           />
         );
       })}
-      <motion.div
-        className="absolute inset-0 rounded-2xl"
-        style={{
-          boxShadow: `0 0 ${40 + bass * 40}px ${10 + bass * 15}px hsl(var(--primary) / ${0.2 + bass * 0.2})`,
-        }}
-      />
-    </>
-  );
-});
-SpectrumBars.displayName = 'SpectrumBars';
 
-// Animation 6: Neon Glow Pulse
-const NeonGlowPulse = memo(({ bass, mid }: { bass: number; mid: number; high: number }) => (
-  <>
-    <motion.div
-      className="absolute inset-[-5%] rounded-3xl"
-      style={{
-        boxShadow: `
-          0 0 ${20 + bass * 40}px ${5 + bass * 10}px hsl(var(--primary) / ${0.4 + bass * 0.3}),
-          0 0 ${40 + mid * 60}px ${15 + mid * 20}px hsl(var(--primary) / ${0.2 + mid * 0.2})
-        `,
-      }}
-      animate={{
-        scale: 1 + bass * 0.08,
-      }}
-      transition={{ duration: 0.05 }}
-    />
-    <motion.div className="absolute inset-0 overflow-hidden rounded-2xl">
+      {/* Shockwave */}
       <motion.div
-        className="absolute w-full h-[2px] bg-gradient-to-r from-transparent via-primary/60 to-transparent"
-        animate={{ top: ['0%', '100%'] }}
-        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-      />
-    </motion.div>
-    {[0, 90, 180, 270].map((rotation) => (
-      <motion.div
-        key={rotation}
-        className="absolute w-8 h-8 border-l-2 border-t-2 border-primary/50"
+        className="absolute inset-[-10%] rounded-full border-4"
         style={{
-          top: rotation < 180 ? '-10px' : 'auto',
-          bottom: rotation >= 180 ? '-10px' : 'auto',
-          left: rotation === 0 || rotation === 180 ? '-10px' : 'auto',
-          right: rotation === 90 || rotation === 270 ? '-10px' : 'auto',
-          transform: `rotate(${rotation}deg)`,
+          borderColor: `hsl(var(--primary) / ${0.6 + bass * 0.4})`,
+          boxShadow: `0 0 ${30 + bass * 50}px hsl(var(--primary) / 0.5)`,
         }}
         animate={{
-          opacity: 0.5 + (rotation % 180 === 0 ? bass : mid) * 0.5,
-          scale: 1 + (rotation % 180 === 0 ? bass : mid) * 0.2,
+          scale: [0.6, 1.3 + bass * 0.4, 0.6],
+          opacity: [0.8, 0.2, 0.8],
         }}
-        transition={{ duration: 0.08 }}
+        transition={{ duration: 0.2, repeat: Infinity }}
       />
-    ))}
-  </>
-));
-NeonGlowPulse.displayName = 'NeonGlowPulse';
-
-// Animation 7: Vinyl Spin
-const VinylSpin = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => {
-  const grooves = useMemo(() => Array.from({ length: 8 }, (_, i) => i), []);
-  
-  return (
-    <>
-      {/* Vinyl disc */}
-      <motion.div
-        className="absolute inset-[-15%] rounded-full"
-        style={{
-          background: `
-            radial-gradient(circle at center, 
-              transparent 0%, 
-              transparent 15%, 
-              hsl(var(--primary) / 0.1) 16%, 
-              transparent 17%,
-              transparent 100%
-            ),
-            conic-gradient(
-              from 0deg,
-              hsl(var(--foreground) / 0.15) 0deg,
-              hsl(var(--foreground) / 0.05) 90deg,
-              hsl(var(--foreground) / 0.15) 180deg,
-              hsl(var(--foreground) / 0.05) 270deg,
-              hsl(var(--foreground) / 0.15) 360deg
-            )
-          `,
-        }}
-        animate={{ rotate: 360 }}
-        transition={{ duration: 2 - bass * 0.5, repeat: Infinity, ease: 'linear' }}
-      />
-      {/* Vinyl grooves */}
-      {grooves.map((i) => (
-        <motion.div
-          key={i}
-          className="absolute rounded-full border border-foreground/10"
-          style={{
-            inset: `${-20 + i * 3}%`,
-          }}
-          animate={{
-            borderColor: i % 2 === 0 
-              ? `hsl(var(--primary) / ${0.1 + bass * 0.2})` 
-              : `hsl(var(--foreground) / ${0.05 + mid * 0.1})`,
-          }}
-          transition={{ duration: 0.1 }}
-        />
-      ))}
-      {/* Center label glow */}
-      <motion.div
-        className="absolute inset-[35%] rounded-full"
-        style={{
-          background: `radial-gradient(circle, hsl(var(--primary) / ${0.6 + bass * 0.4}) 0%, transparent 70%)`,
-        }}
-        animate={{ scale: 1 + high * 0.2 }}
-        transition={{ duration: 0.05 }}
-      />
-      {/* Reflection shine */}
-      <motion.div
-        className="absolute inset-[-15%] rounded-full overflow-hidden"
-        style={{ opacity: 0.3 }}
-      >
-        <motion.div
-          className="absolute w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent"
-          animate={{ x: ['-100%', '200%'] }}
-          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-        />
-      </motion.div>
     </>
   );
 });
-VinylSpin.displayName = 'VinylSpin';
+ParticleExplosion.displayName = 'ParticleExplosion';
 
-// Animation 8: Aurora Borealis
-const AuroraBorealis = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => {
-  const waves = useMemo(() => [
-    { color: 'primary', delay: 0, speed: 4 },
-    { color: 'primary', delay: 0.5, speed: 5 },
-    { color: 'primary', delay: 1, speed: 3.5 },
-  ], []);
+// Animation 4: Nebula Swirl
+const NebulaSwirl = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => {
+  const clouds = useMemo(() => Array.from({ length: 6 }, (_, i) => ({
+    id: i,
+    rotation: i * 60,
+    scale: 0.8 + i * 0.1,
+  })), []);
 
   return (
     <>
-      {/* Aurora waves */}
-      {waves.map((wave, i) => (
+      {/* Rotating nebula layers */}
+      {clouds.map((cloud) => (
         <motion.div
-          key={i}
-          className="absolute inset-[-30%] overflow-hidden"
-          style={{ filter: 'blur(20px)' }}
-        >
-          <motion.div
-            className="absolute w-full h-[200%]"
-            style={{
-              background: `linear-gradient(180deg, 
-                transparent 0%,
-                hsl(var(--${wave.color}) / ${0.1 + (i === 0 ? bass : i === 1 ? mid : high) * 0.3}) 20%,
-                hsl(var(--${wave.color}) / ${0.2 + (i === 0 ? bass : i === 1 ? mid : high) * 0.4}) 40%,
-                hsl(var(--${wave.color}) / ${0.15 + mid * 0.2}) 60%,
-                transparent 100%
-              )`,
-              transform: `skewY(${10 + i * 5}deg)`,
-            }}
-            animate={{
-              y: ['-50%', '0%'],
-              x: [`${-10 + i * 5}%`, `${10 - i * 5}%`],
-            }}
-            transition={{
-              duration: wave.speed,
-              repeat: Infinity,
-              repeatType: 'reverse',
-              ease: 'easeInOut',
-              delay: wave.delay,
-            }}
-          />
-        </motion.div>
+          key={cloud.id}
+          className="absolute inset-[-30%]"
+          style={{
+            background: `conic-gradient(from ${cloud.rotation}deg at 50% 50%, 
+              transparent 0deg, 
+              hsl(var(--primary) / ${0.2 + bass * 0.3}) 60deg, 
+              hsl(var(--primary) / ${0.3 + mid * 0.2}) 120deg, 
+              transparent 180deg,
+              hsl(var(--primary) / ${0.15 + high * 0.2}) 240deg,
+              transparent 360deg)`,
+            filter: `blur(${20 + cloud.id * 5}px)`,
+          }}
+          animate={{
+            rotate: [cloud.rotation, cloud.rotation + 360],
+            scale: [cloud.scale, cloud.scale + bass * 0.3, cloud.scale],
+          }}
+          transition={{
+            rotate: { duration: 8 - cloud.id * 0.5, repeat: Infinity, ease: 'linear' },
+            scale: { duration: 0.15, repeat: Infinity },
+          }}
+        />
       ))}
-      {/* Star sparkles */}
-      {Array.from({ length: 12 }, (_, i) => (
+
+      {/* Star field */}
+      {Array.from({ length: 20 }, (_, i) => (
         <motion.div
           key={`star-${i}`}
-          className="absolute w-1 h-1 rounded-full bg-white"
+          className="absolute rounded-full bg-white"
           style={{
-            left: `${10 + (i * 7) % 80}%`,
-            top: `${5 + (i * 11) % 90}%`,
+            width: 2 + Math.random() * 3,
+            height: 2 + Math.random() * 3,
+            left: `${10 + (i * 4.5) % 80}%`,
+            top: `${5 + (i * 7.3) % 90}%`,
+            boxShadow: '0 0 6px white',
           }}
           animate={{
-            opacity: [0, 0.8 + high * 0.2, 0],
-            scale: [0.5, 1 + bass * 0.5, 0.5],
+            opacity: [0, 1, 0],
+            scale: [0.5, 1.5 + high * 1, 0.5],
           }}
           transition={{
-            duration: 1.5 + i * 0.2,
+            duration: 0.3 + i * 0.05,
             repeat: Infinity,
-            delay: i * 0.15,
+            delay: i * 0.08,
           }}
         />
       ))}
-      {/* Outer glow */}
+
+      {/* Core glow */}
       <motion.div
-        className="absolute inset-[-10%] rounded-2xl"
+        className="absolute inset-[15%] rounded-full"
         style={{
-          boxShadow: `
-            0 0 ${60 + bass * 60}px ${20 + bass * 20}px hsl(var(--primary) / ${0.15 + bass * 0.15}),
-            0 0 ${100 + mid * 80}px ${40 + mid * 30}px hsl(var(--primary) / ${0.1 + mid * 0.1})
-          `,
+          background: `radial-gradient(circle, 
+            hsl(var(--primary) / ${0.7 + bass * 0.3}) 0%, 
+            hsl(var(--primary) / 0.2) 50%, 
+            transparent 70%)`,
+          filter: `blur(${10 + bass * 20}px)`,
         }}
+        animate={{
+          scale: [1, 1.4 + bass * 0.5, 1],
+        }}
+        transition={{ duration: 0.12, repeat: Infinity }}
       />
     </>
   );
 });
-AuroraBorealis.displayName = 'AuroraBorealis';
+NebulaSwirl.displayName = 'NebulaSwirl';
 
-// Animation 9: 3D Depth Layers
-const DepthLayers = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => {
-  const layers = useMemo(() => [
-    { z: 0, scale: 1.3, opacity: 0.15 },
-    { z: 1, scale: 1.2, opacity: 0.25 },
-    { z: 2, scale: 1.1, opacity: 0.35 },
-  ], []);
+// Animation 5: Waveform Pulse
+const WaveformPulse = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => {
+  const bars = useMemo(() => Array.from({ length: 32 }, (_, i) => ({
+    id: i,
+    angle: (i * 11.25),
+  })), []);
 
   return (
     <>
-      {/* 3D perspective container */}
-      <div 
-        className="absolute inset-[-20%]"
-        style={{ perspective: '500px', perspectiveOrigin: 'center' }}
-      >
-        {layers.map((layer, i) => (
+      {/* Radial waveform bars */}
+      {bars.map((bar) => {
+        const freq = bar.id % 4 === 0 ? bass : bar.id % 4 === 1 ? mid : bar.id % 4 === 2 ? high : (bass + mid) / 2;
+        const height = 30 + freq * 100;
+        
+        return (
           <motion.div
-            key={i}
-            className="absolute inset-0 rounded-2xl border-2 border-primary/30"
+            key={bar.id}
+            className="absolute left-1/2 top-1/2 origin-bottom"
             style={{
-              transformStyle: 'preserve-3d',
+              width: '4px',
+              height: `${height}px`,
+              background: `linear-gradient(to top, 
+                hsl(var(--primary)) 0%, 
+                hsl(var(--primary) / 0.6) 50%, 
+                hsl(var(--primary) / 0.2) 100%)`,
+              transform: `translate(-50%, -100%) rotate(${bar.angle}deg) translateY(-60px)`,
+              borderRadius: '2px',
+              boxShadow: `0 0 ${8 + freq * 15}px hsl(var(--primary) / 0.7)`,
             }}
             animate={{
-              rotateX: (i === 0 ? bass : i === 1 ? mid : high) * 15,
-              rotateY: (i === 0 ? mid : i === 1 ? high : bass) * 10,
-              scale: layer.scale + (i === 0 ? bass : i === 1 ? mid : high) * 0.1,
-              opacity: layer.opacity + (i === 0 ? bass : i === 1 ? mid : high) * 0.2,
-              translateZ: `${layer.z * 20 + bass * 30}px`,
+              scaleY: [0.4, 1, 0.4],
+              opacity: [0.5, 1, 0.5],
             }}
-            transition={{ duration: 0.08 }}
+            transition={{
+              duration: 0.1,
+              repeat: Infinity,
+              delay: bar.id * 0.01,
+            }}
           />
-        ))}
-      </div>
-      {/* Floating particles */}
-      {Array.from({ length: 8 }, (_, i) => (
-        <motion.div
-          key={`particle-${i}`}
-          className="absolute w-2 h-2 rounded-full bg-primary/40"
-          style={{
-            left: `${20 + (i * 10) % 60}%`,
-            top: `${20 + (i * 13) % 60}%`,
-          }}
-          animate={{
-            y: [0, -20 - bass * 30, 0],
-            x: [0, (i % 2 ? 1 : -1) * 10 * mid, 0],
-            scale: [1, 1.5 + high * 0.5, 1],
-            opacity: [0.3, 0.7 + bass * 0.3, 0.3],
-          }}
-          transition={{
-            duration: 2 + i * 0.3,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        />
-      ))}
-      {/* Center depth glow */}
+        );
+      })}
+
+      {/* Center pulse */}
       <motion.div
-        className="absolute inset-0 rounded-2xl"
+        className="absolute inset-[30%] rounded-full"
         style={{
-          background: `radial-gradient(ellipse at center, hsl(var(--primary) / ${0.3 + bass * 0.3}) 0%, transparent 60%)`,
+          background: `radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)`,
+          boxShadow: `0 0 ${40 + bass * 60}px hsl(var(--primary) / 0.8)`,
         }}
         animate={{
-          scale: 1 + bass * 0.1,
+          scale: [0.8, 1.3 + bass * 0.4, 0.8],
         }}
-        transition={{ duration: 0.05 }}
+        transition={{ duration: 0.12, repeat: Infinity }}
+      />
+
+      {/* Outer ring */}
+      <motion.div
+        className="absolute inset-[-25%] rounded-full border-2"
+        style={{
+          borderColor: `hsl(var(--primary) / 0.5)`,
+        }}
+        animate={{
+          scale: [1, 1.1 + mid * 0.2, 1],
+          opacity: [0.5, 0.8, 0.5],
+        }}
+        transition={{ duration: 0.15, repeat: Infinity }}
       />
     </>
   );
 });
-DepthLayers.displayName = 'DepthLayers';
+WaveformPulse.displayName = 'WaveformPulse';
 
-// Animation 10: Holographic Prism
-const HolographicPrism = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => (
-  <>
-    {/* Rainbow refraction effect */}
-    <motion.div
-      className="absolute inset-[-10%] rounded-2xl overflow-hidden"
-      style={{ mixBlendMode: 'screen' }}
-    >
+// Animation 6: Digital Glitch Matrix
+const DigitalGlitchMatrix = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => {
+  const [glitchOffset, setGlitchOffset] = useState({ x: 0, y: 0 });
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (bass > 0.5) {
+        setGlitchOffset({
+          x: (Math.random() - 0.5) * 20 * bass,
+          y: (Math.random() - 0.5) * 20 * bass,
+        });
+      } else {
+        setGlitchOffset({ x: 0, y: 0 });
+      }
+    }, 50);
+    return () => clearInterval(interval);
+  }, [bass]);
+
+  const lines = useMemo(() => Array.from({ length: 20 }, (_, i) => ({
+    id: i,
+    y: i * 5,
+  })), []);
+
+  return (
+    <>
+      {/* Scan lines */}
+      {lines.map((line) => (
+        <motion.div
+          key={line.id}
+          className="absolute left-0 right-0 h-[2px]"
+          style={{
+            top: `${line.y}%`,
+            background: `linear-gradient(90deg, 
+              transparent 0%, 
+              hsl(var(--primary) / ${0.1 + (line.id % 3 === 0 ? bass : mid) * 0.4}) 50%, 
+              transparent 100%)`,
+          }}
+          animate={{
+            opacity: [0.2, 0.8, 0.2],
+            scaleX: [0.8, 1.1 + high * 0.2, 0.8],
+          }}
+          transition={{
+            duration: 0.15,
+            repeat: Infinity,
+            delay: line.id * 0.02,
+          }}
+        />
+      ))}
+
+      {/* Glitch boxes */}
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={`glitch-${i}`}
+          className="absolute"
+          style={{
+            left: `${20 + i * 25}%`,
+            top: `${30 + i * 15}%`,
+            width: `${30 + bass * 20}%`,
+            height: `${15 + mid * 10}%`,
+            background: `hsl(var(--primary) / ${0.2 + bass * 0.3})`,
+            mixBlendMode: 'screen',
+          }}
+          animate={{
+            x: glitchOffset.x * (i + 1) * 0.5,
+            y: glitchOffset.y * (i + 1) * 0.5,
+            opacity: [0.3, 0.8, 0.3],
+          }}
+          transition={{ duration: 0.08 }}
+        />
+      ))}
+
+      {/* RGB split effect */}
       <motion.div
         className="absolute inset-0"
         style={{
-          background: `
-            linear-gradient(45deg, 
-              hsla(0, 100%, 70%, ${0.15 + bass * 0.2}) 0%,
-              hsla(60, 100%, 70%, ${0.15 + mid * 0.2}) 25%,
-              hsla(120, 100%, 70%, ${0.15 + high * 0.2}) 50%,
-              hsla(180, 100%, 70%, ${0.15 + bass * 0.2}) 75%,
-              hsla(240, 100%, 70%, ${0.15 + mid * 0.2}) 100%
-            )
-          `,
+          background: `linear-gradient(45deg, 
+            hsla(0, 100%, 50%, ${0.05 + bass * 0.1}) 0%, 
+            transparent 33%, 
+            hsla(120, 100%, 50%, ${0.05 + mid * 0.1}) 66%, 
+            hsla(240, 100%, 50%, ${0.05 + high * 0.1}) 100%)`,
+          mixBlendMode: 'overlay',
         }}
         animate={{
-          rotate: [0, 360],
-          scale: [1, 1.1 + bass * 0.1, 1],
+          x: [0, glitchOffset.x * 2, 0],
         }}
-        transition={{
-          rotate: { duration: 8, repeat: Infinity, ease: 'linear' },
-          scale: { duration: 0.3, repeat: Infinity, repeatType: 'reverse' },
-        }}
+        transition={{ duration: 0.1 }}
       />
-    </motion.div>
-    {/* Prism triangles */}
-    {[0, 120, 240].map((rotation, i) => (
+
+      {/* Center core */}
       <motion.div
-        key={rotation}
-        className="absolute inset-[10%]"
+        className="absolute inset-[20%] rounded-xl"
         style={{
-          clipPath: 'polygon(50% 0%, 100% 100%, 0% 100%)',
-          background: `linear-gradient(180deg, 
-            hsl(var(--primary) / ${0.1 + (i === 0 ? bass : i === 1 ? mid : high) * 0.3}) 0%, 
-            transparent 100%
-          )`,
-          transform: `rotate(${rotation}deg)`,
+          border: `2px solid hsl(var(--primary) / ${0.6 + bass * 0.4})`,
+          boxShadow: `
+            0 0 ${20 + bass * 40}px hsl(var(--primary) / 0.5),
+            inset 0 0 ${15 + mid * 30}px hsl(var(--primary) / 0.3)`,
         }}
         animate={{
-          scale: 1 + (i === 0 ? bass : i === 1 ? mid : high) * 0.15,
-          opacity: 0.3 + (i === 0 ? bass : i === 1 ? mid : high) * 0.4,
+          scale: [1, 1.05 + bass * 0.1, 1],
         }}
-        transition={{ duration: 0.08 }}
+        transition={{ duration: 0.1, repeat: Infinity }}
       />
-    ))}
-    {/* Light rays */}
-    <motion.div
-      className="absolute inset-0 overflow-hidden rounded-2xl"
-    >
-      {[0, 45, 90, 135].map((angle) => (
+    </>
+  );
+});
+DigitalGlitchMatrix.displayName = 'DigitalGlitchMatrix';
+
+// Animation 7: Fire Aura
+const FireAura = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => {
+  const flames = useMemo(() => Array.from({ length: 24 }, (_, i) => ({
+    id: i,
+    angle: i * 15,
+    height: 60 + Math.random() * 40,
+    delay: i * 0.03,
+  })), []);
+
+  return (
+    <>
+      {/* Fire flames */}
+      {flames.map((flame) => {
+        const freq = flame.id % 3 === 0 ? bass : flame.id % 3 === 1 ? mid : high;
+        
+        return (
+          <motion.div
+            key={flame.id}
+            className="absolute left-1/2 top-1/2 origin-bottom"
+            style={{
+              width: `${8 + freq * 12}px`,
+              height: `${flame.height + freq * 80}px`,
+              background: `linear-gradient(to top, 
+                hsl(var(--primary)) 0%, 
+                hsl(var(--primary) / 0.7) 40%, 
+                hsl(var(--primary) / 0.3) 70%, 
+                transparent 100%)`,
+              transform: `translate(-50%, -100%) rotate(${flame.angle}deg) translateY(-50px)`,
+              borderRadius: '50% 50% 20% 20%',
+              filter: `blur(${3 + freq * 5}px)`,
+            }}
+            animate={{
+              scaleY: [0.6, 1 + freq * 0.6, 0.6],
+              scaleX: [0.8, 1.2, 0.8],
+              opacity: [0.6, 1, 0.6],
+            }}
+            transition={{
+              duration: 0.12,
+              repeat: Infinity,
+              delay: flame.delay,
+            }}
+          />
+        );
+      })}
+
+      {/* Inner heat glow */}
+      <motion.div
+        className="absolute inset-[10%] rounded-full"
+        style={{
+          background: `radial-gradient(circle, 
+            hsl(var(--primary) / ${0.9 + bass * 0.1}) 0%, 
+            hsl(var(--primary) / 0.4) 50%, 
+            transparent 70%)`,
+          filter: `blur(${15 + bass * 25}px)`,
+        }}
+        animate={{
+          scale: [1, 1.3 + bass * 0.4, 1],
+        }}
+        transition={{ duration: 0.1, repeat: Infinity }}
+      />
+
+      {/* Heat distortion ring */}
+      <motion.div
+        className="absolute inset-[-15%] rounded-full"
+        style={{
+          border: `3px solid hsl(var(--primary) / ${0.4 + mid * 0.3})`,
+          boxShadow: `0 0 ${40 + bass * 60}px hsl(var(--primary) / 0.6)`,
+        }}
+        animate={{
+          scale: [1, 1.15 + bass * 0.2, 1],
+          opacity: [0.5, 0.9, 0.5],
+        }}
+        transition={{ duration: 0.15, repeat: Infinity }}
+      />
+    </>
+  );
+});
+FireAura.displayName = 'FireAura';
+
+// Animation 8: Cosmic Rings
+const CosmicRings = memo(({ bass, mid, high }: { bass: number; mid: number; high: number }) => {
+  const rings = useMemo(() => Array.from({ length: 5 }, (_, i) => ({
+    id: i,
+    radius: 30 + i * 20,
+    rotation: i * 36,
+    tilt: 60 + i * 5,
+  })), []);
+
+  return (
+    <>
+      {/* 3D tilted rings */}
+      <div 
+        className="absolute inset-[-20%]"
+        style={{ perspective: '600px', perspectiveOrigin: 'center' }}
+      >
+        {rings.map((ring) => {
+          const freq = ring.id % 3 === 0 ? bass : ring.id % 3 === 1 ? mid : high;
+          
+          return (
+            <motion.div
+              key={ring.id}
+              className="absolute inset-0 rounded-full border-2"
+              style={{
+                borderColor: `hsl(var(--primary) / ${0.5 + freq * 0.5})`,
+                boxShadow: `0 0 ${15 + freq * 25}px hsl(var(--primary) / ${0.4 + freq * 0.3})`,
+                transform: `rotateX(${ring.tilt}deg) rotateZ(${ring.rotation}deg) scale(${0.5 + ring.id * 0.12})`,
+              }}
+              animate={{
+                rotateZ: [ring.rotation, ring.rotation + 360],
+                scale: [0.5 + ring.id * 0.12, 0.55 + ring.id * 0.12 + freq * 0.15, 0.5 + ring.id * 0.12],
+              }}
+              transition={{
+                rotateZ: { duration: 6 + ring.id, repeat: Infinity, ease: 'linear' },
+                scale: { duration: 0.12, repeat: Infinity },
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Orbiting particles */}
+      {Array.from({ length: 8 }, (_, i) => (
         <motion.div
-          key={angle}
-          className="absolute w-[2px] h-full bg-gradient-to-b from-transparent via-white/30 to-transparent"
+          key={`orbit-${i}`}
+          className="absolute w-3 h-3 rounded-full"
           style={{
             left: '50%',
-            transformOrigin: 'center',
-            transform: `rotate(${angle}deg)`,
+            top: '50%',
+            background: `radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)`,
+            boxShadow: `0 0 10px hsl(var(--primary))`,
           }}
           animate={{
-            opacity: [0.1, 0.4 + bass * 0.3, 0.1],
-            scaleY: [0.8, 1.2 + high * 0.3, 0.8],
+            x: Math.cos((i * 45 + Date.now() * 0.002) * Math.PI / 180) * (100 + bass * 40) - 6,
+            y: Math.sin((i * 45 + Date.now() * 0.002) * Math.PI / 180) * (100 + bass * 40) - 6,
+            scale: [1, 1.5 + high * 0.5, 1],
           }}
           transition={{
-            duration: 1.5,
-            repeat: Infinity,
-            delay: angle * 0.01,
+            x: { duration: 4 + i * 0.5, repeat: Infinity, ease: 'linear' },
+            y: { duration: 4 + i * 0.5, repeat: Infinity, ease: 'linear' },
+            scale: { duration: 0.15, repeat: Infinity },
           }}
         />
       ))}
-    </motion.div>
-    {/* Outer holographic glow */}
-    <motion.div
-      className="absolute inset-[-5%] rounded-2xl"
-      style={{
-        boxShadow: `
-          0 0 ${30 + bass * 40}px ${10 + bass * 15}px hsl(var(--primary) / ${0.2 + bass * 0.2}),
-          0 0 ${50 + mid * 50}px ${20 + mid * 20}px hsla(280, 100%, 70%, ${0.1 + mid * 0.1}),
-          0 0 ${70 + high * 60}px ${30 + high * 25}px hsla(180, 100%, 70%, ${0.1 + high * 0.1})
-        `,
-      }}
-    />
-  </>
-));
-HolographicPrism.displayName = 'HolographicPrism';
+
+      {/* Core glow */}
+      <motion.div
+        className="absolute inset-[25%] rounded-full"
+        style={{
+          background: `radial-gradient(circle, 
+            hsl(var(--primary)) 0%, 
+            hsl(var(--primary) / 0.5) 40%, 
+            transparent 70%)`,
+          boxShadow: `0 0 ${50 + bass * 70}px hsl(var(--primary) / 0.7)`,
+        }}
+        animate={{
+          scale: [1, 1.4 + bass * 0.5, 1],
+        }}
+        transition={{ duration: 0.1, repeat: Infinity }}
+      />
+    </>
+  );
+});
+CosmicRings.displayName = 'CosmicRings';
 
 const AlbumArtAnimations = memo(({ isPlaying, bassFrequency, midFrequency, highFrequency, songId }: AlbumArtAnimationsProps) => {
   const animationType = useMemo(() => getAnimationType(songId), [songId]);
@@ -572,27 +677,23 @@ const AlbumArtAnimations = memo(({ isPlaying, bassFrequency, midFrequency, highF
 
   switch (animationType) {
     case 0:
-      return <PulsingRings {...props} />;
+      return <ElectricPulseStorm {...props} />;
     case 1:
-      return <RotatingParticles {...props} />;
+      return <LiquidMorphingBlob {...props} />;
     case 2:
-      return <WaveRipples {...props} />;
+      return <ParticleExplosion {...props} />;
     case 3:
-      return <GeometricPulse {...props} />;
+      return <NebulaSwirl {...props} />;
     case 4:
-      return <SpectrumBars {...props} />;
+      return <WaveformPulse {...props} />;
     case 5:
-      return <NeonGlowPulse {...props} />;
+      return <DigitalGlitchMatrix {...props} />;
     case 6:
-      return <VinylSpin {...props} />;
+      return <FireAura {...props} />;
     case 7:
-      return <AuroraBorealis {...props} />;
-    case 8:
-      return <DepthLayers {...props} />;
-    case 9:
-      return <HolographicPrism {...props} />;
+      return <CosmicRings {...props} />;
     default:
-      return <PulsingRings {...props} />;
+      return <ElectricPulseStorm {...props} />;
   }
 });
 
