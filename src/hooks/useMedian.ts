@@ -1,38 +1,37 @@
 import { useEffect, useState, useCallback } from 'react';
-import Median from 'median-js-bridge';
+import { isMedianApp, isMedianIOS, isMedianAndroid, getMedian } from '@/lib/median';
+
+type MedianType = Awaited<ReturnType<typeof getMedian>>;
 
 export const useMedian = () => {
   const [isReady, setIsReady] = useState(false);
-  const [isNativeApp, setIsNativeApp] = useState(false);
-  const [platform, setPlatform] = useState<'ios' | 'android' | 'web'>('web');
+  const [median, setMedian] = useState<MedianType | null>(null);
+  const platform = isMedianIOS ? 'ios' : isMedianAndroid ? 'android' : 'web';
 
   useEffect(() => {
-    // Check if running in Median native app
-    const userAgent = navigator.userAgent;
-    const isMedianIOS = userAgent.indexOf('MedianIOS') > -1;
-    const isMedianAndroid = userAgent.indexOf('MedianAndroid') > -1;
-    
-    setIsNativeApp(isMedianIOS || isMedianAndroid);
-    setPlatform(isMedianIOS ? 'ios' : isMedianAndroid ? 'android' : 'web');
+    if (!isMedianApp) return;
 
-    // Initialize Median when ready
-    Median.onReady(() => {
-      setIsReady(true);
+    // Load Median SDK
+    getMedian().then((Median) => {
+      setMedian(Median);
+      Median.onReady(() => {
+        setIsReady(true);
+      });
     });
   }, []);
 
   const getDeviceInfo = useCallback(async () => {
-    if (!isNativeApp) return null;
+    if (!isMedianApp || !median) return null;
     try {
-      return await Median.deviceInfo();
+      return await median.deviceInfo();
     } catch (error) {
       console.error('Failed to get device info:', error);
       return null;
     }
-  }, [isNativeApp]);
+  }, [median]);
 
   const share = useCallback(async (url: string, text?: string) => {
-    if (!isNativeApp) {
+    if (!isMedianApp || !median) {
       // Fallback to web share API
       if (navigator.share) {
         await navigator.share({ url, text });
@@ -40,16 +39,16 @@ export const useMedian = () => {
       return;
     }
     try {
-      Median.share.sharePage({ url, text });
+      median.share.sharePage({ url, text });
     } catch (error) {
       console.error('Failed to share:', error);
     }
-  }, [isNativeApp]);
+  }, [median]);
 
   const setStatusBarStyle = useCallback((style: 'light' | 'dark' | 'auto', color?: string) => {
-    if (!isNativeApp) return;
+    if (!isMedianApp || !median) return;
     try {
-      Median.statusbar.set({ 
+      median.statusbar.set({ 
         style, 
         color: color || '#000000',
         overlay: false,
@@ -58,22 +57,22 @@ export const useMedian = () => {
     } catch (error) {
       console.error('Failed to set status bar style:', error);
     }
-  }, [isNativeApp]);
+  }, [median]);
 
   const hapticFeedback = useCallback((type: 'impactLight' | 'impactMedium' | 'impactHeavy' = 'impactMedium') => {
-    if (!isNativeApp) return;
+    if (!isMedianApp || !median) return;
     try {
-      Median.haptics.trigger({ style: type });
+      median.haptics.trigger({ style: type });
     } catch (error) {
       console.error('Failed to trigger haptic feedback:', error);
     }
-  }, [isNativeApp]);
+  }, [median]);
 
   return {
     isReady,
-    isNativeApp,
+    isNativeApp: isMedianApp,
     platform,
-    Median,
+    Median: median,
     getDeviceInfo,
     share,
     setStatusBarStyle,
