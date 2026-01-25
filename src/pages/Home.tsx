@@ -242,124 +242,95 @@ const Home = () => {
         />
 
         {/* iOS-style header with blur */}
+        {/* Compact header - icons only, scrollable */}
         <motion.header
-          className="sticky top-0 z-30 px-6 py-4 safe-area-pt"
+          className="sticky top-0 z-30 px-4 py-3 safe-area-pt"
           style={{
-            background: 'rgba(0, 0, 0, 0.75)',
+            background: 'rgba(0, 0, 0, 0.85)',
             backdropFilter: 'blur(40px) saturate(180%)',
             WebkitBackdropFilter: 'blur(40px) saturate(180%)',
             borderBottom: '0.5px solid rgba(255, 255, 255, 0.08)',
           }}
-          initial={{ opacity: 0, y: -30 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={iosSpring}
         >
-          <div className="flex items-center justify-between">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ ...iosSpring, delay: 0.1 }}
-            >
-              <p className="text-[13px] text-muted-foreground font-medium">{greeting()}</p>
-              <h1 className="text-[22px] font-bold tracking-tight">{user?.email?.split('@')[0] || 'Music Lover'}</h1>
-            </motion.div>
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-white/90 flex-shrink-0">{greeting()}</p>
+            
+            {/* Scrollable icons container */}
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
               {/* AI DJ button */}
               <motion.button
                 onClick={() => setShowAIPlaylist(true)}
-                className="w-10 h-10 rounded-full flex items-center justify-center"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{
                   background: 'linear-gradient(135deg, hsl(280 100% 60%), hsl(320 100% 55%))',
                 }}
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
+                whileTap={{ scale: 0.9 }}
                 transition={iosSpring}
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
               >
-                <Wand2 className="w-5 h-5 text-white" />
+                <Wand2 className="w-4 h-4 text-white" />
               </motion.button>
 
               {/* Queue button */}
               <motion.button
                 onClick={() => setShowQueue(true)}
-                className="w-10 h-10 rounded-full flex items-center justify-center glass"
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
+                className="w-9 h-9 rounded-full flex items-center justify-center glass flex-shrink-0"
+                whileTap={{ scale: 0.9 }}
                 transition={iosSpring}
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
               >
-                <ListMusic className="w-5 h-5 text-white/80" />
+                <ListMusic className="w-4 h-4 text-white/80" />
               </motion.button>
 
-              {currentSong && (
-                <>
-                  {/* Equalizer button */}
-                  <motion.button
-                    onClick={() => setShowEqualizer(true)}
-                    className="w-10 h-10 rounded-full flex items-center justify-center glass"
-                    whileHover={{ scale: 1.08 }}
-                    whileTap={{ scale: 0.92 }}
-                    transition={iosSpring}
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                  >
-                    <Sliders className="w-5 h-5 text-white/80" />
-                  </motion.button>
+              {/* Equalizer button */}
+              <motion.button
+                onClick={() => setShowEqualizer(true)}
+                className="w-9 h-9 rounded-full flex items-center justify-center glass flex-shrink-0"
+                whileTap={{ scale: 0.9 }}
+                transition={iosSpring}
+              >
+                <Sliders className="w-4 h-4 text-white/80" />
+              </motion.button>
 
-                  {/* Visualizer button */}
-                  <motion.button
-                    onClick={() => setShowVisualizer(true)}
-                    className="w-10 h-10 rounded-full flex items-center justify-center glass"
-                    whileHover={{ scale: 1.08 }}
-                    whileTap={{ scale: 0.92 }}
-                    transition={iosSpring}
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                  >
-                    <Waves className="w-5 h-5 text-white/80" />
-                  </motion.button>
+              {/* Visualizer button */}
+              <motion.button
+                onClick={() => setShowVisualizer(true)}
+                className="w-9 h-9 rounded-full flex items-center justify-center glass flex-shrink-0"
+                whileTap={{ scale: 0.9 }}
+                transition={iosSpring}
+              >
+                <Waves className="w-4 h-4 text-white/80" />
+              </motion.button>
 
-                  {/* Lock Screen button */}
-                  <motion.button
-                    onClick={() => setShowLockScreen(true)}
-                    className="w-10 h-10 rounded-full flex items-center justify-center glass"
-                    whileHover={{ scale: 1.08 }}
-                    whileTap={{ scale: 0.92 }}
-                    transition={iosSpring}
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                  >
-                    <Lock className="w-5 h-5 text-white/80" />
-                  </motion.button>
-                </>
-              )}
+              {/* Lock Screen button */}
+              <motion.button
+                onClick={() => setShowLockScreen(true)}
+                className="w-9 h-9 rounded-full flex items-center justify-center glass flex-shrink-0"
+                whileTap={{ scale: 0.9 }}
+                transition={iosSpring}
+              >
+                <Lock className="w-4 h-4 text-white/80" />
+              </motion.button>
 
               {/* Sleep timer button */}
               <motion.button
                 onClick={() => setShowSleepTimer(true)}
-                className="w-10 h-10 rounded-full flex items-center justify-center glass"
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
+                className="w-9 h-9 rounded-full flex items-center justify-center glass flex-shrink-0"
+                whileTap={{ scale: 0.9 }}
                 transition={iosSpring}
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
               >
-                <Moon className="w-5 h-5 text-white/80" />
+                <Moon className="w-4 h-4 text-white/80" />
               </motion.button>
 
               {!notificationsEnabled && (
                 <motion.button
                   onClick={handleEnableNotifications}
-                  className="w-10 h-10 rounded-full flex items-center justify-center glass"
-                  whileHover={{ scale: 1.08 }}
-                  whileTap={{ scale: 0.92 }}
+                  className="w-9 h-9 rounded-full flex items-center justify-center glass flex-shrink-0"
+                  whileTap={{ scale: 0.9 }}
                   transition={iosSpring}
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1 }}
                 >
-                  <Bell className="w-5 h-5 text-white/80" />
+                  <Bell className="w-4 h-4 text-white/80" />
                 </motion.button>
               )}
             </div>
