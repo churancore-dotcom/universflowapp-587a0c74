@@ -542,14 +542,53 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   // Media Session API for lock screen / notification controls
+  // These callbacks must be stable refs to avoid hook count issues
+  const mediaSessionCallbacks = React.useMemo(() => ({
+    onPlay: () => {
+      if (audioRef.current && currentSong) {
+        audioRef.current.play().catch(console.warn);
+      }
+    },
+    onPause: () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    },
+    onNext: () => {
+      if (queue.length === 0) return;
+      const nextIdx = getNextIndex(currentIndex, queue.length, shuffle, repeat);
+      if (nextIdx !== null) {
+        playSongAtIndex(nextIdx, queue);
+      } else {
+        playSongAtIndex(0, queue);
+      }
+    },
+    onPrev: () => {
+      if (!audioRef.current || queue.length === 0) return;
+      if (audioRef.current.currentTime > 3) {
+        audioRef.current.currentTime = 0;
+        setProgress(0);
+      } else {
+        const prevIdx = currentIndex === 0 ? queue.length - 1 : currentIndex - 1;
+        playSongAtIndex(prevIdx, queue);
+      }
+    },
+    onSeek: (time: number) => {
+      if (audioRef.current) {
+        audioRef.current.currentTime = time;
+        setProgress(time);
+      }
+    },
+  }), [currentSong, queue, currentIndex, shuffle, repeat, getNextIndex, playSongAtIndex]);
+
   useMediaSession({
     song: currentSong,
     isPlaying,
-    onPlay: play,
-    onPause: pause,
-    onNext: nextSong,
-    onPrev: prevSong,
-    onSeek: seek,
+    onPlay: mediaSessionCallbacks.onPlay,
+    onPause: mediaSessionCallbacks.onPause,
+    onNext: mediaSessionCallbacks.onNext,
+    onPrev: mediaSessionCallbacks.onPrev,
+    onSeek: mediaSessionCallbacks.onSeek,
     duration,
     progress,
   });
