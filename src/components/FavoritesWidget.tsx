@@ -8,7 +8,7 @@ import { iosSpring, iosBounce } from '@/lib/animations';
 
 const FavoritesWidget = () => {
   const { user } = useAuth();
-  const { playSong, currentSong, isPlaying, setQueue } = usePlayer();
+  const { playSong, currentSong, isPlaying } = usePlayer();
   const [favorites, setFavorites] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,9 +48,8 @@ const FavoritesWidget = () => {
     setLoading(false);
   };
 
-  const handlePlayFavorite = (song: Song, index: number) => {
-    setQueue(favorites);
-    playSong(song);
+  const handlePlayFavorite = (song: Song) => {
+    playSong(song, undefined, favorites);
   };
 
   if (loading || favorites.length === 0) return null;
@@ -77,7 +76,7 @@ const FavoritesWidget = () => {
             <motion.button
               key={song.id}
               className="relative group"
-              onClick={() => handlePlayFavorite(song, index)}
+              onClick={() => handlePlayFavorite(song)}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ ...iosBounce, delay: index * 0.05 }}
