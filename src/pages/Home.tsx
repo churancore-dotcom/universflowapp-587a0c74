@@ -10,8 +10,6 @@ import SongCard from '@/components/SongCard';
 import HorizontalSection from '@/components/HorizontalSection';
 import FavoritesWidget from '@/components/FavoritesWidget';
 import RecentlyPlayedSection from '@/components/RecentlyPlayedSection';
-import GenreSection from '@/components/GenreSection';
-import MoodSection from '@/components/MoodSection';
 import TopChartsSection from '@/components/TopChartsSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 import SleepTimerModal from '@/components/SleepTimerModal';
@@ -395,11 +393,6 @@ const Home = () => {
               {/* Top Charts */}
               <TopChartsSection />
 
-              {/* Mood-based discovery */}
-              <MoodSection />
-
-              {/* Genre browsing */}
-              <GenreSection />
 
               {/* New Releases - use memoized values */}
               {newReleases.length > 0 && (
