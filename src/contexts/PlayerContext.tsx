@@ -29,7 +29,7 @@ interface PlayerContextType {
   crossfadeDuration: number;
   audioElement: HTMLAudioElement | null;
   showPrerollAd: boolean;
-  playSong: (song: Song, offlineUrl?: string | null) => void;
+  playSong: (song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => void;
   togglePlay: () => void;
   pause: () => void;
   play: () => void;
@@ -313,7 +313,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }, stepDuration);
   }, [queue, currentIndex, shuffle, repeat, crossfadeDuration, volume, getNextIndex]);
 
-  const playActualSong = useCallback(async (song: Song, offlineUrl?: string | null) => {
+  const playActualSong = useCallback(async (song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
     if (!audioRef.current) return;
 
     // Cancel any ongoing crossfade
@@ -337,13 +337,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn('Playback failed:', err?.message);
     }
 
-    // Update queue
-    const existingIndex = queue.findIndex(s => s.id === song.id);
-    if (existingIndex === -1) {
-      setQueueState(prev => [...prev, song]);
-      setCurrentIndex(queue.length);
+    // If a queue is provided, use it
+    if (songsQueue && songsQueue.length > 0) {
+      setQueueState(songsQueue);
+      const songIndex = songsQueue.findIndex(s => s.id === song.id);
+      setCurrentIndex(songIndex >= 0 ? songIndex : 0);
     } else {
-      setCurrentIndex(existingIndex);
+      // Update queue - add song if not exists
+      const existingIndex = queue.findIndex(s => s.id === song.id);
+      if (existingIndex === -1) {
+        setQueueState(prev => [...prev, song]);
+        setCurrentIndex(queue.length);
+      } else {
+        setCurrentIndex(existingIndex);
+      }
     }
 
     // Track recently played
@@ -360,19 +367,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [volume, queue]);
 
-  const playSong = useCallback(async (song: Song, offlineUrl?: string | null) => {
+  const playSong = useCallback(async (song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
     // Check if we should show a pre-roll ad (every AD_FREQUENCY songs)
     const shouldShowAd = songsPlayedSinceAd >= AD_FREQUENCY - 1;
     
     if (shouldShowAd) {
       // Store pending song and show ad
       setPendingSong({ song, offlineUrl });
+      // Store queue for after ad
+      if (songsQueue) {
+        setQueueState(songsQueue);
+      }
       setShowPrerollAd(true);
       setSongsPlayedSinceAd(0);
     } else {
       // Play directly
       setSongsPlayedSinceAd(prev => prev + 1);
-      await playActualSong(song, offlineUrl);
+      await playActualSong(song, offlineUrl, songsQueue);
     }
   }, [songsPlayedSinceAd, playActualSong]);
 

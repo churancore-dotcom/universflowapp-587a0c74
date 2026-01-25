@@ -13,6 +13,7 @@ import { triggerHaptic } from '@/hooks/useHaptics';
 interface SongCardProps {
   song: Song;
   index?: number;
+  sectionSongs?: Song[]; // All songs in the section for queue
 }
 
 // Simple CSS-only audio wave - no framer-motion for performance
@@ -32,7 +33,7 @@ const AudioWave = memo(({ isPlaying }: { isPlaying: boolean }) => (
 
 AudioWave.displayName = 'AudioWave';
 
-const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
+const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
   const { currentSong, isPlaying, playSong, togglePlay } = usePlayer();
   const { isDownloaded, getDownloadedUrl } = useDownloads();
   const navigate = useNavigate();
@@ -56,9 +57,10 @@ const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
       togglePlay();
     } else {
       const offlineUrl = getDownloadedUrl(song.id);
-      playSong(song, offlineUrl);
+      // Pass the section songs as the queue so next/prev work
+      playSong(song, offlineUrl, sectionSongs);
     }
-  }, [isCurrentSong, togglePlay, getDownloadedUrl, song, playSong]);
+  }, [isCurrentSong, togglePlay, getDownloadedUrl, song, playSong, sectionSongs]);
 
   // Format play count for display
   const formatViews = useCallback((count: number) => {

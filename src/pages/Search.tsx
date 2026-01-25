@@ -381,7 +381,7 @@ const Search = () => {
                       >
                         <motion.button
                           className="flex-1 flex items-center gap-3 text-left min-w-0"
-                          onClick={() => playSong(song, offlineUrl)}
+                          onClick={() => playSong(song, offlineUrl, results)}
                           whileTap={{ scale: 0.98 }}
                         >
                           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center overflow-hidden flex-shrink-0">

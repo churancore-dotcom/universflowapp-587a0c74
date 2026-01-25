@@ -314,7 +314,7 @@ const Home = () => {
               {newReleases.length > 0 && (
                 <HorizontalSection title="New Releases" subtitle="Fresh tracks just added" songs={newReleases}>
                   {newReleases.map((song, i) => (
-                    <SongCard key={song.id} song={song} index={i} />
+                    <SongCard key={song.id} song={song} index={i} sectionSongs={newReleases} />
                   ))}
                 </HorizontalSection>
               )}
@@ -323,7 +323,7 @@ const Home = () => {
               {songs.length > 3 && (
                 <HorizontalSection title="Recommended for You" subtitle="Based on your taste" songs={recommendedSongs}>
                   {recommendedSongs.map((song, i) => (
-                    <SongCard key={song.id} song={song} index={i} />
+                    <SongCard key={song.id} song={song} index={i} sectionSongs={recommendedSongs} />
                   ))}
                 </HorizontalSection>
               )}
@@ -342,7 +342,7 @@ const Home = () => {
               {trendingSongs.length > 0 && (
                 <HorizontalSection title="Trending Now" subtitle="What's hot right now" songs={trendingSongs}>
                   {trendingSongs.map((song, i) => (
-                    <SongCard key={song.id} song={song} index={i} />
+                    <SongCard key={song.id} song={song} index={i} sectionSongs={trendingSongs} />
                   ))}
                 </HorizontalSection>
               )}

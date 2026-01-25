@@ -132,9 +132,10 @@ const RecentlyPlayedSection = ({ compact = false }: RecentlyPlayedSectionProps) 
       togglePlay();
     } else {
       const offlineUrl = getDownloadedUrl(song.id);
-      playSong(song, offlineUrl);
+      const allSongs = recentSongs.map(r => r.song);
+      playSong(song, offlineUrl, allSongs);
     }
-  }, [currentSong, togglePlay, playSong, getDownloadedUrl]);
+  }, [currentSong, togglePlay, playSong, getDownloadedUrl, recentSongs]);
 
   if (loading || recentSongs.length === 0) return null;
 
