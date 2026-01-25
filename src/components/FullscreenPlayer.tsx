@@ -127,49 +127,49 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
             <div className="absolute inset-0 bg-black/60" />
           </div>
 
-          {/* Main content container - uses flex to fill screen */}
-          <div className="relative flex flex-col h-full px-4 safe-area-inset">
+          {/* Main content container */}
+          <div className="relative flex flex-col h-full px-6 pt-3 pb-6">
             {/* Drag indicator */}
-            <div className="flex justify-center pt-2 pb-1 flex-shrink-0">
-              <div className="w-9 h-1 rounded-full bg-white/30" />
+            <div className="flex justify-center mb-2">
+              <div className="w-10 h-1 rounded-full bg-white/30" />
             </div>
 
-            {/* Header - compact */}
-            <div className="flex items-center justify-between py-1 flex-shrink-0">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
               <motion.button 
-                className="p-1.5 -ml-1 touch-manipulation" 
+                className="p-2 -ml-2 touch-manipulation" 
                 onClick={() => setExpanded(false)} 
                 whileTap={{ scale: 0.9 }} 
                 transition={iosBounce}
               >
-                <ChevronDown className="w-6 h-6 text-white/80" />
+                <ChevronDown className="w-7 h-7 text-white/80" />
               </motion.button>
               
-              <div className="text-center flex-1 px-2 min-w-0">
-                <p className="text-[9px] font-medium uppercase tracking-widest text-white/50">
+              <div className="text-center flex-1 px-4 min-w-0">
+                <p className="text-[10px] font-medium uppercase tracking-widest text-white/50">
                   Playing From
                 </p>
-                <p className="text-[12px] font-semibold text-white/90 truncate">
+                <p className="text-xs font-semibold text-white/90 truncate">
                   {currentSong.album || 'Library'}
                 </p>
               </div>
               
               <motion.button 
-                className="p-1.5 -mr-1 touch-manipulation" 
+                className="p-2 -mr-2 touch-manipulation" 
                 onClick={() => setShowPlaylistModal(true)} 
                 whileTap={{ scale: 0.9 }} 
                 transition={iosBounce}
               >
-                <Ellipsis className="w-5 h-5 text-white/80" />
+                <Ellipsis className="w-6 h-6 text-white/80" />
               </motion.button>
             </div>
 
-            {/* Album Art - flexible size based on available space */}
-            <div className="flex-1 flex items-center justify-center py-2 min-h-0">
+            {/* Album Art - centered and sized properly */}
+            <div className="flex-1 flex items-center justify-center min-h-0 mb-4">
               <motion.div 
-                className="relative w-full max-w-[70vw] aspect-square" 
+                className="relative w-[75vw] max-w-[320px] aspect-square" 
                 initial={{ scale: 0.8, opacity: 0 }} 
-                animate={{ scale: isPlaying ? 1 : 0.92, opacity: 1 }} 
+                animate={{ scale: isPlaying ? 1 : 0.95, opacity: 1 }} 
                 transition={appleSpring}
               >
                 <AlbumArtAnimations 
@@ -181,7 +181,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 />
 
                 <motion.div 
-                  className="relative w-full h-full rounded-2xl overflow-hidden shadow-2xl z-10" 
+                  className="relative w-full h-full rounded-2xl overflow-hidden shadow-2xl z-10 bg-muted" 
                   animate={{
                     boxShadow: isPlaying 
                       ? `0 0 ${40 + bassFrequency * 30}px ${10 + bassFrequency * 10}px hsl(var(--primary) / ${0.2 + bassFrequency * 0.15}), 0 20px 40px -10px rgba(0, 0, 0, 0.7)` 
@@ -195,27 +195,28 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                       src={currentSong.cover_url} 
                       alt={currentSong.title} 
                       className="w-full h-full object-cover" 
-                      draggable={false} 
+                      draggable={false}
+                      loading="eager"
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-                      <div className="text-white/60 text-5xl">♪</div>
+                      <div className="text-white/60 text-6xl">♪</div>
                     </div>
                   )}
                 </motion.div>
               </motion.div>
             </div>
 
-            {/* Song Info & Controls - fixed at bottom */}
-            <div className="flex-shrink-0 space-y-2 pb-4">
+            {/* Song Info & Controls */}
+            <div className="flex-shrink-0 space-y-4">
               {/* Title and Artist */}
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-lg font-bold text-white truncate leading-tight">
+                  <h2 className="text-xl font-bold text-white truncate">
                     {currentSong.title}
                   </h2>
                   <motion.button 
-                    className="text-sm text-rose-400 font-medium truncate block max-w-full" 
+                    className="text-base text-rose-400 font-medium truncate block" 
                     onClick={() => {
                       if (currentSong.artist_id) {
                         setExpanded(false);
@@ -227,7 +228,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                     {currentSong.artist}
                   </motion.button>
                 </div>
-                <div className="flex items-center gap-0.5 flex-shrink-0">
+                <div className="flex items-center gap-1 flex-shrink-0">
                   <LikeButton songId={currentSong.id} size="sm" />
                   <DownloadButton song={currentSong} size="sm" />
                 </div>
@@ -240,91 +241,92 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   max={safeDuration} 
                   step={0.1} 
                   onValueChange={([value]) => seek(value)} 
-                  className="[&_[role=slider]]:w-3 [&_[role=slider]]:h-3 [&_[role=slider]]:bg-white [&_[role=slider]]:border-0 [&_[data-radix-slider-track]]:h-[2px] [&_[data-radix-slider-track]]:bg-white/20 [&_[data-radix-slider-range]]:bg-rose-500" 
+                  className="[&_[role=slider]]:w-4 [&_[role=slider]]:h-4 [&_[role=slider]]:bg-white [&_[role=slider]]:border-0 [&_[data-radix-slider-track]]:h-[3px] [&_[data-radix-slider-track]]:bg-white/20 [&_[data-radix-slider-range]]:bg-rose-500" 
                 />
-                <div className="flex justify-between mt-1 text-[10px] font-medium text-white/50">
+                <div className="flex justify-between mt-1.5 text-xs font-medium text-white/50">
                   <span>{formatTime(safeProgress)}</span>
                   <span>-{formatTime(Math.max(0, timeRemaining))}</span>
                 </div>
               </div>
 
               {/* Main Controls */}
-              <div className="flex items-center justify-between px-1">
+              <div className="flex items-center justify-between px-2">
                 <motion.button 
-                  className={`p-1.5 touch-manipulation ${shuffle ? 'text-rose-400' : 'text-white/50'}`} 
+                  className={`p-2 touch-manipulation ${shuffle ? 'text-rose-400' : 'text-white/50'}`} 
                   onClick={toggleShuffle} 
                   whileTap={{ scale: 0.85 }} 
                   transition={iosBounce}
                 >
-                  <Shuffle className="w-4 h-4" />
+                  <Shuffle className="w-5 h-5" />
                 </motion.button>
 
                 <motion.button 
-                  className="p-1.5 touch-manipulation" 
+                  className="p-2 touch-manipulation" 
                   onClick={prevSong} 
                   whileTap={{ scale: 0.85 }} 
                   transition={iosBounce}
                 >
-                  <SkipBack className="w-7 h-7 text-white" fill="white" />
+                  <SkipBack className="w-8 h-8 text-white" fill="white" />
                 </motion.button>
                 
                 <motion.button 
-                  className="w-16 h-16 rounded-full bg-white flex items-center justify-center touch-manipulation" 
+                  className="w-18 h-18 rounded-full bg-white flex items-center justify-center touch-manipulation" 
+                  style={{ width: 72, height: 72 }}
                   onClick={togglePlay} 
                   whileTap={{ scale: 0.9 }} 
                   transition={appleSpring}
                 >
                   {isPlaying ? (
-                    <Pause className="w-7 h-7 text-black" fill="black" />
+                    <Pause className="w-8 h-8 text-black" fill="black" />
                   ) : (
-                    <Play className="w-7 h-7 text-black ml-0.5" fill="black" />
+                    <Play className="w-8 h-8 text-black ml-1" fill="black" />
                   )}
                 </motion.button>
                 
                 <motion.button 
-                  className="p-1.5 touch-manipulation" 
+                  className="p-2 touch-manipulation" 
                   onClick={nextSong} 
                   whileTap={{ scale: 0.85 }} 
                   transition={iosBounce}
                 >
-                  <SkipForward className="w-7 h-7 text-white" fill="white" />
+                  <SkipForward className="w-8 h-8 text-white" fill="white" />
                 </motion.button>
 
                 <motion.button 
-                  className={`p-1.5 touch-manipulation ${repeat !== 'off' ? 'text-rose-400' : 'text-white/50'}`} 
+                  className={`p-2 touch-manipulation ${repeat !== 'off' ? 'text-rose-400' : 'text-white/50'}`} 
                   onClick={toggleRepeat} 
                   whileTap={{ scale: 0.85 }} 
                   transition={iosBounce}
                 >
-                  {repeat === 'one' ? <Repeat1 className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
+                  {repeat === 'one' ? <Repeat1 className="w-5 h-5" /> : <Repeat className="w-5 h-5" />}
                 </motion.button>
               </div>
 
-              {/* Volume slider - compact */}
-              <div className="px-1">
+              {/* Volume slider */}
+              <div className="px-2">
                 <AppleVolumeSlider value={volume} onChange={setVolume} />
               </div>
 
-              {/* Bottom actions - single row */}
-              <div className="flex items-center justify-around">
-                <motion.button className="p-2 touch-manipulation" onClick={() => setShowLyrics(true)} whileTap={{ scale: 0.85 }}>
-                  <Mic2 className="w-4 h-4 text-white/50" />
+              {/* Bottom actions */}
+              <div className="flex items-center justify-around pb-2">
+                <motion.button className="p-3 touch-manipulation" onClick={() => setShowLyrics(true)} whileTap={{ scale: 0.85 }}>
+                  <Mic2 className="w-5 h-5 text-white/60" />
                 </motion.button>
 
-                <motion.button className="p-2 touch-manipulation" onClick={() => setShowDedicationModal(true)} whileTap={{ scale: 0.85 }}>
-                  <Heart className="w-4 h-4 text-white/50" />
+                <motion.button className="p-3 touch-manipulation" onClick={() => setShowDedicationModal(true)} whileTap={{ scale: 0.85 }}>
+                  <Heart className="w-5 h-5 text-white/60" />
                 </motion.button>
 
-                <motion.button className="p-2 touch-manipulation" onClick={() => setShowShareModal(true)} whileTap={{ scale: 0.85 }}>
-                  <Share2 className="w-4 h-4 text-white/50" />
+                <motion.button className="p-3 touch-manipulation" onClick={() => setShowShareModal(true)} whileTap={{ scale: 0.85 }}>
+                  <Share2 className="w-5 h-5 text-white/60" />
                 </motion.button>
                 
-                <motion.button className="p-2 touch-manipulation" onClick={() => setShowPlaylistModal(true)} whileTap={{ scale: 0.85 }}>
-                  <ListMusic className="w-4 h-4 text-white/50" />
+                <motion.button className="p-3 touch-manipulation" onClick={() => setShowPlaylistModal(true)} whileTap={{ scale: 0.85 }}>
+                  <ListMusic className="w-5 h-5 text-white/60" />
                 </motion.button>
               </div>
 
-              {/* Song Reactions - compact */}
+              {/* Song Reactions */}
               <SongReactions songId={currentSong.id} songTitle={currentSong.title} />
             </div>
           </div>
