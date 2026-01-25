@@ -1,8 +1,10 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
-import { Play, Pause, ListPlus, Eye } from 'lucide-react';
+import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
+import { Play, Pause, ListPlus, Eye, Heart, ListMusic } from 'lucide-react';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useNavigate } from 'react-router-dom';
+import { useLike } from '@/hooks/useLike';
 import DownloadButton from './DownloadButton';
 import LikeButton from './LikeButton';
 import AddToPlaylistModal from './AddToPlaylistModal';
@@ -33,16 +35,42 @@ const AudioWave = memo(({ isPlaying }: { isPlaying: boolean }) => (
 
 AudioWave.displayName = 'AudioWave';
 
+const SWIPE_THRESHOLD = 60;
+
 const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
-  const { currentSong, isPlaying, playSong, togglePlay } = usePlayer();
+  const { currentSong, isPlaying, playSong, togglePlay, addToQueue } = usePlayer();
   const { isDownloaded, getDownloadedUrl } = useDownloads();
+  const { isLiked, toggleLike } = useLike(song.id);
   const navigate = useNavigate();
   
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
   
+  // Swipe gesture state
+  const x = useMotionValue(0);
+  const likeOpacity = useTransform(x, [0, SWIPE_THRESHOLD], [0, 1]);
+  const queueOpacity = useTransform(x, [-SWIPE_THRESHOLD, 0], [1, 0]);
+  const likeScale = useTransform(x, [0, SWIPE_THRESHOLD], [0.5, 1]);
+  const queueScale = useTransform(x, [-SWIPE_THRESHOLD, 0], [1, 0.5]);
+  
   const isCurrentSong = useMemo(() => currentSong?.id === song.id, [currentSong?.id, song.id]);
   const downloaded = useMemo(() => isDownloaded(song.id), [isDownloaded, song.id]);
+  
+  const handleDragEnd = useCallback((event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    const offset = info.offset.x;
+    
+    if (offset > SWIPE_THRESHOLD) {
+      // Swipe right - Like
+      triggerHaptic('impactMedium');
+      if (!isLiked) {
+        toggleLike();
+      }
+    } else if (offset < -SWIPE_THRESHOLD) {
+      // Swipe left - Add to queue
+      triggerHaptic('impactMedium');
+      addToQueue(song);
+    }
+  }, [isLiked, toggleLike, addToQueue, song]);
 
   const handleArtistClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -76,13 +104,42 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
 
   return (
     <div
-      className="group relative flex-shrink-0 w-[150px] snap-start active:scale-[0.97] transition-transform duration-150 will-change-transform"
+      className="group relative flex-shrink-0 w-[150px] snap-start will-change-transform"
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      {/* Card Container - mobile optimized */}
-      <div
-        className="relative aspect-square rounded-2xl overflow-hidden bg-muted/30 cursor-pointer shadow-lg"
+      {/* Swipe action indicators */}
+      <div className="absolute inset-0 aspect-square rounded-2xl overflow-hidden pointer-events-none z-0">
+        {/* Like indicator (right swipe) */}
+        <motion.div 
+          className="absolute inset-0 bg-gradient-to-r from-transparent to-rose-500/40 flex items-center justify-end pr-4"
+          style={{ opacity: likeOpacity }}
+        >
+          <motion.div style={{ scale: likeScale }}>
+            <Heart className="w-8 h-8 text-white fill-white drop-shadow-lg" />
+          </motion.div>
+        </motion.div>
+        
+        {/* Queue indicator (left swipe) */}
+        <motion.div 
+          className="absolute inset-0 bg-gradient-to-l from-transparent to-primary/40 flex items-center justify-start pl-4"
+          style={{ opacity: queueOpacity }}
+        >
+          <motion.div style={{ scale: queueScale }}>
+            <ListMusic className="w-8 h-8 text-white drop-shadow-lg" />
+          </motion.div>
+        </motion.div>
+      </div>
+
+      {/* Card Container - mobile optimized with drag */}
+      <motion.div
+        className="relative aspect-square rounded-2xl overflow-hidden bg-muted/30 cursor-pointer shadow-lg z-10"
         onClick={handleClick}
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.3}
+        onDragEnd={handleDragEnd}
+        style={{ x }}
+        whileTap={{ scale: 0.97 }}
       >
         {/* Cover Image - Lazy loaded */}
         {song.cover_url ? (
@@ -134,7 +191,7 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
       
       {/* Song Info - larger text for mobile */}
       <div className="mt-2.5 px-0.5">
