@@ -27,7 +27,7 @@ const formatBytes = (bytes: number) => {
 const Library = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { playSong, currentSong, isPlaying } = usePlayer();
+  const { playSong, currentSong } = usePlayer();
   const { downloads, removeSong, getDownloadedUrl, totalStorageUsed, clearAllDownloads } = useDownloads();
   const [likedSongs, setLikedSongs] = useState<Song[]>([]);
   const [recentlyPlayed, setRecentlyPlayed] = useState<Song[]>([]);
@@ -197,9 +197,9 @@ const Library = () => {
                 </div>
               </motion.button>
               
-              {/* Action buttons */}
+              {/* Action buttons - no isPlaying dependency */}
               <div className="flex items-center gap-1">
-                {isActive && isPlaying ? (
+                {isActive ? (
                   <div className="flex items-end gap-[3px] h-4 mr-2">
                     {[...Array(3)].map((_, i) => (
                       <motion.div
@@ -307,7 +307,7 @@ const Library = () => {
                   </div>
                 </motion.button>
                 
-                {isActive && isPlaying ? (
+                {isActive ? (
                   <div className="flex items-end gap-[3px] h-4 mr-2">
                     {[...Array(3)].map((_, i) => (
                       <motion.div

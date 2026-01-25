@@ -64,13 +64,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl
       }
     });
+
+    // Create profile with share_code after successful signup
+    if (!error && data.user) {
+      const shareCode = Math.random().toString(36).substring(2, 10);
+      await supabase.from('profiles').upsert({
+        user_id: data.user.id,
+        email: email,
+        share_code: shareCode,
+      }, { onConflict: 'user_id' });
+    }
     
     return { error: error as Error | null };
   };

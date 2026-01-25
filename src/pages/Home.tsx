@@ -8,7 +8,6 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useSongCache } from '@/hooks/useSongCache';
 import SongCard from '@/components/SongCard';
 import HorizontalSection from '@/components/HorizontalSection';
-import FavoritesWidget from '@/components/FavoritesWidget';
 import RecentlyPlayedSection from '@/components/RecentlyPlayedSection';
 
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
@@ -334,9 +333,6 @@ const Home = () => {
 
               {/* Recently Played */}
               <RecentlyPlayedSection />
-
-              {/* Favorites Widget */}
-              <FavoritesWidget />
 
               {/* Trending Now */}
               {trendingSongs.length > 0 && (
