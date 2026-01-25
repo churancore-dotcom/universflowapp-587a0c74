@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, memo } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, Play, Pause } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,7 +15,7 @@ interface RecentlyPlayedItemProps {
   isPlaying: boolean;
 }
 
-const RecentlyPlayedItem = memo(({ song, playedAt, onClick, isActive, isPlaying }: RecentlyPlayedItemProps) => {
+const RecentlyPlayedItem = ({ song, playedAt, onClick, isActive, isPlaying }: RecentlyPlayedItemProps) => {
   const timeAgo = (date: string) => {
     const diff = Date.now() - new Date(date).getTime();
     const mins = Math.floor(diff / 60000);
@@ -62,17 +62,15 @@ const RecentlyPlayedItem = memo(({ song, playedAt, onClick, isActive, isPlaying 
       </span>
     </motion.button>
   );
-});
-
-RecentlyPlayedItem.displayName = 'RecentlyPlayedItem';
+};
 
 interface RecentlyPlayedSectionProps {
   compact?: boolean;
 }
 
-const RecentlyPlayedSection = memo(({ compact = false }: RecentlyPlayedSectionProps) => {
+function RecentlyPlayedSectionComponent({ compact = false }: RecentlyPlayedSectionProps) {
   const { user } = useAuth();
-  const { currentSong, playSong, togglePlay } = usePlayer();
+  const { currentSong, playSong, togglePlay, isPlaying } = usePlayer();
   const { getDownloadedUrl } = useDownloads();
   const [recentSongs, setRecentSongs] = useState<{ song: Song; played_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,15 +165,16 @@ const RecentlyPlayedSection = memo(({ compact = false }: RecentlyPlayedSectionPr
               playedAt={played_at}
               onClick={() => handlePlay(song)}
               isActive={isActive}
-              isPlaying={false}
+              isPlaying={isActive && isPlaying}
             />
           );
         })}
       </motion.div>
     </section>
   );
-});
+}
 
+const RecentlyPlayedSection = memo(RecentlyPlayedSectionComponent);
 RecentlyPlayedSection.displayName = 'RecentlyPlayedSection';
 
 export default RecentlyPlayedSection;

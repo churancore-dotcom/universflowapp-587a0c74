@@ -1,4 +1,4 @@
-import { useState, useEffect, memo, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, Music, Play } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { iosSpring, iosBounce } from '@/lib/animations';
 
-const FavoritesWidget = memo(() => {
+function FavoritesWidgetComponent() {
   const { user } = useAuth();
   const { playSong, currentSong } = usePlayer();
   const [favorites, setFavorites] = useState<Song[]>([]);
@@ -21,7 +21,6 @@ const FavoritesWidget = memo(() => {
   const fetchFavorites = async () => {
     if (!user) return;
 
-    // Get top 5 liked songs with artist data
     const { data } = await supabase
       .from('user_library')
       .select('*, songs(*, artists(id, name, photo_url))')
@@ -61,16 +60,14 @@ const FavoritesWidget = memo(() => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...iosSpring, delay: 0.1 }}
     >
-      {/* Header */}
       <div className="flex items-center gap-2 mb-4">
         <Heart className="w-5 h-5 text-primary" fill="currentColor" />
         <h2 className="text-lg font-bold">Your Favorites</h2>
       </div>
 
-      {/* Quick access grid */}
       <div className="grid grid-cols-5 gap-3">
-      {favorites.map((song, index) => {
-        const isCurrentSong = currentSong?.id === song.id;
+        {favorites.map((song, index) => {
+          const isCurrentSong = currentSong?.id === song.id;
           
           return (
             <motion.button
@@ -83,7 +80,7 @@ const FavoritesWidget = memo(() => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-            <div 
+              <div 
                 className={`aspect-square rounded-2xl overflow-hidden shadow-lg ${
                   isCurrentSong ? 'ring-2 ring-primary ring-offset-2 ring-offset-black' : ''
                 }`}
@@ -100,20 +97,17 @@ const FavoritesWidget = memo(() => {
                   </div>
                 )}
                 
-                {/* Play overlay */}
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 active:opacity-100 transition-opacity">
                   <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
                     <Play className="w-4 h-4 text-black ml-0.5" fill="black" />
                   </div>
                 </div>
 
-                {/* Playing indicator - only show if this is the current song */}
                 {isCurrentSong && (
                   <div className="absolute bottom-1 right-1 w-3 h-3 rounded-full bg-primary" />
                 )}
               </div>
 
-              {/* Song title - hidden on mobile, shown on hover */}
               <p className="mt-2 text-[11px] font-medium truncate text-center hidden sm:block">
                 {song.title}
               </p>
@@ -123,8 +117,9 @@ const FavoritesWidget = memo(() => {
       </div>
     </motion.div>
   );
-});
+}
 
+const FavoritesWidget = memo(FavoritesWidgetComponent);
 FavoritesWidget.displayName = 'FavoritesWidget';
 
 export default FavoritesWidget;
