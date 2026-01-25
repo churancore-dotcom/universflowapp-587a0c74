@@ -12,6 +12,7 @@ export interface Song {
   duration?: number;
   artist_id?: string;
   artist_photo_url?: string;
+  play_count?: number;
 }
 
 interface PlayerContextType {

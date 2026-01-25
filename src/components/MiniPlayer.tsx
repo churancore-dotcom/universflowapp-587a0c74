@@ -2,8 +2,16 @@ import { memo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, SkipForward, X } from 'lucide-react';
 import { usePlayer } from '@/contexts/PlayerContext';
-import { iosBounce } from '@/lib/animations';
 import { useAudioVisualizer } from '@/hooks/useAudioVisualizer';
+import { triggerHaptic } from '@/hooks/useHaptics';
+
+// iOS-optimized spring for smooth, responsive animations
+const iosSpring = {
+  type: "spring" as const,
+  stiffness: 500,
+  damping: 30,
+  mass: 0.5,
+};
 
 // Apple Music style animated bars
 const NowPlayingBars = memo(function NowPlayingBars({ isPlaying }: { isPlaying: boolean }) {
@@ -50,6 +58,7 @@ const MiniPlayer = memo(function MiniPlayer() {
 
   const handleTogglePlay = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    triggerHaptic('impactMedium');
     try {
       togglePlay();
     } catch (error) {
@@ -59,6 +68,7 @@ const MiniPlayer = memo(function MiniPlayer() {
 
   const handleNextSong = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    triggerHaptic('impactLight');
     try {
       nextSong();
     } catch (error) {
@@ -68,6 +78,7 @@ const MiniPlayer = memo(function MiniPlayer() {
 
   const handleStopSong = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    triggerHaptic('impactLight');
     try {
       stopSong();
     } catch (error) {
@@ -76,6 +87,7 @@ const MiniPlayer = memo(function MiniPlayer() {
   }, [stopSong]);
 
   const handleExpand = useCallback(() => {
+    triggerHaptic('impactLight');
     try {
       setExpanded(true);
     } catch (error) {
@@ -184,14 +196,14 @@ const MiniPlayer = memo(function MiniPlayer() {
               </p>
             </div>
 
-            {/* Controls - 48px touch targets */}
+            {/* Controls - 48px touch targets with iOS animations */}
             <div className="flex items-center gap-0">
               {/* Play/Pause */}
               <motion.button
                 className="w-12 h-12 min-w-[48px] rounded-full flex items-center justify-center"
                 onClick={handleTogglePlay}
                 whileTap={{ scale: 0.85 }}
-                transition={iosBounce}
+                transition={iosSpring}
                 aria-label={isPlaying ? 'Pause' : 'Play'}
               >
                 <AnimatePresence mode="wait">
@@ -201,7 +213,7 @@ const MiniPlayer = memo(function MiniPlayer() {
                       initial={{ scale: 0, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0, opacity: 0 }}
-                      transition={{ duration: 0.15 }}
+                      transition={{ duration: 0.12 }}
                     >
                       <Pause className="w-6 h-6 text-white" fill="white" />
                     </motion.div>
@@ -211,7 +223,7 @@ const MiniPlayer = memo(function MiniPlayer() {
                       initial={{ scale: 0, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0, opacity: 0 }}
-                      transition={{ duration: 0.15 }}
+                      transition={{ duration: 0.12 }}
                     >
                       <Play className="w-6 h-6 text-white ml-0.5" fill="white" />
                     </motion.div>
@@ -224,7 +236,7 @@ const MiniPlayer = memo(function MiniPlayer() {
                 className="w-12 h-12 min-w-[48px] rounded-full flex items-center justify-center"
                 onClick={handleNextSong}
                 whileTap={{ scale: 0.85 }}
-                transition={iosBounce}
+                transition={iosSpring}
                 aria-label="Next song"
               >
                 <SkipForward className="w-5 h-5 text-white" fill="white" />
@@ -235,7 +247,7 @@ const MiniPlayer = memo(function MiniPlayer() {
                 className="w-10 h-10 min-w-[40px] rounded-full flex items-center justify-center"
                 onClick={handleStopSong}
                 whileTap={{ scale: 0.85 }}
-                transition={iosBounce}
+                transition={iosSpring}
                 aria-label="Close player"
               >
                 <X className="w-5 h-5 text-white/50" />

@@ -29,7 +29,7 @@ const ManageSongs = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingSong, setEditingSong] = useState<Song | null>(null);
-  const [editForm, setEditForm] = useState({ title: '', artist: '', album: '', genre: '' });
+  const [editForm, setEditForm] = useState({ title: '', artist: '', album: '', genre: '', play_count: 0 });
   const [totalStats, setTotalStats] = useState({ size: 0, duration: 0, downloads: 0 });
 
   useEffect(() => {
@@ -114,6 +114,7 @@ const ManageSongs = () => {
       artist: song.artist,
       album: song.album || '',
       genre: song.genre || '',
+      play_count: song.play_count || 0,
     });
   };
 
@@ -127,6 +128,7 @@ const ManageSongs = () => {
         artist: editForm.artist,
         album: editForm.album || null,
         genre: editForm.genre || null,
+        play_count: editForm.play_count,
       })
       .eq('id', editingSong.id);
 
@@ -361,6 +363,17 @@ const ManageSongs = () => {
                 onChange={(e) => setEditForm(prev => ({ ...prev, genre: e.target.value }))}
                 className="mt-1.5 bg-muted/50 border-white/10"
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Play Count (Views)</label>
+              <Input
+                type="number"
+                value={editForm.play_count}
+                onChange={(e) => setEditForm(prev => ({ ...prev, play_count: parseInt(e.target.value) || 0 }))}
+                className="mt-1.5 bg-muted/50 border-white/10"
+                min={0}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Set the displayed view count for this song</p>
             </div>
             <div className="flex gap-3 pt-4">
               <Button variant="outline" onClick={() => setEditingSong(null)} className="flex-1">

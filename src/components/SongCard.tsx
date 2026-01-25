@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
-import { Play, Pause, ListPlus } from 'lucide-react';
+import { Play, Pause, ListPlus, Eye } from 'lucide-react';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +8,7 @@ import LikeButton from './LikeButton';
 import AddToPlaylistModal from './AddToPlaylistModal';
 import CreatePlaylistModal from './CreatePlaylistModal';
 import OptimizedImage from './OptimizedImage';
+import { triggerHaptic } from '@/hooks/useHaptics';
 
 interface SongCardProps {
   song: Song;
@@ -50,6 +51,7 @@ const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
   }, [song.artist_id, navigate]);
 
   const handleClick = useCallback(() => {
+    triggerHaptic('impactLight');
     if (isCurrentSong) {
       togglePlay();
     } else {
@@ -57,6 +59,13 @@ const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
       playSong(song, offlineUrl);
     }
   }, [isCurrentSong, togglePlay, getDownloadedUrl, song, playSong]);
+
+  // Format play count for display
+  const formatViews = useCallback((count: number) => {
+    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
+    return count.toString();
+  }, []);
 
   const handleAddToPlaylist = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -130,22 +139,31 @@ const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
         <p className={`font-semibold text-sm truncate leading-tight ${isCurrentSong ? 'text-primary' : 'text-foreground'}`}>
           {song.title}
         </p>
-        <button 
-          className="flex items-center gap-1.5 mt-1 w-full min-h-[44px] -my-2"
-          onClick={handleArtistClick}
-        >
-          {song.artist_photo_url && (
-            <img 
-              src={song.artist_photo_url} 
-              alt={song.artist}
-              className="w-4 h-4 rounded-full object-cover"
-              loading="lazy"
-            />
+        <div className="flex items-center justify-between mt-1">
+          <button 
+            className="flex items-center gap-1.5 flex-1 min-h-[44px] -my-2"
+            onClick={handleArtistClick}
+          >
+            {song.artist_photo_url && (
+              <img 
+                src={song.artist_photo_url} 
+                alt={song.artist}
+                className="w-4 h-4 rounded-full object-cover"
+                loading="lazy"
+              />
+            )}
+            <p className={`text-xs text-muted-foreground/80 truncate font-medium ${song.artist_id ? 'active:text-primary transition-colors' : ''}`}>
+              {song.artist}
+            </p>
+          </button>
+          {/* Play count / Views */}
+          {(song.play_count ?? 0) > 0 && (
+            <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground/60">
+              <Eye className="w-3 h-3" />
+              <span>{formatViews(song.play_count ?? 0)}</span>
+            </div>
           )}
-          <p className={`text-xs text-muted-foreground/80 truncate font-medium ${song.artist_id ? 'active:text-primary transition-colors' : ''}`}>
-            {song.artist}
-          </p>
-        </button>
+        </div>
       </div>
 
       {/* Add to Playlist Modal - Lazy mounted */}

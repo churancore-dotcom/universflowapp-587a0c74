@@ -4,7 +4,6 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, 
 import { usePlayer } from '@/contexts/PlayerContext';
 import { useNavigate } from 'react-router-dom';
 import { Slider } from '@/components/ui/slider';
-import { iosBounce } from '@/lib/animations';
 import DownloadButton from './DownloadButton';
 import LikeButton from './LikeButton';
 import SocialShareModal from './SocialShareModal';
@@ -15,6 +14,7 @@ import LyricsDisplay from './LyricsDisplay';
 import SendDedicationModal from './SendDedicationModal';
 import { useAudioVisualizer } from '@/hooks/useAudioVisualizer';
 import AlbumArtAnimations from './player/AlbumArtAnimations';
+import { triggerHaptic } from '@/hooks/useHaptics';
 
 const formatTime = (seconds: number) => {
   if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
@@ -23,12 +23,20 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
-// Apple Music spring config
-const appleSpring = {
+// iOS-optimized spring - smooth, responsive, no lag
+const iosSpring = {
   type: "spring" as const,
-  stiffness: 350,
-  damping: 30,
-  mass: 1
+  stiffness: 400,
+  damping: 35,
+  mass: 0.8,
+};
+
+// Quick tap response spring
+const tapSpring = {
+  type: "spring" as const,
+  stiffness: 600,
+  damping: 25,
+  mass: 0.3,
 };
 
 // Apple Music volume slider - memoized
@@ -108,7 +116,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
           initial={{ y: "100%" }} 
           animate={{ y: 0 }} 
           exit={{ y: "100%" }} 
-          transition={appleSpring} 
+          transition={iosSpring} 
           drag="y" 
           dragConstraints={{ top: 0, bottom: 0 }} 
           dragElastic={{ top: 0, bottom: 0.3 }} 
@@ -138,9 +146,9 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
             <div className="flex items-center justify-between mb-2">
               <motion.button 
                 className="w-12 h-12 flex items-center justify-center -ml-2 touch-manipulation" 
-                onClick={() => setExpanded(false)} 
+                onClick={() => { triggerHaptic('impactLight'); setExpanded(false); }} 
                 whileTap={{ scale: 0.9 }} 
-                transition={iosBounce}
+                transition={tapSpring}
               >
                 <ChevronDown className="w-7 h-7 text-white/80" />
               </motion.button>
@@ -156,9 +164,9 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
               
               <motion.button 
                 className="w-12 h-12 flex items-center justify-center -mr-2 touch-manipulation" 
-                onClick={() => setShowPlaylistModal(true)} 
+                onClick={() => { triggerHaptic('impactLight'); setShowPlaylistModal(true); }} 
                 whileTap={{ scale: 0.9 }} 
-                transition={iosBounce}
+                transition={tapSpring}
               >
                 <Ellipsis className="w-6 h-6 text-white/80" />
               </motion.button>
@@ -170,7 +178,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 className="relative w-[80vw] max-w-[300px] aspect-square" 
                 initial={{ scale: 0.8, opacity: 0 }} 
                 animate={{ scale: isPlaying ? 1 : 0.95, opacity: 1 }} 
-                transition={appleSpring}
+                transition={iosSpring}
               >
                 <AlbumArtAnimations 
                   isPlaying={isPlaying} 
@@ -249,31 +257,31 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 </div>
               </div>
 
-              {/* Main Controls - centered play button */}
+              {/* Main Controls - centered play button with haptics */}
               <div className="flex items-center justify-center gap-6">
                 <motion.button 
                   className={`w-12 h-12 flex items-center justify-center touch-manipulation ${shuffle ? 'text-rose-400' : 'text-white/50'}`} 
-                  onClick={toggleShuffle} 
+                  onClick={() => { triggerHaptic('impactLight'); toggleShuffle(); }} 
                   whileTap={{ scale: 0.85 }} 
-                  transition={iosBounce}
+                  transition={tapSpring}
                 >
                   <Shuffle className="w-5 h-5" />
                 </motion.button>
 
                 <motion.button 
                   className="w-12 h-12 flex items-center justify-center touch-manipulation" 
-                  onClick={prevSong} 
+                  onClick={() => { triggerHaptic('impactMedium'); prevSong(); }} 
                   whileTap={{ scale: 0.85 }} 
-                  transition={iosBounce}
+                  transition={tapSpring}
                 >
                   <SkipBack className="w-8 h-8 text-white" fill="white" />
                 </motion.button>
                 
                 <motion.button 
                   className="w-[72px] h-[72px] rounded-full bg-white flex items-center justify-center touch-manipulation"
-                  onClick={togglePlay} 
+                  onClick={() => { triggerHaptic('impactMedium'); togglePlay(); }} 
                   whileTap={{ scale: 0.9 }} 
-                  transition={appleSpring}
+                  transition={iosSpring}
                 >
                   {isPlaying ? (
                     <Pause className="w-8 h-8 text-black" fill="black" />
@@ -284,18 +292,18 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 
                 <motion.button 
                   className="w-12 h-12 flex items-center justify-center touch-manipulation" 
-                  onClick={nextSong} 
+                  onClick={() => { triggerHaptic('impactMedium'); nextSong(); }} 
                   whileTap={{ scale: 0.85 }} 
-                  transition={iosBounce}
+                  transition={tapSpring}
                 >
                   <SkipForward className="w-8 h-8 text-white" fill="white" />
                 </motion.button>
 
                 <motion.button 
                   className={`w-12 h-12 flex items-center justify-center touch-manipulation ${repeat !== 'off' ? 'text-rose-400' : 'text-white/50'}`} 
-                  onClick={toggleRepeat} 
+                  onClick={() => { triggerHaptic('impactLight'); toggleRepeat(); }} 
                   whileTap={{ scale: 0.85 }} 
-                  transition={iosBounce}
+                  transition={tapSpring}
                 >
                   {repeat === 'one' ? <Repeat1 className="w-5 h-5" /> : <Repeat className="w-5 h-5" />}
                 </motion.button>
@@ -304,21 +312,21 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
               {/* Volume slider */}
               <AppleVolumeSlider value={volume} onChange={setVolume} />
 
-              {/* Bottom actions - compact row */}
+              {/* Bottom actions - compact row with haptics */}
               <div className="flex items-center justify-around pt-1 pb-2">
-                <motion.button className="w-12 h-12 flex items-center justify-center touch-manipulation" onClick={() => setShowLyrics(true)} whileTap={{ scale: 0.85 }}>
+                <motion.button className="w-12 h-12 flex items-center justify-center touch-manipulation" onClick={() => { triggerHaptic('selection'); setShowLyrics(true); }} whileTap={{ scale: 0.85 }} transition={tapSpring}>
                   <Mic2 className="w-5 h-5 text-white/60" />
                 </motion.button>
 
-                <motion.button className="w-12 h-12 flex items-center justify-center touch-manipulation" onClick={() => setShowDedicationModal(true)} whileTap={{ scale: 0.85 }}>
+                <motion.button className="w-12 h-12 flex items-center justify-center touch-manipulation" onClick={() => { triggerHaptic('selection'); setShowDedicationModal(true); }} whileTap={{ scale: 0.85 }} transition={tapSpring}>
                   <Heart className="w-5 h-5 text-white/60" />
                 </motion.button>
 
-                <motion.button className="w-12 h-12 flex items-center justify-center touch-manipulation" onClick={() => setShowShareModal(true)} whileTap={{ scale: 0.85 }}>
+                <motion.button className="w-12 h-12 flex items-center justify-center touch-manipulation" onClick={() => { triggerHaptic('selection'); setShowShareModal(true); }} whileTap={{ scale: 0.85 }} transition={tapSpring}>
                   <Share2 className="w-5 h-5 text-white/60" />
                 </motion.button>
                 
-                <motion.button className="w-12 h-12 flex items-center justify-center touch-manipulation" onClick={() => setShowPlaylistModal(true)} whileTap={{ scale: 0.85 }}>
+                <motion.button className="w-12 h-12 flex items-center justify-center touch-manipulation" onClick={() => { triggerHaptic('selection'); setShowPlaylistModal(true); }} whileTap={{ scale: 0.85 }} transition={tapSpring}>
                   <ListMusic className="w-5 h-5 text-white/60" />
                 </motion.button>
               </div>

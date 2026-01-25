@@ -1,18 +1,27 @@
 import type { Transition } from 'framer-motion';
 
-// iOS-style spring animations and transitions
+// iOS-optimized spring animations - smooth, responsive, no lag
+// Lower mass = faster response, higher stiffness = snappier
 export const iosSpring: Transition = {
   type: "spring",
-  stiffness: 400,
+  stiffness: 500,
   damping: 30,
-  mass: 0.8,
+  mass: 0.5,
 };
 
 export const iosBounce: Transition = {
   type: "spring",
-  stiffness: 500,
+  stiffness: 600,
   damping: 25,
-  mass: 0.5,
+  mass: 0.3,
+};
+
+// Quick tap response - for button presses
+export const iosTap: Transition = {
+  type: "spring",
+  stiffness: 700,
+  damping: 30,
+  mass: 0.2,
 };
 
 export const iosGentle: Transition = {
@@ -173,10 +182,41 @@ export const pressable = {
   transition: iosBounce,
 };
 
-// Haptic-like feedback bounce
+// Haptic-like feedback bounce - iOS feel
 export const hapticBounce = {
   whileTap: {
     scale: [1, 0.92, 1],
-    transition: { duration: 0.2 },
+    transition: { duration: 0.15 },
+  },
+};
+
+// GPU-accelerated press effect for mobile
+export const mobilePress = {
+  whileTap: { 
+    scale: 0.95,
+    transition: iosTap,
+  },
+};
+
+// Origin OS style elastic bounce
+export const elasticBounce: Transition = {
+  type: "spring",
+  stiffness: 400,
+  damping: 20,
+  mass: 0.6,
+};
+
+// Smooth page transitions for mobile
+export const mobilePageTransition = {
+  initial: { opacity: 0, y: 10 },
+  animate: { 
+    opacity: 1, 
+    y: 0,
+    transition: iosSpring,
+  },
+  exit: { 
+    opacity: 0, 
+    y: -5,
+    transition: { duration: 0.15 },
   },
 };
