@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search as SearchIcon, Music, X, Mic, Tag, Sparkles } from 'lucide-react';
+import { Search as SearchIcon, Music, X, Tag, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
@@ -220,28 +220,19 @@ const Search = () => {
                 background: 'rgba(118, 118, 128, 0.24)',
               }}
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              {query && (
-                <motion.button
-                  onClick={() => setQuery('')}
-                  className="p-1.5 rounded-full bg-white/20"
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  whileTap={{ scale: 0.85 }}
-                  transition={iosBounce}
-                >
-                  <X className="w-3.5 h-3.5" />
-                </motion.button>
-              )}
+            {query && (
               <motion.button
-                className="p-1.5 text-muted-foreground"
+                onClick={() => setQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-white/20"
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
                 whileTap={{ scale: 0.85 }}
                 transition={iosBounce}
               >
-                <Mic className="w-5 h-5" />
+                <X className="w-3.5 h-3.5" />
               </motion.button>
-            </div>
+            )}
           </motion.div>
 
           {/* Active Filter Badge */}

@@ -70,9 +70,9 @@ interface RecentlyPlayedSectionProps {
   compact?: boolean;
 }
 
-const RecentlyPlayedSection = ({ compact = false }: RecentlyPlayedSectionProps) => {
+const RecentlyPlayedSection = memo(({ compact = false }: RecentlyPlayedSectionProps) => {
   const { user } = useAuth();
-  const { currentSong, isPlaying, playSong, togglePlay } = usePlayer();
+  const { currentSong, playSong, togglePlay } = usePlayer();
   const { getDownloadedUrl } = useDownloads();
   const [recentSongs, setRecentSongs] = useState<{ song: Song; played_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,19 +158,24 @@ const RecentlyPlayedSection = ({ compact = false }: RecentlyPlayedSectionProps) 
         animate={{ opacity: 1, y: 0 }}
         transition={iosSpring}
       >
-        {displaySongs.map(({ song, played_at }) => (
-          <RecentlyPlayedItem
-            key={`${song.id}-${played_at}`}
-            song={song}
-            playedAt={played_at}
-            onClick={() => handlePlay(song)}
-            isActive={currentSong?.id === song.id}
-            isPlaying={currentSong?.id === song.id && isPlaying}
-          />
-        ))}
+        {displaySongs.map(({ song, played_at }) => {
+          const isActive = currentSong?.id === song.id;
+          return (
+            <RecentlyPlayedItem
+              key={`${song.id}-${played_at}`}
+              song={song}
+              playedAt={played_at}
+              onClick={() => handlePlay(song)}
+              isActive={isActive}
+              isPlaying={false}
+            />
+          );
+        })}
       </motion.div>
     </section>
   );
-};
+});
 
-export default memo(RecentlyPlayedSection);
+RecentlyPlayedSection.displayName = 'RecentlyPlayedSection';
+
+export default RecentlyPlayedSection;
