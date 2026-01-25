@@ -399,15 +399,11 @@ const Home = () => {
                 </HorizontalSection>
               )}
 
-              {/* Top Charts & Recently Played - compact row */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <TopChartsSection compact />
-                </div>
-                <div className="space-y-2">
-                  <RecentlyPlayedSection compact />
-                </div>
-              </div>
+              {/* Top Charts */}
+              <TopChartsSection />
+
+              {/* Recently Played */}
+              <RecentlyPlayedSection />
 
               {/* Featured Artists */}
               <FeaturedArtistsSection />
