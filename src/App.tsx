@@ -10,6 +10,7 @@ import { DownloadProvider } from "./contexts/DownloadContext";
 import SplashScreen from "./components/SplashScreen";
 import DownloadQueuePanel from "./components/DownloadQueuePanel";
 import PrerollAd from "./components/ads/PrerollAd";
+import PWAInstallBanner from "./components/PWAInstallBanner";
 import Auth from "./pages/Auth";
 import Home from "./pages/Home";
 import Search from "./pages/Search";
@@ -149,6 +150,7 @@ const App = () => {
                 <Toaster />
                 <AppRoutes />
                 <DownloadQueuePanel />
+                <PWAInstallBanner />
               </TooltipProvider>
             </DownloadProvider>
           </PlayerProvider>
