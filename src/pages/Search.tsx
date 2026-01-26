@@ -168,7 +168,8 @@ const Search = () => {
   return (
     <TabTransition>
       <motion.div 
-        className="min-h-screen bg-black pb-52"
+        className="min-h-screen bg-background pb-40 overflow-y-auto overflow-x-hidden"
+        style={{ WebkitOverflowScrolling: 'touch' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}

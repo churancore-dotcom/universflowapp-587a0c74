@@ -58,7 +58,7 @@ const Offline = memo(function Offline() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col pb-40 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
       {/* Header */}
       <div className="sticky top-0 z-40 px-4 pt-4 pb-3 bg-background/80 backdrop-blur-xl">
         <div className="flex items-center gap-3">
@@ -75,7 +75,7 @@ const Offline = memo(function Offline() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 pb-40">
+      <div className="flex-1 px-4">
         {cachedSongs.length === 0 ? (
           <motion.div 
             className="flex flex-col items-center justify-center py-20 text-center"
