@@ -93,10 +93,16 @@ const MiniPlayer = memo(function MiniPlayer() {
       <motion.div
         className="fixed left-0 right-0 w-full z-40 px-2"
         style={{ bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
-        initial={{ y: 100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 100, opacity: 0 }}
-        transition={{ type: "spring", stiffness: 400, damping: 28 }}
+        initial={{ y: 60, opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
+        animate={{ y: 0, opacity: 1, scale: 1, filter: 'blur(0px)' }}
+        exit={{ y: 60, opacity: 0, scale: 0.98, filter: 'blur(5px)' }}
+        transition={{ 
+          type: "spring", 
+          stiffness: 300, 
+          damping: 25,
+          opacity: { duration: 0.3 },
+          filter: { duration: 0.25 }
+        }}
       >
         <motion.div
           className="rounded-xl overflow-hidden bg-muted/95 relative touch-manipulation"
