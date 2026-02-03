@@ -9,7 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { FadeTransition } from '@/components/PageTransition';
 import { getAuthError } from '@/lib/errorMessages';
-import Footer from '@/components/Footer';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -51,42 +50,41 @@ const Auth = () => {
 
   return (
     <FadeTransition>
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden">
-        {/* Simple gradient background - no animation */}
+      <div className="h-[100dvh] bg-black flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        {/* Simple gradient background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div
-            className="absolute top-1/4 left-1/4 w-[400px] h-[400px] rounded-full opacity-30"
+            className="absolute top-1/4 left-1/4 w-[300px] h-[300px] rounded-full opacity-30"
             style={{
               background: 'radial-gradient(circle, hsl(211 100% 50% / 0.4), transparent 60%)',
-              filter: 'blur(80px)',
+              filter: 'blur(60px)',
             }}
           />
           <div
-            className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] rounded-full opacity-25"
+            className="absolute bottom-1/4 right-1/4 w-[250px] h-[250px] rounded-full opacity-25"
             style={{
               background: 'radial-gradient(circle, hsl(328 100% 54% / 0.3), transparent 60%)',
-              filter: 'blur(80px)',
+              filter: 'blur(60px)',
             }}
           />
         </div>
 
         <motion.div
-          className="relative w-full max-w-md"
+          className="relative w-full max-w-sm"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: 'easeOut' }}
         >
-          {/* Simple Logo */}
-          <div className="flex flex-col items-center mb-10">
+          {/* Compact Logo */}
+          <div className="flex flex-col items-center mb-6">
             <div
-              className="w-20 h-20 rounded-full flex items-center justify-center relative"
+              className="w-16 h-16 rounded-full flex items-center justify-center relative"
               style={{
                 background: 'radial-gradient(circle at 35% 35%, #1a1a2e 0%, #0f0f1a 50%, #000000 100%)',
-                boxShadow: '0 0 40px 10px rgba(100,150,255,0.25)',
+                boxShadow: '0 0 30px 8px rgba(100,150,255,0.25)',
               }}
             >
-              {/* Universe "U" symbol */}
-              <svg width="36" height="36" viewBox="0 0 64 64">
+              <svg width="28" height="28" viewBox="0 0 64 64">
                 <defs>
                   <linearGradient id="uGradientAuth" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="#ffffff" />
@@ -104,22 +102,19 @@ const Auth = () => {
               </svg>
             </div>
             
-            <h1 className="mt-6 text-3xl font-bold tracking-tight">
+            <h1 className="mt-4 text-2xl font-bold tracking-tight">
               <span className="gradient-text">Univers</span>
-              <span className="text-white ml-2">Flow</span>
+              <span className="text-white ml-1.5">Flow</span>
             </h1>
-            <p className="mt-2 text-muted-foreground text-sm font-medium tracking-wide">
+            <p className="mt-1 text-muted-foreground text-xs font-medium tracking-wide">
               Premium Music Experience
-            </p>
-            <p className="mt-1 text-muted-foreground/60 text-xs">
-              By SHASHANK YADAV
             </p>
           </div>
 
-          {/* Form card */}
+          {/* Compact Form card */}
           <form 
             onSubmit={handleSubmit} 
-            className="relative rounded-3xl p-8 space-y-6"
+            className="relative rounded-2xl p-5 space-y-4"
             style={{
               background: 'rgba(28, 28, 30, 0.85)',
               backdropFilter: 'blur(20px)',
@@ -128,42 +123,42 @@ const Auth = () => {
             }}
           >
             <div>
-              <h2 className="text-2xl font-bold mb-1">{isLogin ? 'Welcome back' : 'Create account'}</h2>
-              <p className="text-muted-foreground text-sm">{isLogin ? 'Sign in to continue' : 'Start your music journey'}</p>
+              <h2 className="text-xl font-bold mb-0.5">{isLogin ? 'Welcome back' : 'Create account'}</h2>
+              <p className="text-muted-foreground text-xs">{isLogin ? 'Sign in to continue' : 'Start your music journey'}</p>
             </div>
 
-            <div className="space-y-4 pt-2">
+            <div className="space-y-3">
               {/* Email input */}
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
                   type="email" 
                   placeholder="Email address" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
-                  className="pl-12 h-14 text-base rounded-2xl border-0 bg-white/[0.06] focus:bg-white/[0.1] focus:ring-2 focus:ring-primary/50"
+                  className="pl-10 h-11 text-sm rounded-xl border-0 bg-white/[0.06] focus:bg-white/[0.1] focus:ring-2 focus:ring-primary/50"
                   required 
                 />
               </div>
               
               {/* Password input */}
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Password" 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-12 pr-12 h-14 text-base rounded-2xl border-0 bg-white/[0.06] focus:bg-white/[0.1] focus:ring-2 focus:ring-primary/50"
+                  className="pl-10 pr-10 h-11 text-sm rounded-xl border-0 bg-white/[0.06] focus:bg-white/[0.1] focus:ring-2 focus:ring-primary/50"
                   required 
                   minLength={6} 
                 />
                 <button
                   type="button"
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-muted-foreground active:scale-90 transition-transform"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground active:scale-90 transition-transform"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
@@ -171,26 +166,26 @@ const Auth = () => {
             {/* Submit button */}
             <Button 
               type="submit" 
-              className="w-full h-14 text-base font-semibold rounded-2xl border-0 active:scale-[0.98] transition-transform"
+              className="w-full h-11 text-sm font-semibold rounded-xl border-0 active:scale-[0.98] transition-transform"
               style={{
                 background: 'linear-gradient(135deg, hsl(211 100% 50%), hsl(328 100% 54%))',
               }}
               disabled={loading}
             >
               {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <span className="flex items-center gap-2">
                   {isLogin ? 'Sign In' : 'Create Account'}
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-4 h-4" />
                 </span>
               )}
             </Button>
 
             {/* Divider */}
-            <div className="flex items-center gap-4 pt-2">
+            <div className="flex items-center gap-3">
               <div className="flex-1 h-px bg-white/10" />
-              <span className="text-xs text-muted-foreground">or continue with</span>
+              <span className="text-[10px] text-muted-foreground">or</span>
               <div className="flex-1 h-px bg-white/10" />
             </div>
 
@@ -198,7 +193,7 @@ const Auth = () => {
             <Button
               type="button"
               variant="outline"
-              className="w-full h-14 text-base font-medium rounded-2xl border-white/10 bg-white/[0.06] active:scale-[0.98] transition-transform"
+              className="w-full h-11 text-sm font-medium rounded-xl border-white/10 bg-white/[0.06] active:scale-[0.98] transition-transform"
               onClick={async () => {
                 const { error } = await supabase.auth.signInWithOAuth({
                   provider: 'google',
@@ -211,7 +206,7 @@ const Auth = () => {
                 }
               }}
             >
-              <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -229,11 +224,11 @@ const Auth = () => {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              Continue with Google
+              Google
             </Button>
 
             {/* Toggle link */}
-            <p className="text-center text-sm text-muted-foreground pt-2">
+            <p className="text-center text-xs text-muted-foreground">
               {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
               <button 
                 type="button" 
@@ -246,7 +241,8 @@ const Auth = () => {
           </form>
         </motion.div>
         
-        <Footer />
+        {/* Compact footer */}
+        <p className="absolute bottom-4 text-[10px] text-muted-foreground/50">By SHASHANK YADAV</p>
       </div>
     </FadeTransition>
   );

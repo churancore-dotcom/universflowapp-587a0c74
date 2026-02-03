@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Volume2, Palette, Trash2, Info, Headphones, Bell, Shield, ChevronRight, Heart, Crown } from 'lucide-react';
+import { ChevronLeft, Trash2, Info, Headphones, Bell, Palette, ChevronRight, Heart, Crown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '@/components/BottomNav';
 import MiniPlayer from '@/components/MiniPlayer';
@@ -8,9 +8,7 @@ import FullscreenPlayer from '@/components/FullscreenPlayer';
 import PageTransition from '@/components/PageTransition';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { iosSpring, iosBounce } from '@/lib/animations';
 import { usePremium } from '@/hooks/usePremium';
-import Footer from '@/components/Footer';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -21,254 +19,160 @@ const Settings = () => {
   const [notifications, setNotifications] = useState(true);
   const [haptics, setHaptics] = useState(true);
 
-  const SettingSection = ({ 
-    title, 
-    icon: Icon, 
-    iconColor, 
-    children, 
-    delay = 0 
-  }: { 
-    title: string; 
-    icon: React.ElementType; 
-    iconColor: string;
-    children: React.ReactNode;
-    delay?: number;
-  }) => (
-    <motion.section
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ ...iosSpring, delay }}
-    >
-      <div className="flex items-center gap-3 mb-3 px-1">
-        <div 
-          className="w-7 h-7 rounded-lg flex items-center justify-center"
-          style={{ background: iconColor }}
-        >
-          <Icon className="w-4 h-4 text-white" />
-        </div>
-        <h2 className="text-[15px] font-semibold text-muted-foreground uppercase tracking-wide">{title}</h2>
-      </div>
-      
-      <div 
-        className="rounded-2xl overflow-hidden"
-        style={{
-          background: 'rgba(28, 28, 30, 0.8)',
-          border: '1px solid rgba(255, 255, 255, 0.06)',
-        }}
-      >
-        {children}
-      </div>
-    </motion.section>
-  );
-
-  const SettingRow = ({ 
-    label, 
-    value, 
-    children,
-    isLast = false,
-  }: { 
-    label: string; 
-    value?: string;
-    children?: React.ReactNode;
-    isLast?: boolean;
-  }) => (
-    <div 
-      className={`px-5 py-4 flex items-center justify-between ${
-        !isLast ? 'border-b border-white/[0.06]' : ''
-      }`}
-    >
-      <span className="text-[15px]">{label}</span>
-      {value ? (
-        <span className="text-[15px] text-muted-foreground">{value}</span>
-      ) : children}
-    </div>
-  );
-
   return (
     <PageTransition>
-      <motion.div 
-        className="min-h-screen bg-black pb-44"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
-      >
-      {/* iOS-style header with back button */}
-      <motion.header
-        className="sticky top-0 z-30 px-2 pt-4 pb-3 flex items-center safe-area-pt"
-        style={{
-          background: 'rgba(0, 0, 0, 0.85)',
-          backdropFilter: 'blur(40px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-        }}
-        initial={{ opacity: 0, y: -30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={iosSpring}
-      >
-        <motion.button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1 px-2 py-2 -ml-1 text-primary"
-          whileTap={{ scale: 0.95, opacity: 0.7 }}
-          transition={iosBounce}
+      <div className="h-[100dvh] bg-black flex flex-col overflow-hidden">
+        {/* Header */}
+        <header
+          className="flex-shrink-0 z-30 px-2 pt-3 pb-2 flex items-center safe-area-pt"
+          style={{
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(40px)',
+            WebkitBackdropFilter: 'blur(40px)',
+          }}
         >
-          <ChevronLeft className="w-6 h-6" />
-          <span className="text-[17px]">Back</span>
-        </motion.button>
-        <motion.h1 
-          className="text-[17px] font-semibold absolute left-1/2 -translate-x-1/2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-        >
-          Settings
-        </motion.h1>
-      </motion.header>
+          <button onClick={() => navigate(-1)} className="flex items-center gap-0.5 px-2 py-2 -ml-1 text-primary">
+            <ChevronLeft className="w-5 h-5" />
+            <span className="text-sm">Back</span>
+          </button>
+          <h1 className="text-sm font-semibold absolute left-1/2 -translate-x-1/2">Settings</h1>
+        </header>
 
-      <main className="px-5 pt-6 space-y-8">
-        {/* Audio Settings */}
-        <SettingSection title="Playback" icon={Headphones} iconColor="rgba(255, 149, 0, 0.9)" delay={0.05}>
-          <div className="px-5 py-4 border-b border-white/[0.06]">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[15px]">Crossfade</span>
-              <motion.span 
-                className="text-[15px] text-primary font-medium min-w-[40px] text-right"
-                key={crossfade}
-                initial={{ scale: 1.2, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={iosBounce}
-              >
-                {crossfade}s
-              </motion.span>
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto px-4 pt-3 pb-32 space-y-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {/* Playback */}
+          <section>
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'rgba(255, 149, 0, 0.9)' }}>
+                <Headphones className="w-3 h-3 text-white" />
+              </div>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase">Playback</h2>
             </div>
-            <Slider
-              value={[crossfade]}
-              onValueChange={([val]) => setCrossfade(val)}
-              max={12}
-              step={1}
-              className="[&_[role=slider]]:w-6 [&_[role=slider]]:h-6 [&_[role=slider]]:bg-white [&_[role=slider]]:shadow-lg"
-            />
-          </div>
-          
-          <SettingRow label="Gapless Playback">
-            <Switch 
-              checked={gaplessPlayback} 
-              onCheckedChange={setGaplessPlayback}
-              className="data-[state=checked]:bg-primary"
-            />
-          </SettingRow>
-          
-          <SettingRow label="Autoplay" isLast>
-            <Switch 
-              checked={autoplay} 
-              onCheckedChange={setAutoplay}
-              className="data-[state=checked]:bg-primary"
-            />
-          </SettingRow>
-        </SettingSection>
-
-        {/* Support & Premium */}
-        <SettingSection title="Support" icon={Heart} iconColor="rgba(255, 45, 85, 0.9)" delay={0.12}>
-          <motion.button
-            onClick={() => navigate('/support')}
-            className="w-full px-5 py-4 flex items-center justify-between border-b border-white/[0.06]"
-            whileTap={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
-          >
-            <div className="flex items-center gap-3">
-              {isPremium && (
-                <div className="px-2 py-0.5 rounded-full bg-primary/20">
-                  <span className="text-xs font-medium text-primary">Premium</span>
+            <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(28, 28, 30, 0.8)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div className="px-4 py-3 border-b border-white/[0.06]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm">Crossfade</span>
+                  <span className="text-sm text-primary font-medium">{crossfade}s</span>
                 </div>
-              )}
-              <span className="text-[15px]">{isPremium ? 'Manage Subscription' : 'Upgrade to Premium'}</span>
+                <Slider value={[crossfade]} onValueChange={([val]) => setCrossfade(val)} max={12} step={1} className="[&_[role=slider]]:w-5 [&_[role=slider]]:h-5 [&_[role=slider]]:bg-white" />
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/[0.06]">
+                <span className="text-sm">Gapless Playback</span>
+                <Switch checked={gaplessPlayback} onCheckedChange={setGaplessPlayback} className="data-[state=checked]:bg-primary scale-90" />
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between">
+                <span className="text-sm">Autoplay</span>
+                <Switch checked={autoplay} onCheckedChange={setAutoplay} className="data-[state=checked]:bg-primary scale-90" />
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Crown className="w-4 h-4 text-primary" />
-              <ChevronRight className="w-5 h-5" />
+          </section>
+
+          {/* Support */}
+          <section>
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'rgba(255, 45, 85, 0.9)' }}>
+                <Heart className="w-3 h-3 text-white" />
+              </div>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase">Support</h2>
             </div>
-          </motion.button>
-          <motion.button
-            onClick={() => navigate('/support')}
-            className="w-full px-5 py-4 flex items-center justify-between"
-            whileTap={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
-          >
-            <span className="text-[15px]">Buy Me a Coffee</span>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <span className="text-[15px]">Support the app</span>
-              <ChevronRight className="w-5 h-5" />
+            <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(28, 28, 30, 0.8)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <button onClick={() => navigate('/support')} className="w-full px-4 py-3 flex items-center justify-between border-b border-white/[0.06] active:bg-white/5">
+                <div className="flex items-center gap-2">
+                  {isPremium && <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-[10px] font-medium text-primary">Premium</span>}
+                  <span className="text-sm">{isPremium ? 'Manage Subscription' : 'Upgrade to Premium'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Crown className="w-3.5 h-3.5 text-primary" />
+                  <ChevronRight className="w-4 h-4" />
+                </div>
+              </button>
+              <button onClick={() => navigate('/support')} className="w-full px-4 py-3 flex items-center justify-between active:bg-white/5">
+                <span className="text-sm">Buy Me a Coffee</span>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
             </div>
-          </motion.button>
-        </SettingSection>
+          </section>
 
-        {/* Notifications */}
-        <SettingSection title="Notifications" icon={Bell} iconColor="rgba(255, 59, 48, 0.9)" delay={0.1}>
-          <SettingRow label="Push Notifications">
-            <Switch 
-              checked={notifications} 
-              onCheckedChange={setNotifications}
-              className="data-[state=checked]:bg-primary"
-            />
-          </SettingRow>
-          <SettingRow label="Haptic Feedback" isLast>
-            <Switch 
-              checked={haptics} 
-              onCheckedChange={setHaptics}
-              className="data-[state=checked]:bg-primary"
-            />
-          </SettingRow>
-        </SettingSection>
-
-        {/* Appearance */}
-        <SettingSection title="Appearance" icon={Palette} iconColor="rgba(175, 82, 222, 0.9)" delay={0.15}>
-          <motion.button
-            className="w-full px-5 py-4 flex items-center justify-between"
-            whileTap={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
-          >
-            <span className="text-[15px]">Theme</span>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <span className="text-[15px]">Dark</span>
-              <ChevronRight className="w-5 h-5" />
+          {/* Notifications */}
+          <section>
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'rgba(255, 59, 48, 0.9)' }}>
+                <Bell className="w-3 h-3 text-white" />
+              </div>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase">Notifications</h2>
             </div>
-          </motion.button>
-        </SettingSection>
+            <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(28, 28, 30, 0.8)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/[0.06]">
+                <span className="text-sm">Push Notifications</span>
+                <Switch checked={notifications} onCheckedChange={setNotifications} className="data-[state=checked]:bg-primary scale-90" />
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between">
+                <span className="text-sm">Haptic Feedback</span>
+                <Switch checked={haptics} onCheckedChange={setHaptics} className="data-[state=checked]:bg-primary scale-90" />
+              </div>
+            </div>
+          </section>
 
-        {/* Storage */}
-        <SettingSection title="Storage" icon={Trash2} iconColor="rgba(255, 69, 58, 0.9)" delay={0.2}>
-          <motion.button
-            className="w-full px-5 py-4 flex items-center justify-between text-destructive"
-            whileTap={{ backgroundColor: 'rgba(255,69,58,0.1)' }}
-          >
-            <span className="text-[15px] font-medium">Clear Cache</span>
-            <span className="text-[15px] text-muted-foreground">0 MB</span>
-          </motion.button>
-        </SettingSection>
+          {/* Appearance */}
+          <section>
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'rgba(175, 82, 222, 0.9)' }}>
+                <Palette className="w-3 h-3 text-white" />
+              </div>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase">Appearance</h2>
+            </div>
+            <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(28, 28, 30, 0.8)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <button className="w-full px-4 py-3 flex items-center justify-between active:bg-white/5">
+                <span className="text-sm">Theme</span>
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <span className="text-sm">Dark</span>
+                  <ChevronRight className="w-4 h-4" />
+                </div>
+              </button>
+            </div>
+          </section>
 
-        {/* About */}
-        <SettingSection title="About" icon={Info} iconColor="rgba(90, 200, 250, 0.9)" delay={0.25}>
-          <SettingRow label="Version" value="1.0.0" />
-          <SettingRow label="Build" value="2026.01.13" />
-          <motion.button
-            className="w-full px-5 py-4 flex items-center justify-between border-t border-white/[0.06]"
-            whileTap={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
-          >
-            <span className="text-[15px]">Privacy Policy</span>
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </motion.button>
-          <motion.button
-            className="w-full px-5 py-4 flex items-center justify-between"
-            whileTap={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
-          >
-            <span className="text-[15px]">Terms of Service</span>
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </motion.button>
-        </SettingSection>
+          {/* Storage */}
+          <section>
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'rgba(255, 69, 58, 0.9)' }}>
+                <Trash2 className="w-3 h-3 text-white" />
+              </div>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase">Storage</h2>
+            </div>
+            <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(28, 28, 30, 0.8)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <button className="w-full px-4 py-3 flex items-center justify-between text-destructive active:bg-destructive/10">
+                <span className="text-sm font-medium">Clear Cache</span>
+                <span className="text-sm text-muted-foreground">0 MB</span>
+              </button>
+            </div>
+          </section>
 
-        {/* Footer */}
-        <Footer />
-      </main>
+          {/* About */}
+          <section>
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'rgba(90, 200, 250, 0.9)' }}>
+                <Info className="w-3 h-3 text-white" />
+              </div>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase">About</h2>
+            </div>
+            <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(28, 28, 30, 0.8)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/[0.06]">
+                <span className="text-sm">Version</span>
+                <span className="text-sm text-muted-foreground">1.0.0</span>
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between">
+                <span className="text-sm">Build</span>
+                <span className="text-sm text-muted-foreground">2026.02.03</span>
+              </div>
+            </div>
+          </section>
+        </main>
 
-      <BottomNav />
-      <MiniPlayer />
-      <FullscreenPlayer />
-      </motion.div>
+        <BottomNav />
+        <MiniPlayer />
+        <FullscreenPlayer />
+      </div>
     </PageTransition>
   );
 };
