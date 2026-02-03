@@ -47,6 +47,58 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
+      - name: Integrate Android widgets
+        run: |
+          # Create widget package directory
+          mkdir -p android/app/src/main/java/app/lovable/universflow
+          
+          # Copy Java widget files
+          cp android-widgets/java/*.java android/app/src/main/java/app/lovable/universflow/
+          
+          # Copy drawable resources
+          cp android-widgets/res/drawable/*.xml android/app/src/main/res/drawable/
+          
+          # Copy layout resources
+          cp android-widgets/res/layout/*.xml android/app/src/main/res/layout/
+          
+          # Copy xml resources (widget info)
+          mkdir -p android/app/src/main/res/xml
+          cp android-widgets/res/xml/*.xml android/app/src/main/res/xml/
+          
+          # Copy string resources (merge with existing)
+          cat android-widgets/res/values/strings_widgets.xml >> android/app/src/main/res/values/strings.xml
+          # Fix the XML by removing duplicate closing tag
+          sed -i 's/<\/resources><resources>//g' android/app/src/main/res/values/strings.xml
+          sed -i '/<\/resources>/d' android/app/src/main/res/values/strings.xml
+          echo '</resources>' >> android/app/src/main/res/values/strings.xml
+
+      - name: Update AndroidManifest.xml for widgets
+        run: |
+          # Add widget receivers and service to AndroidManifest.xml
+          sed -i 's/<\/application>/\
+              <!-- Widget Receivers -->\
+              <receiver android:name=".NowPlayingWidget" android:exported="false">\
+                  <intent-filter>\
+                      <action android:name="android.appwidget.action.APPWIDGET_UPDATE" \/>\
+                  <\/intent-filter>\
+                  <meta-data android:name="android.appwidget.provider" android:resource="@xml\/now_playing_widget_info" \/>\
+              <\/receiver>\
+              <receiver android:name=".FavoritesWidget" android:exported="false">\
+                  <intent-filter>\
+                      <action android:name="android.appwidget.action.APPWIDGET_UPDATE" \/>\
+                  <\/intent-filter>\
+                  <meta-data android:name="android.appwidget.provider" android:resource="@xml\/favorites_widget_info" \/>\
+              <\/receiver>\
+              <receiver android:name=".QuickActionsWidget" android:exported="false">\
+                  <intent-filter>\
+                      <action android:name="android.appwidget.action.APPWIDGET_UPDATE" \/>\
+                  <\/intent-filter>\
+                  <meta-data android:name="android.appwidget.provider" android:resource="@xml\/quick_actions_widget_info" \/>\
+              <\/receiver>\
+              <!-- Widget Update Service -->\
+              <service android:name=".WidgetUpdateService" android:exported="false" \/>\
+          <\/application>/g' android/app/src/main/AndroidManifest.xml
+
       - name: Sync Capacitor
         run: npx cap sync android
 
