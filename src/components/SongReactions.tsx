@@ -19,9 +19,12 @@ interface Reaction {
 
 interface Comment {
   id: string;
-  user_email: string;
+  user_id: string;
   content: string;
   created_at: string;
+  profiles?: {
+    username: string | null;
+  };
 }
 
 interface ReactionRow {
@@ -63,10 +66,16 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
         setReactions(reactionMap);
       }
 
-      // Fetch comments
+      // Fetch comments with username from profiles (no email exposure)
       const { data: commentsData } = await (supabase as any)
         .from('song_comments')
-        .select('id, user_email, content, created_at')
+        .select(`
+          id,
+          user_id,
+          content,
+          created_at,
+          profiles:user_id(username)
+        `)
         .eq('song_id', songId)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -132,12 +141,13 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
 
     setIsLoading(true);
     try {
+      // Insert comment without storing email (privacy fix)
       await (supabase as any)
         .from('song_comments')
         .insert({
           song_id: songId,
           user_id: user.id,
-          user_email: user.email || 'Anonymous',
+          user_email: 'redacted', // Keep column for backward compat, don't store real email
           content: newComment.trim(),
         });
 
@@ -289,7 +299,7 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-medium text-primary">
-                        {comment.user_email.split('@')[0]}
+                        {comment.profiles?.username || 'Anonymous'}
                       </span>
                       <span className="text-[10px] text-muted-foreground/50">
                         {new Date(comment.created_at).toLocaleDateString()}

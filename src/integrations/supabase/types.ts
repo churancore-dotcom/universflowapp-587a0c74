@@ -703,7 +703,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      find_profile_by_share_code: {
+        Args: { p_share_code: string }
+        Returns: {
+          avatar_url: string
+          user_id: string
+          username: string
+        }[]
+      }
+      redeem_promo_code: {
+        Args: { p_code: string; p_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       subscription_platform: "android" | "ios" | "web" | "donation"

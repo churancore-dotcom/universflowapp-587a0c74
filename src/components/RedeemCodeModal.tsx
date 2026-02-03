@@ -38,93 +38,27 @@ const RedeemCodeModal = memo(function RedeemCodeModal({ isOpen, onClose }: Redee
     setError('');
 
     try {
-      // Find the promo code
-      const { data: promoCode, error: findError } = await supabase
-        .from('promo_codes')
-        .select('*')
-        .eq('code', code.toUpperCase().trim())
-        .eq('is_active', true)
-        .single();
-
-      if (findError || !promoCode) {
-        setError('Invalid or expired code');
-        setLoading(false);
-        return;
-      }
-
-      // Check if already redeemed
-      const { data: existingRedemption } = await supabase
-        .from('code_redemptions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('promo_code_id', promoCode.id)
-        .single();
-
-      if (existingRedemption) {
-        setError('You have already redeemed this code');
-        setLoading(false);
-        return;
-      }
-
-      // Check max uses
-      if (promoCode.current_uses >= promoCode.max_uses) {
-        setError('This code has reached its maximum uses');
-        setLoading(false);
-        return;
-      }
-
-      // Check expiry
-      if (promoCode.expires_at && new Date(promoCode.expires_at) < new Date()) {
-        setError('This code has expired');
-        setLoading(false);
-        return;
-      }
-
-      // Create redemption record
-      const { error: redemptionError } = await supabase
-        .from('code_redemptions')
-        .insert({
-          user_id: user.id,
-          promo_code_id: promoCode.id,
+      // Use atomic database function to prevent race conditions
+      const { data, error: redeemError } = await supabase
+        .rpc('redeem_promo_code', {
+          p_code: code.trim(),
+          p_user_id: user.id
         });
 
-      if (redemptionError) {
-        setError('Failed to redeem code');
+      if (redeemError) {
+        console.error('Redemption error:', redeemError);
+        setError('Failed to redeem code. Please try again.');
         setLoading(false);
         return;
       }
 
-      // Update uses count
-      await supabase
-        .from('promo_codes')
-        .update({ current_uses: promoCode.current_uses + 1 })
-        .eq('id', promoCode.id);
-
-      // Create or update user subscription to lifetime premium
-      const { data: existingSub } = await supabase
-        .from('user_subscriptions')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (existingSub) {
-        await supabase
-          .from('user_subscriptions')
-          .update({
-            subscription_type: 'premium_yearly',
-            status: 'active',
-            expires_at: '2099-12-31T23:59:59Z', // Lifetime
-            platform: 'web',
-          })
-          .eq('user_id', user.id);
-      } else {
-        await supabase.from('user_subscriptions').insert({
-          user_id: user.id,
-          subscription_type: 'premium_yearly',
-          status: 'active',
-          expires_at: '2099-12-31T23:59:59Z', // Lifetime
-          platform: 'web',
-        });
+      // Check result from the function
+      const result = data as { success: boolean; error?: string };
+      
+      if (!result?.success) {
+        setError(result?.error || 'Invalid or expired code');
+        setLoading(false);
+        return;
       }
 
       setSuccess(true);
@@ -138,6 +72,7 @@ const RedeemCodeModal = memo(function RedeemCodeModal({ isOpen, onClose }: Redee
       }, 2000);
 
     } catch (err) {
+      console.error('Redemption exception:', err);
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
