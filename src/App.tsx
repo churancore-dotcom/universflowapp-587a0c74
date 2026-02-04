@@ -12,6 +12,8 @@ import MobileShell from "./components/MobileShell";
 import DownloadQueuePanel from "./components/DownloadQueuePanel";
 import PrerollAd from "./components/ads/PrerollAd";
 import PWAInstallBanner from "./components/PWAInstallBanner";
+import SEOHead from "./components/SEOHead";
+import StructuredData from "./components/StructuredData";
 import Auth from "./pages/Auth";
 import Home from "./pages/Home";
 import Search from "./pages/Search";
@@ -140,6 +142,8 @@ const AppContent = () => {
 
   return (
     <MobileShell>
+      <SEOHead />
+      <StructuredData />
       <Toaster />
       <AnimatePresence mode="wait">
         {showSplash ? (
