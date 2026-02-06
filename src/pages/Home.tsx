@@ -69,6 +69,9 @@ const Home = () => {
     [songs]
   );
 
+  // All songs for the "All Songs" section
+  const allSongs = useMemo(() => songs.slice(0, 20), [songs]);
+
   useEffect(() => {
     fetchSongs();
 
@@ -216,6 +219,15 @@ const Home = () => {
                 <HorizontalSection title="Trending" subtitle="What's hot" songs={trendingSongs}>
                   {trendingSongs.map((song, i) => (
                     <SongCard key={song.id} song={song} index={i} sectionSongs={trendingSongs} />
+                  ))}
+                </HorizontalSection>
+              )}
+
+              {/* All Songs Section */}
+              {allSongs.length > 0 && (
+                <HorizontalSection title="All Songs" subtitle="Browse all music" songs={allSongs}>
+                  {allSongs.map((song, i) => (
+                    <SongCard key={song.id} song={song} index={i} sectionSongs={allSongs} />
                   ))}
                 </HorizontalSection>
               )}

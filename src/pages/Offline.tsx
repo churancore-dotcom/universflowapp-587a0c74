@@ -62,8 +62,14 @@ const Offline = memo(function Offline() {
   const handlePlayAll = () => {
     if (cachedSongs.length > 0) {
       triggerHaptic('impactMedium');
-      setQueue(cachedSongs as any);
-      playSong(cachedSongs[0] as any);
+      // Use the blob URL (offline URL) for playback
+      const firstSong = cachedSongs[0];
+      const offlineQueue = cachedSongs.map(s => ({
+        ...s,
+        audio_url: s.audio_url, // This is already the blobUrl from downloads
+      }));
+      setQueue(offlineQueue as any);
+      playSong(firstSong as any, firstSong.audio_url);
     }
   };
 
@@ -71,14 +77,23 @@ const Offline = memo(function Offline() {
     if (cachedSongs.length > 0) {
       triggerHaptic('impactMedium');
       const shuffled = [...cachedSongs].sort(() => Math.random() - 0.5);
-      setQueue(shuffled as any);
-      playSong(shuffled[0] as any);
+      const offlineQueue = shuffled.map(s => ({
+        ...s,
+        audio_url: s.audio_url,
+      }));
+      setQueue(offlineQueue as any);
+      playSong(shuffled[0] as any, shuffled[0].audio_url);
     }
   };
 
   const handlePlaySong = (song: CachedSong) => {
     triggerHaptic('impactLight');
-    playSong(song as any);
+    // Pass the offline URL for playback
+    const offlineQueue = cachedSongs.map(s => ({
+      ...s,
+      audio_url: s.audio_url,
+    }));
+    playSong(song as any, song.audio_url, offlineQueue as any);
   };
 
   return (
