@@ -7,7 +7,6 @@ import SongCard from '@/components/SongCard';
 import HorizontalSection from '@/components/HorizontalSection';
 import AllSongsSection from '@/components/AllSongsSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
-import RecentlyPlayedSection from '@/components/RecentlyPlayedSection';
 import SleepTimerModal from '@/components/SleepTimerModal';
 import QueueDrawer from '@/components/QueueDrawer';
 import BottomNav from '@/components/BottomNav';
@@ -201,9 +200,9 @@ const Home = () => {
           ) : songs.length === 0 ? (
             <EmptyState />
           ) : (
-            <div className="space-y-1">
-              {/* Recently Played - Quick access for returning users */}
-              <RecentlyPlayedSection compact />
+            <div className="space-y-4">
+              {/* Featured Artists - Top priority for discovery */}
+              <FeaturedArtistsSection />
 
               {/* New Releases - Fresh content */}
               {newReleases.length > 0 && (
@@ -214,10 +213,7 @@ const Home = () => {
                 </HorizontalSection>
               )}
 
-              {/* Featured Artists - Discover creators */}
-              <FeaturedArtistsSection />
-
-              {/* All Songs Section - Beautiful grid/list view */}
+              {/* All Songs Section - Full catalog */}
               {allSongs.length > 0 && (
                 <AllSongsSection songs={allSongs} />
               )}

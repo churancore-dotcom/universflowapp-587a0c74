@@ -28,23 +28,21 @@ const ArtistCard = memo(({ artist, index }: ArtistCardProps) => {
 
   return (
     <motion.button
-      className="flex-shrink-0 w-20 snap-start text-center"
+      className="flex-shrink-0 w-[72px] snap-start text-center active:scale-95 transition-transform"
       onClick={handleClick}
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05, duration: 0.25 }}
-      whileTap={{ scale: 0.92 }}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: index * 0.04, duration: 0.2 }}
     >
-      {/* Avatar with gradient border */}
-      <div className="relative w-16 h-16 mx-auto mb-2">
+      {/* Avatar with gradient ring */}
+      <div className="relative w-[60px] h-[60px] mx-auto mb-1.5">
         <div 
-          className="absolute inset-0 rounded-full"
+          className="absolute inset-0 rounded-full p-[2px]"
           style={{
             background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(330 100% 60%))',
-            padding: '2px',
           }}
         >
-          <div className="w-full h-full rounded-full overflow-hidden bg-black">
+          <div className="w-full h-full rounded-full overflow-hidden bg-background">
             {artist.photo_url ? (
               <img 
                 src={artist.photo_url} 
@@ -53,18 +51,18 @@ const ArtistCard = memo(({ artist, index }: ArtistCardProps) => {
                 loading="lazy"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center">
-                <User className="w-6 h-6 text-white/50" />
+              <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                <User className="w-5 h-5 text-muted-foreground" />
               </div>
             )}
           </div>
         </div>
       </div>
       
-      <p className="text-xs font-semibold truncate text-foreground">
+      <p className="text-[11px] font-medium truncate text-foreground leading-tight">
         {artist.name}
       </p>
-      <p className="text-[10px] text-muted-foreground/70">
+      <p className="text-[9px] text-muted-foreground">
         {artist.song_count} {artist.song_count === 1 ? 'song' : 'songs'}
       </p>
     </motion.button>
@@ -112,16 +110,16 @@ const FeaturedArtistsSection = () => {
   if (loading || artists.length === 0) return null;
 
   return (
-    <section className="mb-5">
+    <section className="mb-2">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <Sparkles className="w-4 h-4 text-primary" />
-        <h2 className="text-lg font-bold tracking-tight text-foreground">Artists</h2>
+      <div className="flex items-center gap-1.5 mb-2">
+        <Sparkles className="w-3.5 h-3.5 text-primary" />
+        <h2 className="text-base font-bold tracking-tight text-foreground">Artists</h2>
       </div>
       
-      {/* Horizontal scroll */}
+      {/* Horizontal scroll - optimized for mobile */}
       <div 
-        className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar snap-x snap-mandatory -mx-3 px-3"
+        className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar snap-x snap-mandatory -mx-3 px-3"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {artists.map((artist, i) => (
