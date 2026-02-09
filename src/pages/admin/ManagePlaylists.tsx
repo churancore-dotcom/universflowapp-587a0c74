@@ -51,6 +51,15 @@ const ManagePlaylists = () => {
 
   useEffect(() => {
     fetchPlaylists();
+
+    // Realtime for playlists
+    const channel = supabase
+      .channel('admin-playlists-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'playlists' }, fetchPlaylists)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'playlist_songs' }, fetchPlaylists)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchPlaylists = async () => {

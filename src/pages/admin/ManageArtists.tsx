@@ -55,6 +55,25 @@ const ManageArtists = () => {
   useEffect(() => {
     fetchArtists();
     fetchSongs();
+
+    // Realtime subscriptions for admin
+    const artistsChannel = supabase
+      .channel('admin-artists-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'artists' }, fetchArtists)
+      .subscribe();
+
+    const songsChannel = supabase
+      .channel('admin-songs-artists')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, () => {
+        fetchSongs();
+        fetchArtists(); // Also refresh artist counts
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(artistsChannel);
+      supabase.removeChannel(songsChannel);
+    };
   }, []);
 
   const fetchArtists = async () => {
@@ -104,11 +123,12 @@ const ManageArtists = () => {
     try {
       const { data, error } = await supabase
         .from('songs')
-        .select('id, title, artist, cover_url');
+        .select('id, title, artist, artist_id, cover_url')
+        .order('title');
 
       if (error) throw error;
       
-      // Map with artist_id field (may not be in types yet)
+      // Map with artist_id field
       const songsWithArtistId = (data || []).map((song: any) => ({
         id: song.id,
         title: song.title,

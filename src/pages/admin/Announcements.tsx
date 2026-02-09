@@ -78,6 +78,14 @@ const Announcements = () => {
 
   useEffect(() => {
     fetchAnnouncements();
+
+    // Realtime for announcements
+    const channel = supabase
+      .channel('admin-announcements-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, fetchAnnouncements)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchAnnouncements = async () => {

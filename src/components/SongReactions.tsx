@@ -66,22 +66,30 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
         setReactions(reactionMap);
       }
 
-      // Fetch comments with username from profiles (no email exposure)
-      const { data: commentsData } = await (supabase as any)
+      // Fetch comments with username from profiles join
+      const { data: commentsData } = await supabase
         .from('song_comments')
-        .select(`
-          id,
-          user_id,
-          content,
-          created_at,
-          profiles:user_id(username)
-        `)
+        .select('id, user_id, content, created_at')
         .eq('song_id', songId)
         .order('created_at', { ascending: false })
         .limit(20);
 
       if (commentsData) {
-        setComments(commentsData as Comment[]);
+        // Fetch usernames for all comment authors
+        const userIds = [...new Set(commentsData.map(c => c.user_id))];
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, username')
+          .in('user_id', userIds);
+
+        const usernameMap = new Map(profilesData?.map(p => [p.user_id, p.username]) || []);
+        
+        const commentsWithUsernames = commentsData.map(c => ({
+          ...c,
+          profiles: { username: usernameMap.get(c.user_id) || null }
+        }));
+        
+        setComments(commentsWithUsernames as Comment[]);
       }
     } catch (error) {
       console.error('Failed to fetch reactions:', error);

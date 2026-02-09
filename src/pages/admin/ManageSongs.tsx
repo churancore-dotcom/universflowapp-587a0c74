@@ -35,9 +35,32 @@ const ManageSongs = () => {
   useEffect(() => {
     fetchSongs();
 
+    // Realtime for songs - but we don't update play_count in realtime to avoid flicker
     const channel = supabase
-      .channel('admin-songs')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, fetchSongs)
+      .channel('admin-songs-manage')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'songs' 
+      }, (payload) => {
+        // Only refresh if it's not just a play_count update
+        if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+          fetchSongs();
+        } else if (payload.eventType === 'UPDATE') {
+          // Check if only play_count changed - if so, skip refresh
+          const newData = payload.new as any;
+          const oldData = payload.old as any;
+          const onlyPlayCountChanged = 
+            newData.play_count !== oldData.play_count &&
+            newData.title === oldData.title &&
+            newData.artist === oldData.artist &&
+            newData.is_visible === oldData.is_visible;
+          
+          if (!onlyPlayCountChanged) {
+            fetchSongs();
+          }
+        }
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };

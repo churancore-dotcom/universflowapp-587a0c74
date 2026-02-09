@@ -10,8 +10,9 @@ import {
   Music,
   X,
   Volume2,
-  Airplay,
-  ListMusic
+  Shuffle,
+  Repeat,
+  Repeat1
 } from 'lucide-react';
 
 const formatTime = (seconds: number): string => {
@@ -38,10 +39,15 @@ const LockScreenPlayer = ({ isOpen, onClose }: LockScreenPlayerProps) => {
     progress,
     duration,
     volume,
+    shuffle,
+    repeat,
     togglePlay,
     nextSong,
     prevSong,
     setVolume,
+    toggleShuffle,
+    toggleRepeat,
+    seek,
   } = usePlayer();
 
   if (!currentSong) return null;
@@ -86,7 +92,7 @@ const LockScreenPlayer = ({ isOpen, onClose }: LockScreenPlayerProps) => {
 
           {/* Lock screen UI */}
           <motion.div
-            className="relative z-10 w-full max-w-sm mx-auto px-8"
+            className="relative z-10 w-full max-w-sm mx-auto px-6"
             initial={{ y: "100%", opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: "100%", opacity: 0 }}
@@ -105,15 +111,15 @@ const LockScreenPlayer = ({ isOpen, onClose }: LockScreenPlayerProps) => {
 
             {/* Time display (lock screen style) */}
             <motion.div
-              className="text-center mb-8"
+              className="text-center mb-6"
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...iosSpring, delay: 0.1 }}
             >
-              <div className="text-7xl font-extralight text-white tracking-tight">
+              <div className="text-6xl font-extralight text-white tracking-tight">
                 {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
               </div>
-              <div className="text-lg text-white/60 font-light mt-1">
+              <div className="text-base text-white/60 font-light mt-1">
                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               </div>
             </motion.div>
@@ -126,7 +132,7 @@ const LockScreenPlayer = ({ isOpen, onClose }: LockScreenPlayerProps) => {
               transition={{ ...iosSpring, delay: 0.2 }}
             >
               {/* Album art and info */}
-              <div className="flex items-center gap-4 mb-5">
+              <div className="flex items-center gap-4 mb-4">
                 {/* Album art with glow */}
                 <div className="relative">
                   <motion.div
@@ -184,31 +190,17 @@ const LockScreenPlayer = ({ isOpen, onClose }: LockScreenPlayerProps) => {
                     {currentSong.artist}
                   </motion.p>
                 </div>
-
-                {/* AirPlay button */}
-                <motion.button
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-white/60 hover:text-white"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  transition={iosBounce}
-                >
-                  <Airplay className="w-5 h-5" />
-                </motion.button>
               </div>
 
-              {/* Progress bar */}
+              {/* Progress bar - interactive */}
               <div className="mb-4">
-                <div className="relative h-1 bg-white/20 rounded-full overflow-hidden">
-                  <motion.div
-                    className="absolute inset-y-0 left-0 bg-white rounded-full"
-                    style={{ width: `${progressPercent}%` }}
-                    layoutId="lock-progress"
-                  />
-                  <motion.div
-                    className="absolute inset-y-0 left-0 bg-white/50 rounded-full blur-sm"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
+                <Slider
+                  value={[progress]}
+                  max={duration || 100}
+                  step={0.1}
+                  onValueChange={([value]) => seek(value)}
+                  className="[&_[role=slider]]:w-4 [&_[role=slider]]:h-4 [&_[role=slider]]:bg-white [&_[role=slider]]:border-0 [&_[data-radix-slider-track]]:h-1 [&_[data-radix-slider-track]]:bg-white/20 [&_[data-radix-slider-range]]:bg-white"
+                />
                 <div className="flex justify-between mt-2 text-xs text-white/50 font-medium">
                   <span>{formatTime(progress)}</span>
                   <span>-{formatTime(Math.max(0, duration - progress))}</span>
@@ -216,7 +208,19 @@ const LockScreenPlayer = ({ isOpen, onClose }: LockScreenPlayerProps) => {
               </div>
 
               {/* Playback controls */}
-              <div className="flex items-center justify-center gap-8">
+              <div className="flex items-center justify-center gap-6">
+                <motion.button
+                  onClick={toggleShuffle}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    shuffle ? 'bg-white/20 text-white' : 'text-white/50'
+                  }`}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.85 }}
+                  transition={iosBounce}
+                >
+                  <Shuffle className="w-4 h-4" />
+                </motion.button>
+
                 <motion.button
                   onClick={prevSong}
                   className="text-white/80 hover:text-white"
@@ -224,7 +228,7 @@ const LockScreenPlayer = ({ isOpen, onClose }: LockScreenPlayerProps) => {
                   whileTap={{ scale: 0.85 }}
                   transition={iosBounce}
                 >
-                  <SkipBack className="w-8 h-8" fill="currentColor" />
+                  <SkipBack className="w-7 h-7" fill="currentColor" />
                 </motion.button>
 
                 <motion.button
@@ -266,14 +270,26 @@ const LockScreenPlayer = ({ isOpen, onClose }: LockScreenPlayerProps) => {
                   whileTap={{ scale: 0.85 }}
                   transition={iosBounce}
                 >
-                  <SkipForward className="w-8 h-8" fill="currentColor" />
+                  <SkipForward className="w-7 h-7" fill="currentColor" />
+                </motion.button>
+
+                <motion.button
+                  onClick={toggleRepeat}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    repeat !== 'off' ? 'bg-white/20 text-white' : 'text-white/50'
+                  }`}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.85 }}
+                  transition={iosBounce}
+                >
+                  {repeat === 'one' ? <Repeat1 className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
                 </motion.button>
               </div>
             </motion.div>
 
             {/* Volume slider */}
             <motion.div
-              className="mt-6 glass-ultra rounded-2xl p-4"
+              className="mt-4 glass-ultra rounded-2xl p-4"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...iosSpring, delay: 0.4 }}
@@ -285,15 +301,14 @@ const LockScreenPlayer = ({ isOpen, onClose }: LockScreenPlayerProps) => {
                   onValueChange={([v]) => setVolume(v / 100)}
                   max={100}
                   step={1}
-                  className="flex-1"
+                  className="flex-1 [&_[role=slider]]:w-4 [&_[role=slider]]:h-4 [&_[role=slider]]:bg-white [&_[role=slider]]:border-0"
                 />
-                <ListMusic className="w-4 h-4 text-white/50" />
               </div>
             </motion.div>
 
             {/* Swipe hint */}
             <motion.div
-              className="mt-8 flex justify-center"
+              className="mt-6 flex justify-center"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}

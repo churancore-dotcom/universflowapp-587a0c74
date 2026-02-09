@@ -27,6 +27,15 @@ const PromoCodes = () => {
 
   useEffect(() => {
     fetchCodes();
+
+    // Realtime for promo codes
+    const channel = supabase
+      .channel('admin-promo-codes-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'promo_codes' }, fetchCodes)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'code_redemptions' }, fetchCodes)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchCodes = async () => {

@@ -89,6 +89,14 @@ const ContentModeration = () => {
 
   useEffect(() => {
     fetchReports();
+
+    // Realtime for content reports
+    const channel = supabase
+      .channel('admin-reports-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'content_reports' }, fetchReports)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchReports = async () => {

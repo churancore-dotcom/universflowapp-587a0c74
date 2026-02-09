@@ -178,12 +178,29 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [isPlaying]);
 
-  // Get next song index
+  // Get next song index - supports shuffle properly by tracking played songs
+  const shuffleHistoryRef = useRef<Set<number>>(new Set());
+  
   const getNextIndex = useCallback((currentIdx: number, queueLength: number, isShuffle: boolean, repeatMode: 'off' | 'all' | 'one'): number | null => {
     if (queueLength === 0) return null;
     
     if (isShuffle) {
-      return Math.floor(Math.random() * queueLength);
+      // Smart shuffle: avoid repeating until all songs played
+      if (shuffleHistoryRef.current.size >= queueLength) {
+        shuffleHistoryRef.current.clear();
+      }
+      shuffleHistoryRef.current.add(currentIdx);
+      
+      const available = Array.from({ length: queueLength }, (_, i) => i)
+        .filter(i => !shuffleHistoryRef.current.has(i));
+      
+      if (available.length === 0) {
+        // All played, start fresh
+        shuffleHistoryRef.current.clear();
+        return Math.floor(Math.random() * queueLength);
+      }
+      
+      return available[Math.floor(Math.random() * available.length)];
     }
     
     const nextIdx = (currentIdx + 1) % queueLength;
@@ -260,8 +277,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       // Move to next song immediately - no async operations
-      const nextIdx = getNextIndex(currentIndex, queue.length, shuffle, repeat);
-      if (nextIdx !== null) {
+      let nextIdx = getNextIndex(currentIndex, queue.length, shuffle, repeat);
+      
+      // If repeat is 'all' and we hit the end, loop back
+      if (nextIdx === null && repeat === 'all') {
+        nextIdx = 0;
+      }
+      
+      if (nextIdx !== null && queue.length > 0) {
         const nextSong = queue[nextIdx];
         
         // Check premium and show end-of-song ad for non-premium
@@ -276,7 +299,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setSongsPlayedSinceAd(prev => prev + 1);
         // Play next song immediately without any async delay
         playSongAtIndex(nextIdx, queue);
-      } else {
+      } else if (repeat === 'off' && queue.length > 0) {
+        // Stop at end of queue when repeat is off
         setIsPlaying(false);
         setProgress(0);
       }
@@ -626,14 +650,22 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const toggleShuffle = useCallback(() => {
-    setShuffle(prev => !prev);
+    setShuffle(prev => {
+      const newVal = !prev;
+      // Clear shuffle history when toggling
+      if (newVal) {
+        shuffleHistoryRef.current.clear();
+      }
+      return newVal;
+    });
   }, []);
 
   const toggleRepeat = useCallback(() => {
     setRepeat(prev => {
       const modes: ('off' | 'all' | 'one')[] = ['off', 'all', 'one'];
       const idx = modes.indexOf(prev);
-      return modes[(idx + 1) % modes.length];
+      const newMode = modes[(idx + 1) % modes.length];
+      return newMode;
     });
   }, []);
 
