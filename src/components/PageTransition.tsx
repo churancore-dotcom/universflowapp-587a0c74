@@ -1,5 +1,5 @@
 import { motion, Transition } from 'framer-motion';
-import { ReactNode } from 'react';
+import { ReactNode, forwardRef } from 'react';
 
 interface PageTransitionProps {
   children: ReactNode;
@@ -72,9 +72,10 @@ export const SheetTransition = ({ children, className = '' }: PageTransitionProp
 };
 
 // For fade transitions (auth, splash)
-export const FadeTransition = ({ children, className = '' }: PageTransitionProps) => {
+export const FadeTransition = forwardRef<HTMLDivElement, PageTransitionProps>(({ children, className = '' }, ref) => {
   return (
     <motion.div
+      ref={ref}
       className={className}
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
@@ -84,7 +85,8 @@ export const FadeTransition = ({ children, className = '' }: PageTransitionProps
       {children}
     </motion.div>
   );
-};
+});
+FadeTransition.displayName = 'FadeTransition';
 
 // For tab-style navigation (home, search, library) - smoother fade
 export const TabTransition = ({ children, className = '' }: PageTransitionProps) => {

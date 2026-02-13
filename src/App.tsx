@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { PlayerProvider, usePlayer } from "./contexts/PlayerContext";
 import { DownloadProvider } from "./contexts/DownloadContext";
 import SplashScreen from "./components/SplashScreen";
+import OfflinePlayerShell from "./components/OfflinePlayerShell";
 import MobileShell from "./components/MobileShell";
 import DownloadQueuePanel from "./components/DownloadQueuePanel";
 import PrerollAd from "./components/ads/PrerollAd";
@@ -58,8 +59,10 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isOffline } = useAuth();
   if (isLoading) return <div className="min-h-screen bg-background" />;
+  // If offline and no user, redirect to offline player (handled in AppContent)
+  if (!user && isOffline) return <Navigate to="/offline-player" replace />;
   if (!user) return <Navigate to="/auth" replace />;
   return <>{children}</>;
 };
@@ -74,13 +77,22 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AnimatedRoutes = () => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isOffline } = useAuth();
 
   return (
     <AnimatePresence mode="wait" initial={false}>
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={user ? <Navigate to="/home" replace /> : <Navigate to="/auth" replace />} />
-        <Route path="/auth" element={user ? <Navigate to="/home" replace /> : <Auth />} />
+        <Route path="/" element={
+          user ? <Navigate to="/home" replace /> : 
+          isOffline ? <Navigate to="/offline-player" replace /> : 
+          <Navigate to="/auth" replace />
+        } />
+        <Route path="/auth" element={
+          user ? <Navigate to="/home" replace /> : 
+          isOffline ? <Navigate to="/offline-player" replace /> : 
+          <Auth />
+        } />
+        <Route path="/offline-player" element={<OfflinePlayerShell />} />
         <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
         <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
