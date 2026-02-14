@@ -87,7 +87,7 @@ const BottomNav = memo(function BottomNav() {
                 {/* Active indicator dot */}
                 {isActive && (
                   <motion.div
-                    className="absolute -top-0.5 w-1 h-1 rounded-full bg-rose-500"
+                    className="absolute -top-0.5 w-1 h-1 rounded-full bg-primary"
                     layoutId="nav-indicator"
                     transition={{ type: "spring", stiffness: 500, damping: 30 }}
                   />
@@ -101,7 +101,7 @@ const BottomNav = memo(function BottomNav() {
                 >
                   <Icon
                     className={`w-6 h-6 transition-colors duration-200 ${
-                      isActive ? 'text-rose-500' : 'text-white/40'
+                      isActive ? 'text-primary' : 'text-muted-foreground'
                     }`}
                     strokeWidth={isActive ? 2.2 : 1.8}
                     fill={isActive ? 'currentColor' : 'none'}
@@ -110,7 +110,7 @@ const BottomNav = memo(function BottomNav() {
                 
                 <span
                   className={`text-[10px] font-medium transition-colors duration-200 ${
-                    isActive ? 'text-rose-500' : 'text-white/40'
+                    isActive ? 'text-primary' : 'text-muted-foreground'
                   }`}
                 >
                   {item.label}

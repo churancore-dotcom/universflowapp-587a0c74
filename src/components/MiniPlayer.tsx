@@ -145,11 +145,13 @@ const MiniPlayer = memo(function MiniPlayer() {
         }}
       >
         <motion.div
-          className="rounded-xl overflow-hidden bg-muted/95 relative touch-manipulation"
+          className="rounded-2xl overflow-hidden relative touch-manipulation"
           style={{
-            backdropFilter: 'blur(40px)',
-            WebkitBackdropFilter: 'blur(40px)',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+            background: 'rgba(28, 28, 30, 0.85)',
+            backdropFilter: 'blur(40px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.06)',
+            border: '0.5px solid rgba(255, 255, 255, 0.10)',
           }}
           drag
           dragDirectionLock
