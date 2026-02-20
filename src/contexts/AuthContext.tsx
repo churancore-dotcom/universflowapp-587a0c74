@@ -66,12 +66,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAdminStatus = async (userId: string) => {
     const { data } = await supabase
-      .from('profiles')
-      .select('is_admin')
+      .from('user_roles')
+      .select('role')
       .eq('user_id', userId)
-      .single();
+      .eq('role', 'admin')
+      .maybeSingle();
     
-    setIsAdmin(data?.is_admin ?? false);
+    setIsAdmin(!!data);
   };
 
   const signUp = async (email: string, password: string) => {
@@ -110,19 +111,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Check if admin and ensure share_code exists for existing users
     if (data.user) {
+      // Check share_code
       const { data: profile } = await supabase
         .from('profiles')
-        .select('is_admin, share_code')
+        .select('share_code')
         .eq('user_id', data.user.id)
         .single();
       
-      // Generate share_code for existing users who don't have one
       if (profile && !profile.share_code) {
         const newShareCode = Math.random().toString(36).substring(2, 10);
         await supabase.from('profiles').update({ share_code: newShareCode }).eq('user_id', data.user.id);
       }
       
-      const adminStatus = profile?.is_admin ?? false;
+      // Check admin via user_roles
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', data.user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+      
+      const adminStatus = !!roleData;
       setIsAdmin(adminStatus);
       return { error: null, isAdmin: adminStatus };
     }

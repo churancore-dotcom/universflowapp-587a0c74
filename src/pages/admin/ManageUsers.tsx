@@ -67,6 +67,14 @@ const ManageUsers = () => {
 
       if (profilesError) throw profilesError;
 
+      // Fetch admin roles
+      const { data: adminRoles } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .eq('role', 'admin');
+
+      const adminUserIds = new Set((adminRoles || []).map(r => r.user_id));
+
       // Fetch library counts
       const { data: libraryCounts } = await supabase
         .from('user_library')
@@ -93,6 +101,7 @@ const ManageUsers = () => {
 
       const usersWithCounts = (profiles || []).map(profile => ({
         ...profile,
+        is_admin: adminUserIds.has(profile.user_id),
         library_count: libraryMap[profile.user_id] || 0,
         playlist_count: playlistMap[profile.user_id] || 0,
       }));
@@ -125,12 +134,21 @@ const ManageUsers = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ is_admin: newStatus })
-        .eq('id', user.id);
-
-      if (error) throw error;
+      if (newStatus) {
+        // Grant admin role
+        const { error } = await supabase
+          .from('user_roles')
+          .insert({ user_id: user.user_id, role: 'admin' });
+        if (error) throw error;
+      } else {
+        // Revoke admin role
+        const { error } = await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', user.user_id)
+          .eq('role', 'admin');
+        if (error) throw error;
+      }
 
       toast.success(newStatus ? 'Admin privileges granted' : 'Admin privileges revoked');
       fetchUsers();

@@ -659,6 +659,27 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_subscriptions: {
         Row: {
           created_at: string
@@ -711,12 +732,20 @@ export type Database = {
           username: string
         }[]
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       redeem_promo_code: {
         Args: { p_code: string; p_user_id: string }
         Returns: Json
       }
     }
     Enums: {
+      app_role: "admin" | "moderator" | "user"
       subscription_platform: "android" | "ios" | "web" | "donation"
       subscription_status: "active" | "expired" | "cancelled" | "pending"
       subscription_type: "free" | "premium_monthly" | "premium_yearly"
@@ -847,6 +876,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "moderator", "user"],
       subscription_platform: ["android", "ios", "web", "donation"],
       subscription_status: ["active", "expired", "cancelled", "pending"],
       subscription_type: ["free", "premium_monthly", "premium_yearly"],
