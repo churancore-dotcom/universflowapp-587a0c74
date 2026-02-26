@@ -23,9 +23,9 @@ const formatTime = (seconds: number) => {
 
 // Song change transition variants
 const songInfoVariants = {
-  initial: { opacity: 0, y: 20, filter: 'blur(4px)' },
-  animate: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.4, ease: [0.25, 0.1, 0.25, 1] as const } },
-  exit: { opacity: 0, y: -15, filter: 'blur(4px)', transition: { duration: 0.2 } },
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] as const } },
+  exit: { opacity: 0, y: -15, transition: { duration: 0.15 } },
 };
 
 const albumArtVariants = {
