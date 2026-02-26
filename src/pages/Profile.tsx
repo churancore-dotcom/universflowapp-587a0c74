@@ -10,7 +10,7 @@ import MiniPlayer from '@/components/MiniPlayer';
 import FullscreenPlayer from '@/components/FullscreenPlayer';
 import ListeningStats from '@/components/ListeningStats';
 import RedeemCodeModal from '@/components/RedeemCodeModal';
-import { SheetTransition } from '@/components/PageTransition';
+import { TabTransition } from '@/components/PageTransition';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
@@ -113,7 +113,7 @@ const Profile = () => {
   const canChangeUsername = !profileData.username_changed;
 
   return (
-    <SheetTransition>
+    <TabTransition>
       <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
         {/* Header */}
         <header
@@ -292,7 +292,7 @@ const Profile = () => {
         {showStats && <ListeningStats isOpen={showStats} onClose={() => setShowStats(false)} />}
         {showRedeemCode && <RedeemCodeModal isOpen={showRedeemCode} onClose={() => setShowRedeemCode(false)} />}
       </div>
-    </SheetTransition>
+    </TabTransition>
   );
 };
 
