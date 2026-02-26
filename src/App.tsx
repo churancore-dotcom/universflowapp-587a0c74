@@ -98,7 +98,7 @@ const AnimatedRoutes = () => {
   return (
     <NavDirectionProvider>
     <Suspense fallback={<LazyFallback />}>
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence mode="popLayout" initial={false}>
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={
             user ? <Navigate to="/home" replace /> : 

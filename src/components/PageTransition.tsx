@@ -91,10 +91,9 @@ export const FadeTransition = forwardRef<HTMLDivElement, PageTransitionProps>(({
 });
 FadeTransition.displayName = 'FadeTransition';
 
-// Premium iOS-native tab transition — clean, fast, no blur jank
+// Premium iOS-native tab transition — instant, no wait
 export const TabTransition = ({ children, className = '' }: PageTransitionProps) => {
   const direction = useNavDirection();
-  const offset = direction * 50;
 
   return (
     <motion.div
@@ -102,25 +101,21 @@ export const TabTransition = ({ children, className = '' }: PageTransitionProps)
       style={{ willChange: 'transform, opacity' }}
       initial={{ 
         opacity: 0, 
-        x: offset,
-        scale: 0.97,
+        y: 8,
       }}
       animate={{ 
         opacity: 1, 
-        x: 0,
-        scale: 1,
+        y: 0,
       }}
       exit={{ 
-        opacity: 0, 
-        x: direction * -25,
-        scale: 0.98,
+        opacity: 0,
+        position: 'absolute',
+        inset: 0,
       }}
       transition={{
-        type: "spring",
-        stiffness: 500,
-        damping: 40,
-        mass: 0.4,
-        opacity: { duration: 0.18, ease: [0.4, 0, 0.2, 1] },
+        type: "tween",
+        duration: 0.15,
+        ease: [0.25, 0.1, 0.25, 1],
       }}
     >
       {children}
