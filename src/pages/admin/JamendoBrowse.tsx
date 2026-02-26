@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Music, Download, CheckCircle2, Loader2, Globe, Sparkles, Zap } from 'lucide-react';
+import { Search, Music, Download, CheckCircle2, Loader2, Globe, Sparkles, Zap, Clock, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,11 +27,15 @@ const GENRES = [
   { id: 'rock', emoji: '🎸' },
   { id: 'electronic', emoji: '🎧' },
   { id: 'hiphop', emoji: '🎤' },
+  { id: 'phonk', emoji: '👹' },
+  { id: 'indian', emoji: '🇮🇳', tags: 'indian+bollywood+hindi' },
+  { id: 'bollywood', emoji: '🎬', tags: 'bollywood+filmi' },
+  { id: 'punjabi', emoji: '🎶', tags: 'punjabi+bhangra' },
   { id: 'jazz', emoji: '🎷' },
   { id: 'classical', emoji: '🎻' },
   { id: 'ambient', emoji: '🌙' },
+  { id: 'lofi', emoji: '☕' },
   { id: 'blues', emoji: '🎵' },
-  { id: 'country', emoji: '🤠' },
   { id: 'folk', emoji: '🪕' },
   { id: 'funk', emoji: '🕺' },
   { id: 'latin', emoji: '💃' },
@@ -39,10 +43,12 @@ const GENRES = [
   { id: 'reggae', emoji: '🏝️' },
   { id: 'rnb', emoji: '💜' },
   { id: 'soul', emoji: '❤️' },
-  { id: 'lofi', emoji: '☕' },
   { id: 'indie', emoji: '🎹' },
   { id: 'dance', emoji: '💿' },
   { id: 'soundtrack', emoji: '🎬' },
+  { id: 'country', emoji: '🤠' },
+  { id: 'world', emoji: '🌍' },
+  { id: 'trap', emoji: '🔥', tags: 'trap+bass' },
 ];
 
 const JamendoBrowse = () => {
@@ -57,19 +63,26 @@ const JamendoBrowse = () => {
   const [bulkImporting, setBulkImporting] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, genre: '' });
 
+  const [sortBy, setSortBy] = useState<'popularity' | 'latest'>('popularity');
+
   const searchTracks = useCallback(async (newSearch = true) => {
     setLoading(true);
     const currentOffset = newSearch ? 0 : offset;
     if (newSearch) setOffset(0);
+
+    // Find genre config to get custom tags
+    const genreConfig = GENRES.find(g => g.id === selectedGenre);
+    const tags = genreConfig?.tags || selectedGenre || undefined;
 
     try {
       const { data, error } = await supabase.functions.invoke('jamendo-search', {
         body: {
           action: query ? 'search' : 'popular',
           query: query || undefined,
-          genre: selectedGenre || undefined,
+          genre: tags,
           limit: 20,
           offset: currentOffset,
+          order: sortBy === 'latest' ? 'releasedate' : 'popularity_total',
         },
       });
 
@@ -86,7 +99,7 @@ const JamendoBrowse = () => {
     } finally {
       setLoading(false);
     }
-  }, [query, selectedGenre, offset]);
+  }, [query, selectedGenre, offset, sortBy]);
 
   const importTrack = async (track: JamendoTrack) => {
     if (imported.has(track.jamendo_id)) return;
@@ -165,11 +178,15 @@ const JamendoBrowse = () => {
     setBulkProgress({ current: 0, total: 0, genre: genreId });
 
     try {
+      // Find genre config for custom tags
+      const genreConfig = GENRES.find(g => g.id === genreId);
+      const tags = genreConfig?.tags || genreId;
+
       // Fetch 50 popular tracks for this genre
       const { data, error } = await supabase.functions.invoke('jamendo-search', {
         body: {
           action: 'bulk_genre',
-          genre: genreId,
+          genre: tags,
           limit: 50,
           offset: 0,
         },
@@ -368,6 +385,26 @@ const JamendoBrowse = () => {
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
         </Button>
       </form>
+
+      {/* Sort Toggle */}
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          variant={sortBy === 'popularity' ? 'default' : 'outline'}
+          onClick={() => setSortBy('popularity')}
+          className="gap-1"
+        >
+          <TrendingUp className="w-3 h-3" /> Popular
+        </Button>
+        <Button
+          size="sm"
+          variant={sortBy === 'latest' ? 'default' : 'outline'}
+          onClick={() => setSortBy('latest')}
+          className="gap-1"
+        >
+          <Clock className="w-3 h-3" /> Latest
+        </Button>
+      </div>
 
       {/* Genre Filters for manual browse */}
       <div className="flex flex-wrap gap-2">

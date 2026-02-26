@@ -16,7 +16,7 @@ serve(async (req) => {
       throw new Error('JAMENDO_CLIENT_ID is not configured');
     }
 
-    const { action, query, genre, limit = 20, offset = 0 } = await req.json();
+    const { action, query, genre, limit = 20, offset = 0, order = 'popularity_total' } = await req.json();
 
     let url: string;
 
@@ -28,22 +28,27 @@ serve(async (req) => {
         offset: String(offset),
         include: 'musicinfo',
         audioformat: 'mp32',
+        order: order,
       });
       if (query) params.set('search', query);
-      if (genre) params.set('tags', genre);
+      if (genre) {
+        // Support multi-tag search like "indian+bollywood+hindi"
+        const tags = genre.replace(/\+/g, ' ');
+        params.set('tags', tags);
+      }
       url = `https://api.jamendo.com/v3.0/tracks/?${params}`;
     } else if (action === 'genres') {
       const genres = [
-        'pop', 'rock', 'electronic', 'hiphop', 'jazz', 'classical', 'ambient',
-        'blues', 'country', 'folk', 'funk', 'latin', 'metal', 'punk', 'reggae',
-        'rnb', 'soul', 'world', 'soundtrack', 'lounge', 'indie', 'dance'
+        'pop', 'rock', 'electronic', 'hiphop', 'phonk', 'indian', 'bollywood',
+        'punjabi', 'jazz', 'classical', 'ambient', 'blues', 'country', 'folk',
+        'funk', 'latin', 'metal', 'punk', 'reggae', 'rnb', 'soul', 'world',
+        'soundtrack', 'lounge', 'indie', 'dance', 'trap'
       ];
       return new Response(JSON.stringify({ genres }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     } else if (action === 'popular' || action === 'bulk_genre') {
-      // bulk_genre fetches up to 200 popular tracks for a given genre
-      const fetchLimit = action === 'bulk_genre' ? Math.min(limit, 200) : Math.min(limit, 200);
+      const fetchLimit = Math.min(limit, 200);
       const params = new URLSearchParams({
         client_id: clientId,
         format: 'json',
@@ -51,10 +56,13 @@ serve(async (req) => {
         offset: String(offset),
         include: 'musicinfo',
         audioformat: 'mp32',
-        order: 'popularity_total',
+        order: order || 'popularity_total',
         boost: 'popularity_total',
       });
-      if (genre) params.set('tags', genre);
+      if (genre) {
+        const tags = genre.replace(/\+/g, ' ');
+        params.set('tags', tags);
+      }
       url = `https://api.jamendo.com/v3.0/tracks/?${params}`;
     } else {
       throw new Error('Invalid action');
