@@ -16,7 +16,7 @@ serve(async (req) => {
       throw new Error('JAMENDO_CLIENT_ID is not configured');
     }
 
-    const { action, query, genre, limit = 20, offset = 0, ids } = await req.json();
+    const { action, query, genre, limit = 20, offset = 0 } = await req.json();
 
     let url: string;
 
@@ -24,7 +24,7 @@ serve(async (req) => {
       const params = new URLSearchParams({
         client_id: clientId,
         format: 'json',
-        limit: String(limit),
+        limit: String(Math.min(limit, 200)),
         offset: String(offset),
         include: 'musicinfo',
         audioformat: 'mp32',
@@ -33,8 +33,6 @@ serve(async (req) => {
       if (genre) params.set('tags', genre);
       url = `https://api.jamendo.com/v3.0/tracks/?${params}`;
     } else if (action === 'genres') {
-      url = `https://api.jamendo.com/v3.0/tracks/?client_id=${clientId}&format=json&limit=1&include=musicinfo&groupby=artist_id`;
-      // We'll return a static list of popular genres instead
       const genres = [
         'pop', 'rock', 'electronic', 'hiphop', 'jazz', 'classical', 'ambient',
         'blues', 'country', 'folk', 'funk', 'latin', 'metal', 'punk', 'reggae',
@@ -43,11 +41,13 @@ serve(async (req) => {
       return new Response(JSON.stringify({ genres }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
-    } else if (action === 'popular') {
+    } else if (action === 'popular' || action === 'bulk_genre') {
+      // bulk_genre fetches up to 200 popular tracks for a given genre
+      const fetchLimit = action === 'bulk_genre' ? Math.min(limit, 200) : Math.min(limit, 200);
       const params = new URLSearchParams({
         client_id: clientId,
         format: 'json',
-        limit: String(limit),
+        limit: String(fetchLimit),
         offset: String(offset),
         include: 'musicinfo',
         audioformat: 'mp32',
@@ -73,7 +73,7 @@ serve(async (req) => {
       duration: t.duration ? Number(t.duration) : null,
       audio_url: t.audio || t.audiodownload || '',
       cover_url: t.album_image || t.image || null,
-      genre: t.musicinfo?.tags?.genres?.[0] || null,
+      genre: t.musicinfo?.tags?.genres?.[0] || genre || null,
       mood: t.musicinfo?.tags?.vartags?.[0] || null,
       license: t.license_ccurl || 'Creative Commons',
     }));

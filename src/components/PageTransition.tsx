@@ -8,9 +8,9 @@ interface PageTransitionProps {
 
 const pageSpring: Transition = {
   type: "spring" as const,
-  stiffness: 380,
-  damping: 35,
-  mass: 0.8,
+  stiffness: 400,
+  damping: 38,
+  mass: 0.6,
 };
 
 const pageTiming: Transition = {
@@ -93,27 +93,10 @@ export const TabTransition = ({ children, className = '' }: PageTransitionProps)
   return (
     <motion.div
       className={className}
-      initial={{ 
-        opacity: 0,
-        y: 12,
-        filter: 'blur(4px)',
-      }}
-      animate={{ 
-        opacity: 1,
-        y: 0,
-        filter: 'blur(0px)',
-      }}
-      exit={{ 
-        opacity: 0,
-        y: -8,
-        filter: 'blur(4px)',
-      }}
-      transition={{
-        type: "spring" as const,
-        stiffness: 400,
-        damping: 32,
-        filter: { duration: 0.25 },
-      }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
       {children}
     </motion.div>
