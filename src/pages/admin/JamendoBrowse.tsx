@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Music, Download, CheckCircle2, Loader2, Globe, Sparkles, Filter } from 'lucide-react';
+import { Search, Music, Download, CheckCircle2, Loader2, Globe, Sparkles, Zap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -22,9 +23,26 @@ interface JamendoTrack {
 }
 
 const GENRES = [
-  'pop', 'rock', 'electronic', 'hiphop', 'jazz', 'classical', 'ambient',
-  'blues', 'country', 'folk', 'funk', 'latin', 'metal', 'reggae',
-  'rnb', 'soul', 'world', 'soundtrack', 'lounge', 'indie', 'dance'
+  { id: 'pop', emoji: '🎤' },
+  { id: 'rock', emoji: '🎸' },
+  { id: 'electronic', emoji: '🎧' },
+  { id: 'hiphop', emoji: '🎤' },
+  { id: 'jazz', emoji: '🎷' },
+  { id: 'classical', emoji: '🎻' },
+  { id: 'ambient', emoji: '🌙' },
+  { id: 'blues', emoji: '🎵' },
+  { id: 'country', emoji: '🤠' },
+  { id: 'folk', emoji: '🪕' },
+  { id: 'funk', emoji: '🕺' },
+  { id: 'latin', emoji: '💃' },
+  { id: 'metal', emoji: '🤘' },
+  { id: 'reggae', emoji: '🏝️' },
+  { id: 'rnb', emoji: '💜' },
+  { id: 'soul', emoji: '❤️' },
+  { id: 'lofi', emoji: '☕' },
+  { id: 'indie', emoji: '🎹' },
+  { id: 'dance', emoji: '💿' },
+  { id: 'soundtrack', emoji: '🎬' },
 ];
 
 const JamendoBrowse = () => {
@@ -37,6 +55,7 @@ const JamendoBrowse = () => {
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, genre: '' });
 
   const searchTracks = useCallback(async (newSearch = true) => {
     setLoading(true);
@@ -63,7 +82,7 @@ const JamendoBrowse = () => {
       }
       setTotal(data.total);
     } catch (err: any) {
-      toast.error('Failed to search Jamendo: ' + (err.message || 'Unknown error'));
+      toast.error('Failed to search: ' + (err.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -87,11 +106,14 @@ const JamendoBrowse = () => {
       });
 
       if (error) throw error;
-
       setImported(prev => new Set(prev).add(track.jamendo_id));
       toast.success(`Imported "${track.title}"`);
     } catch (err: any) {
-      toast.error(`Failed to import: ${err.message}`);
+      if (err.message?.includes('duplicate') || err.code === '23505') {
+        setImported(prev => new Set(prev).add(track.jamendo_id));
+      } else {
+        toast.error(`Failed: ${err.message}`);
+      }
     } finally {
       setImporting(prev => {
         const next = new Set(prev);
@@ -127,12 +149,113 @@ const JamendoBrowse = () => {
           setImported(prev => new Set(prev).add(track.jamendo_id));
         }
       } catch {
-        // continue with next
+        // continue
       }
     }
 
     setBulkImporting(false);
     toast.success(`Imported ${successCount} of ${toImport.length} tracks`);
+  };
+
+  // ⚡ ONE-CLICK GENRE BULK IMPORT — fetches 50 popular tracks for a genre and imports them all
+  const bulkImportGenre = async (genreId: string) => {
+    if (bulkImporting) return;
+
+    setBulkImporting(true);
+    setBulkProgress({ current: 0, total: 0, genre: genreId });
+
+    try {
+      // Fetch 50 popular tracks for this genre
+      const { data, error } = await supabase.functions.invoke('jamendo-search', {
+        body: {
+          action: 'bulk_genre',
+          genre: genreId,
+          limit: 50,
+          offset: 0,
+        },
+      });
+
+      if (error) throw error;
+
+      const fetchedTracks: JamendoTrack[] = data.tracks || [];
+      if (fetchedTracks.length === 0) {
+        toast.error(`No tracks found for ${genreId}`);
+        setBulkImporting(false);
+        return;
+      }
+
+      setBulkProgress({ current: 0, total: fetchedTracks.length, genre: genreId });
+      let successCount = 0;
+      let skipCount = 0;
+
+      // Batch insert in chunks of 10 for speed
+      const chunkSize = 10;
+      for (let i = 0; i < fetchedTracks.length; i += chunkSize) {
+        const chunk = fetchedTracks.slice(i, i + chunkSize);
+        const insertData = chunk.map(t => ({
+          title: t.title,
+          artist: t.artist,
+          audio_url: t.audio_url,
+          cover_url: t.cover_url,
+          genre: t.genre || genreId,
+          mood: t.mood,
+          album: t.album,
+          duration: t.duration,
+          is_visible: true,
+        }));
+
+        try {
+          const { error: insertError, data: insertedData } = await supabase
+            .from('songs')
+            .insert(insertData)
+            .select('id');
+
+          if (!insertError && insertedData) {
+            successCount += insertedData.length;
+          } else if (insertError) {
+            // If batch fails (duplicate), try individual inserts
+            for (const track of chunk) {
+              try {
+                const { error: singleError } = await supabase.from('songs').insert({
+                  title: track.title,
+                  artist: track.artist,
+                  audio_url: track.audio_url,
+                  cover_url: track.cover_url,
+                  genre: track.genre || genreId,
+                  mood: track.mood,
+                  album: track.album,
+                  duration: track.duration,
+                  is_visible: true,
+                });
+                if (!singleError) successCount++;
+                else skipCount++;
+              } catch {
+                skipCount++;
+              }
+            }
+          }
+        } catch {
+          skipCount += chunk.length;
+        }
+
+        setBulkProgress(prev => ({ ...prev, current: Math.min(i + chunkSize, fetchedTracks.length) }));
+      }
+
+      // Mark all as imported
+      fetchedTracks.forEach(t => {
+        setImported(prev => new Set(prev).add(t.jamendo_id));
+      });
+
+      toast.success(
+        `🎉 ${genreId.toUpperCase()}: Imported ${successCount} tracks` +
+        (skipCount > 0 ? ` (${skipCount} duplicates skipped)` : '')
+      );
+    } catch (err: any) {
+      toast.error(`Failed: ${err.message}`);
+    } finally {
+      setBulkImporting(false);
+      setBulkProgress({ current: 0, total: 0, genre: '' });
+    }
   };
 
   const loadMore = () => {
@@ -163,10 +286,10 @@ const JamendoBrowse = () => {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Globe className="w-6 h-6 text-primary" />
-            Jamendo Music Library
+            Music Library
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Browse and import free Creative Commons music
+            Browse & import free Creative Commons music — one click per genre!
           </p>
         </div>
         {tracks.length > 0 && (
@@ -179,6 +302,55 @@ const JamendoBrowse = () => {
             Import All ({tracks.filter(t => !imported.has(t.jamendo_id)).length})
           </Button>
         )}
+      </motion.div>
+
+      {/* ⚡ QUICK GENRE IMPORT — One-click buttons */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="rounded-2xl p-4 space-y-3"
+        style={{
+          background: 'linear-gradient(135deg, rgba(255,45,85,0.08), rgba(191,90,242,0.08))',
+          border: '1px solid rgba(255,255,255,0.08)',
+        }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <Zap className="w-5 h-5 text-primary" />
+          <h2 className="text-base font-bold">Quick Genre Import</h2>
+          <span className="text-xs text-muted-foreground">Click a genre → 50 songs imported instantly!</span>
+        </div>
+
+        {/* Progress bar during bulk import */}
+        {bulkImporting && bulkProgress.total > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium capitalize">Importing {bulkProgress.genre}...</span>
+              <span className="text-muted-foreground">{bulkProgress.current}/{bulkProgress.total}</span>
+            </div>
+            <Progress value={(bulkProgress.current / bulkProgress.total) * 100} className="h-2" />
+          </div>
+        )}
+
+        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-2">
+          {GENRES.map(({ id, emoji }) => (
+            <motion.button
+              key={id}
+              onClick={() => bulkImportGenre(id)}
+              disabled={bulkImporting}
+              className="flex flex-col items-center gap-1 p-2.5 rounded-xl transition-all disabled:opacity-40"
+              style={{
+                background: bulkProgress.genre === id ? 'rgba(255,45,85,0.2)' : 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.93 }}
+            >
+              <span className="text-xl">{emoji}</span>
+              <span className="text-[10px] font-semibold capitalize text-foreground/80">{id}</span>
+            </motion.button>
+          ))}
+        </div>
       </motion.div>
 
       {/* Search */}
@@ -197,7 +369,7 @@ const JamendoBrowse = () => {
         </Button>
       </form>
 
-      {/* Genre Filters */}
+      {/* Genre Filters for manual browse */}
       <div className="flex flex-wrap gap-2">
         <Badge
           variant={selectedGenre === '' ? 'default' : 'outline'}
@@ -206,14 +378,14 @@ const JamendoBrowse = () => {
         >
           <Sparkles className="w-3 h-3 mr-1" /> All
         </Badge>
-        {GENRES.map(g => (
+        {GENRES.map(({ id }) => (
           <Badge
-            key={g}
-            variant={selectedGenre === g ? 'default' : 'outline'}
+            key={id}
+            variant={selectedGenre === id ? 'default' : 'outline'}
             className="cursor-pointer capitalize"
-            onClick={() => { setSelectedGenre(g === selectedGenre ? '' : g); }}
+            onClick={() => { setSelectedGenre(id === selectedGenre ? '' : id); }}
           >
-            {g}
+            {id}
           </Badge>
         ))}
       </div>
@@ -230,7 +402,6 @@ const JamendoBrowse = () => {
               transition={{ delay: i * 0.02 }}
               className="flex items-center gap-3 p-3 rounded-xl bg-card/50 border border-border/30 hover:bg-card/80 transition-colors"
             >
-              {/* Cover */}
               <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                 {track.cover_url ? (
                   <img src={track.cover_url} alt={track.title} className="w-full h-full object-cover" loading="lazy" />
@@ -241,7 +412,6 @@ const JamendoBrowse = () => {
                 )}
               </div>
 
-              {/* Info */}
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">{track.title}</p>
                 <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
@@ -251,7 +421,6 @@ const JamendoBrowse = () => {
                 </div>
               </div>
 
-              {/* Preview */}
               <audio
                 src={track.audio_url}
                 controls
@@ -259,7 +428,6 @@ const JamendoBrowse = () => {
                 className="hidden sm:block h-8 w-40 flex-shrink-0"
               />
 
-              {/* Import button */}
               <Button
                 size="sm"
                 variant={imported.has(track.jamendo_id) ? 'ghost' : 'default'}
@@ -282,7 +450,7 @@ const JamendoBrowse = () => {
         {tracks.length === 0 && !loading && (
           <div className="text-center py-16 text-muted-foreground">
             <Globe className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="text-lg font-medium">Search or browse by genre</p>
+            <p className="text-lg font-medium">Search or use Quick Genre Import above</p>
             <p className="text-sm">Thousands of free Creative Commons tracks available</p>
           </div>
         )}

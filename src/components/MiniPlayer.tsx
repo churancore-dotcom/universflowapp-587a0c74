@@ -10,9 +10,9 @@ const SWIPE_HORIZONTAL_THRESHOLD = 80;
 
 // Song info crossfade animation
 const songInfoVariants = {
-  initial: { opacity: 0, x: 20, filter: 'blur(4px)' },
-  animate: { opacity: 1, x: 0, filter: 'blur(0px)', transition: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] as const } },
-  exit: { opacity: 0, x: -20, filter: 'blur(4px)', transition: { duration: 0.15 } },
+  initial: { opacity: 0, x: 20 },
+  animate: { opacity: 1, x: 0, transition: { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] as const } },
+  exit: { opacity: 0, x: -20, transition: { duration: 0.12 } },
 };
 
 const albumArtVariants = {
