@@ -23,15 +23,21 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         navigateFallbackDenylist: [/^\/~oauth/],
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // NEVER let the service worker touch auth requests
+        navigateFallback: undefined,
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            // Cache Supabase REST/storage but EXCLUDE auth endpoints
+            urlPattern: ({ url }) => {
+              return url.hostname.endsWith('.supabase.co') && 
+                     !url.pathname.startsWith('/auth/');
+            },
             handler: "NetworkFirst",
             options: {
               cacheName: "supabase-cache",
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24, // 24 hours
+                maxAgeSeconds: 60 * 60 * 24,
               },
             },
           },

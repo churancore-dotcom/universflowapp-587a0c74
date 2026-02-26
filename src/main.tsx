@@ -6,6 +6,18 @@ import "./index.css";
 // Initialize Median detection globals
 import "@/lib/median";
 
+// Force clear stale service worker auth caches
+if ('caches' in window) {
+  caches.open('supabase-cache').then(cache => {
+    cache.keys().then(keys => {
+      keys.forEach(request => {
+        if (request.url.includes('/auth/')) {
+          cache.delete(request);
+        }
+      });
+    });
+  }).catch(() => {});
+}
 // WebView compatibility: polyfill for older WebViews
 if (typeof window !== 'undefined') {
   // Polyfill for requestAnimationFrame (needed in some old WebViews)
