@@ -1,4 +1,4 @@
-import { useState, memo } from 'react';
+import { useState, memo, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -77,8 +77,8 @@ const AdminLayout = () => {
     setSidebarOpen(false);
   };
 
-  const SidebarContent = () => (
-    <>
+  const SidebarContent = forwardRef<HTMLDivElement>((_, ref) => (
+    <div ref={ref} className="flex flex-col h-full">
       {/* Header */}
       <div className="p-4 md:p-6 border-b border-white/5">
         <div className="flex items-center justify-between">
@@ -91,7 +91,6 @@ const AdminLayout = () => {
               <p className="text-xs text-muted-foreground">Admin Panel</p>
             </div>
           </div>
-          {/* Close button on mobile */}
           <button
             className="md:hidden p-2 rounded-lg hover:bg-white/10 transition-colors"
             onClick={() => setSidebarOpen(false)}
@@ -106,7 +105,6 @@ const AdminLayout = () => {
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;
-
           return (
             <button
               key={item.path}
@@ -144,8 +142,8 @@ const AdminLayout = () => {
           <span>Logout</span>
         </button>
       </div>
-    </>
-  );
+    </div>
+  ));
 
   return (
     <div className="min-h-screen bg-background flex">
