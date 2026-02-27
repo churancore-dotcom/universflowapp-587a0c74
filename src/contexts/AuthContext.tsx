@@ -117,6 +117,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error: error as Error | null };
   };
 
+  const signInViaXhr = async (email: string, password: string) => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    return await new Promise<{ access_token: string; refresh_token: string; user: { id: string } }>((resolve, reject) => {
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${supabaseUrl}/auth/v1/token?grant_type=password`, true);
+        xhr.timeout = 12000;
+
+        xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+        xhr.setRequestHeader('apikey', publishableKey);
+        xhr.setRequestHeader('Authorization', `Bearer ${publishableKey}`);
+
+        xhr.onload = () => {
+          try {
+            const response = JSON.parse(xhr.responseText || '{}');
+            if (xhr.status >= 200 && xhr.status < 300 && response?.access_token && response?.refresh_token) {
+              resolve(response);
+              return;
+            }
+            reject(new Error(response?.error_description || response?.msg || 'Login failed'));
+          } catch {
+            reject(new Error('Invalid login response'));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('NetworkError: XHR login failed'));
+        xhr.ontimeout = () => reject(new Error('Timeout: XHR login request timed out'));
+
+        xhr.send(JSON.stringify({ email, password }));
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error('XHR login setup failed'));
+      }
+    });
+  };
+
   const signIn = async (email: string, password: string) => {
     const maxRetries = 2;
     let lastError: Error | null = null;
@@ -177,7 +214,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         console.error('signIn exception:', asError);
-        return { error: asError };
+        lastError = asError;
+        break;
+      }
+    }
+
+    if (lastError && isNetworkErrorMessage(lastError.message)) {
+      try {
+        console.warn('Trying XHR fallback login...');
+        const session = await signInViaXhr(email, password);
+
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+
+        if (sessionError) {
+          console.error('setSession failed after XHR fallback:', sessionError);
+          return { error: sessionError as Error };
+        }
+
+        void ensureShareCode(session.user.id);
+        const isUserAdmin = await resolveAdminStatus(session.user.id);
+        return { error: null, isAdmin: isUserAdmin };
+      } catch (xhrError) {
+        const fallbackError = xhrError instanceof Error ? xhrError : new Error('Login failed');
+        console.error('XHR fallback login failed:', fallbackError);
+        return { error: fallbackError };
       }
     }
 
