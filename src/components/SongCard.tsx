@@ -53,15 +53,20 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
 
   return (
     <div
-      className="group relative flex-shrink-0 w-[160px] snap-start"
+      className="group relative flex-shrink-0 w-[170px] snap-start"
       style={{ animationDelay: `${index * 50}ms` }}
     >
       {/* Album Art Container */}
       <motion.div
         className="relative aspect-square rounded-2xl overflow-hidden cursor-pointer"
         onClick={handleClick}
-        whileTap={{ scale: 0.96 }}
-        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+        whileTap={{ scale: 0.95 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        style={{
+          boxShadow: isCurrentSong
+            ? '0 8px 30px -4px hsl(var(--primary) / 0.4), 0 2px 8px rgba(0,0,0,0.3)'
+            : '0 4px 20px -4px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0,0,0,0.2)',
+        }}
       >
         {/* Cover Image */}
         {song.cover_url ? (
@@ -72,22 +77,29 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
             eager={index < 4}
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-primary/20 via-accent/15 to-primary/10 flex items-center justify-center">
-            <Play className="w-8 h-8 text-foreground/30" />
+          <div className="w-full h-full bg-gradient-to-br from-primary/30 via-accent/20 to-muted flex items-center justify-center">
+            <Play className="w-10 h-10 text-foreground/20" />
           </div>
         )}
 
-        {/* Bottom gradient for readability */}
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+        {/* Cinematic bottom gradient */}
+        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
 
         {/* Play/Pause overlay on active song */}
         {isCurrentSong && (
-          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+          <motion.div
+            className="absolute inset-0 flex items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            style={{
+              background: 'linear-gradient(135deg, rgba(0,0,0,0.3), rgba(0,0,0,0.5))',
+            }}
+          >
             <div
-              className="w-11 h-11 rounded-full flex items-center justify-center"
+              className="w-12 h-12 rounded-full flex items-center justify-center"
               style={{
                 background: 'hsl(var(--primary))',
-                boxShadow: '0 4px 20px hsl(var(--primary) / 0.5)',
+                boxShadow: '0 4px 24px hsl(var(--primary) / 0.6)',
               }}
             >
               {isPlaying ? (
@@ -101,10 +113,10 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
                   ))}
                 </div>
               ) : (
-                <Pause className="w-4.5 h-4.5 text-primary-foreground" />
+                <Pause className="w-5 h-5 text-primary-foreground" />
               )}
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Quick actions — top right */}
@@ -112,11 +124,11 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
           <LikeButton
             songId={song.id}
             size="sm"
-            className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm"
+            className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md"
           />
           <button
             onClick={handleAddToPlaylist}
-            className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-foreground/80 active:bg-black/60 transition-colors"
+            className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-foreground/80 active:bg-black/70 transition-colors"
           >
             <ListPlus className="w-3.5 h-3.5" />
           </button>
@@ -125,37 +137,24 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
         {/* Downloaded indicator */}
         {downloaded && (
           <div className="absolute top-2 left-2 z-10">
-            <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shadow-md">
+            <div className="w-5 h-5 rounded-full bg-green-500/90 backdrop-blur-sm flex items-center justify-center shadow-lg">
               <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
               </svg>
             </div>
           </div>
         )}
-      </motion.div>
 
-      {/* Song Meta */}
-      <div className="mt-2 px-0.5">
-        <p className={`font-semibold text-[13px] truncate leading-tight ${isCurrentSong ? 'text-primary' : 'text-foreground'}`}>
-          {song.title}
-        </p>
-        <button
-          className="flex items-center gap-1.5 mt-0.5 min-h-[32px]"
-          onClick={handleArtistClick}
-        >
-          {song.artist_photo_url && (
-            <img
-              src={song.artist_photo_url}
-              alt={song.artist}
-              className="w-4 h-4 rounded-full object-cover ring-1 ring-white/10"
-              loading="lazy"
-            />
-          )}
-          <p className={`text-xs text-muted-foreground/70 truncate ${song.artist_id ? 'active:text-primary transition-colors' : ''}`}>
+        {/* Bottom overlay song info on artwork */}
+        <div className="absolute bottom-0 inset-x-0 p-2.5 z-10">
+          <p className={`font-bold text-[13px] truncate leading-tight drop-shadow-lg ${isCurrentSong ? 'text-primary' : 'text-white'}`}>
+            {song.title}
+          </p>
+          <p className="text-[11px] text-white/60 truncate mt-0.5 drop-shadow-md">
             {song.artist}
           </p>
-        </button>
-      </div>
+        </div>
+      </motion.div>
 
       {/* Modals */}
       {showAddToPlaylist && (

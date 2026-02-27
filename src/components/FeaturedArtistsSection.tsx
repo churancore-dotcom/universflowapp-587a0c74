@@ -13,34 +13,28 @@ interface Artist {
   song_count: number;
 }
 
-interface ArtistCardProps {
-  artist: Artist;
-  index: number;
-}
-
-const ArtistCard = memo(({ artist, index }: ArtistCardProps) => {
+const ArtistCard = memo(({ artist, index }: { artist: Artist; index: number }) => {
   const navigate = useNavigate();
-
-  const handleClick = () => {
-    triggerHaptic('selection');
-    navigate(`/artist/${artist.id}`);
-  };
 
   return (
     <motion.button
-      className="flex-shrink-0 w-[78px] snap-start text-center"
-      onClick={handleClick}
-      initial={{ opacity: 0, scale: 0.85 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: index * 0.05, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      whileTap={{ scale: 0.92 }}
+      className="flex-shrink-0 w-[82px] snap-start text-center"
+      onClick={() => {
+        triggerHaptic('selection');
+        navigate(`/artist/${artist.id}`);
+      }}
+      initial={{ opacity: 0, scale: 0.8, y: 10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ delay: index * 0.05, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      whileTap={{ scale: 0.9 }}
     >
-      <div className="relative w-[64px] h-[64px] mx-auto mb-2">
+      <div className="relative w-[68px] h-[68px] mx-auto mb-2.5">
+        {/* Gradient ring glow */}
         <div 
-          className="absolute -inset-[3px] rounded-full opacity-60"
+          className="absolute -inset-[4px] rounded-full opacity-50"
           style={{
             background: 'conic-gradient(from 0deg, hsl(var(--primary)), hsl(280 100% 65%), hsl(210 100% 60%), hsl(var(--primary)))',
-            filter: 'blur(3px)',
+            filter: 'blur(4px)',
           }}
         />
         <div 
@@ -66,10 +60,10 @@ const ArtistCard = memo(({ artist, index }: ArtistCardProps) => {
         </div>
       </div>
       
-      <p className="text-[11px] font-semibold truncate text-foreground leading-tight">
+      <p className="text-[11px] font-bold truncate text-foreground leading-tight">
         {artist.name}
       </p>
-      <p className="text-[9px] text-muted-foreground/60 mt-0.5">
+      <p className="text-[9px] text-muted-foreground/40 mt-0.5 font-medium">
         {artist.song_count} {artist.song_count === 1 ? 'song' : 'songs'}
       </p>
     </motion.button>
@@ -84,15 +78,12 @@ const FeaturedArtistsSection = () => {
 
   useEffect(() => {
     const fetchArtists = async () => {
-      // Single query: fetch artists + count songs via a joined count approach
-      // Instead of N+1 queries, fetch all songs grouped by artist_id
       const [artistsRes, songCountsRes] = await Promise.all([
         supabase.from('artists').select('id, name, photo_url, genre'),
         supabase.from('songs').select('artist_id').eq('is_visible', true).not('artist_id', 'is', null),
       ]);
 
       if (artistsRes.data && songCountsRes.data) {
-        // Count songs per artist in memory (O(n))
         const countMap = new Map<string, number>();
         for (const song of songCountsRes.data) {
           if (song.artist_id) {
@@ -117,24 +108,30 @@ const FeaturedArtistsSection = () => {
   if (loading || artists.length === 0) return null;
 
   return (
-    <section className="mb-1">
+    <section className="mb-2">
       <div
-        className="rounded-2xl p-3 pb-2"
+        className="rounded-3xl p-4 pb-3"
         style={{
-          background: 'rgba(255,255,255,0.03)',
-          border: '0.5px solid rgba(255,255,255,0.06)',
-          backdropFilter: 'blur(20px)',
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)',
+          border: '0.5px solid rgba(255,255,255,0.08)',
+          backdropFilter: 'blur(30px)',
+          WebkitBackdropFilter: 'blur(30px)',
         }}
       >
-        <div className="flex items-center gap-1.5 mb-3">
-          <div className="w-5 h-5 rounded-md bg-primary/15 flex items-center justify-center">
-            <Sparkles className="w-3 h-3 text-primary" />
+        <div className="flex items-center gap-2 mb-4">
+          <div
+            className="w-6 h-6 rounded-lg flex items-center justify-center"
+            style={{
+              background: 'linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(var(--primary) / 0.1))',
+            }}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
           </div>
-          <h2 className="text-sm font-bold tracking-tight text-foreground">Featured Artists</h2>
+          <h2 className="text-[16px] font-bold tracking-tight text-foreground">Featured Artists</h2>
         </div>
         
         <div 
-          className="flex gap-2.5 overflow-x-auto pb-1 hide-scrollbar snap-x snap-mandatory -mx-3 px-3"
+          className="flex gap-3 overflow-x-auto pb-1 hide-scrollbar snap-x snap-mandatory -mx-4 px-4"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {artists.map((artist, i) => (

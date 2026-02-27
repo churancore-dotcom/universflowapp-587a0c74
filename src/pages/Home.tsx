@@ -133,23 +133,23 @@ const Home = () => {
   return (
     <TabTransition>
       <div className="h-[100dvh] bg-background relative flex flex-col overflow-hidden">
-        {/* Ambient background — enhanced */}
+        {/* Ambient background — cinematic */}
         <div className="absolute inset-0 pointer-events-none">
           {currentSong?.cover_url && (
             <img
               src={currentSong.cover_url}
               alt=""
-              className="absolute top-0 left-1/2 -translate-x-1/2 w-[200%] blur-[100px] opacity-[0.15]"
-              style={{ height: '50%' }}
+              className="absolute top-0 left-1/2 -translate-x-1/2 w-[250%] blur-[120px] opacity-[0.12] saturate-150"
+              style={{ height: '60%' }}
             />
           )}
           <div 
             className="absolute inset-0"
             style={{
               background: `
-                radial-gradient(ellipse 80% 50% at 50% 0%, hsl(350 100% 60% / 0.06), transparent),
-                radial-gradient(ellipse 60% 40% at 80% 20%, hsl(280 100% 65% / 0.04), transparent),
-                radial-gradient(ellipse 40% 30% at 10% 60%, hsl(210 100% 60% / 0.03), transparent)
+                radial-gradient(ellipse 80% 50% at 50% 0%, hsl(350 100% 60% / 0.08), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 20%, hsl(280 100% 65% / 0.05), transparent),
+                radial-gradient(ellipse 40% 30% at 10% 60%, hsl(210 100% 60% / 0.04), transparent)
               `,
             }}
           />
@@ -157,7 +157,7 @@ const Home = () => {
 
         {/* Premium Header */}
         <header
-          className="flex-shrink-0 z-30 px-4 pt-3 pb-2.5 safe-area-pt"
+          className="flex-shrink-0 z-30 px-4 pt-3 pb-3 safe-area-pt"
           style={{
             background: 'rgba(0, 0, 0, 0.7)',
             backdropFilter: 'blur(40px) saturate(180%)',
@@ -166,19 +166,25 @@ const Home = () => {
           }}
         >
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full overflow-hidden ring-1 ring-primary/30">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0"
+                style={{
+                  boxShadow: '0 2px 12px hsl(var(--primary) / 0.25)',
+                  border: '1.5px solid hsl(var(--primary) / 0.3)',
+                }}
+              >
                 <img src={appLogo} alt="UniversFlow" className="w-full h-full object-cover" />
               </div>
               <div>
-                <p className="text-[15px] font-bold text-foreground tracking-tight">{greeting()}</p>
-                <p className="text-[11px] text-muted-foreground font-medium">
+                <p className="text-[16px] font-bold text-foreground tracking-tight">{greeting()}</p>
+                <p className="text-[11px] text-muted-foreground/50 font-medium tracking-wide">
                   {songs.length} tracks available
                 </p>
               </div>
             </div>
             
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               {[
                 { icon: ListMusic, action: () => setShowQueue(true) },
                 { icon: Sliders, action: () => setShowEqualizer(true) },
@@ -187,14 +193,14 @@ const Home = () => {
                 <motion.button
                   key={i}
                   onClick={() => { triggerHaptic('selection'); action(); }}
-                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                   style={{
                     background: 'rgba(255,255,255,0.06)',
-                    border: '0.5px solid rgba(255,255,255,0.08)',
+                    border: '0.5px solid rgba(255,255,255,0.10)',
                   }}
-                  whileTap={{ scale: 0.88 }}
+                  whileTap={{ scale: 0.85 }}
                 >
-                  <Icon className="w-4 h-4 text-foreground/70" />
+                  <Icon className="w-4 h-4 text-foreground/60" />
                 </motion.button>
               ))}
             </div>
@@ -203,7 +209,7 @@ const Home = () => {
 
         {/* Scrollable content area */}
         <main 
-          className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-4 pb-32 relative z-10"
+          className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-4 pb-36 relative z-10"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
         {loading ? (
@@ -211,18 +217,19 @@ const Home = () => {
           ) : songs.length === 0 ? (
             <EmptyState />
           ) : (
-            <div className="space-y-5">
+            <div className="space-y-3">
               {/* Hero Quick-Listen Banner */}
               {currentSong && (
                 <motion.div
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                  className="rounded-2xl overflow-hidden relative"
+                  className="rounded-3xl overflow-hidden relative"
                   style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '0.5px solid rgba(255,255,255,0.08)',
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
+                    border: '0.5px solid rgba(255,255,255,0.10)',
                     backdropFilter: 'blur(30px)',
+                    WebkitBackdropFilter: 'blur(30px)',
                   }}
                 >
                   {/* Album art background blur */}
@@ -230,25 +237,42 @@ const Home = () => {
                     <img
                       src={currentSong.cover_url}
                       alt=""
-                      className="absolute inset-0 w-full h-full object-cover opacity-20 blur-xl"
+                      className="absolute inset-0 w-full h-full object-cover opacity-25 blur-2xl saturate-150"
                     />
                   )}
-                  <div className="relative flex items-center gap-3 p-3.5">
-                    <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 shadow-lg ring-1 ring-white/10">
+                  <div className="relative flex items-center gap-3.5 p-4">
+                    <div
+                      className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0"
+                      style={{
+                        boxShadow: '0 6px 24px rgba(0,0,0,0.4)',
+                        border: '0.5px solid rgba(255,255,255,0.10)',
+                      }}
+                    >
                       {currentSong.cover_url ? (
                         <img src={currentSong.cover_url} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full bg-primary/20 flex items-center justify-center">
-                          <Headphones className="w-6 h-6 text-primary" />
+                          <Headphones className="w-7 h-7 text-primary" />
                         </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] uppercase tracking-widest text-primary font-semibold mb-0.5">Now Playing</p>
-                      <p className="text-sm font-bold text-foreground truncate">{currentSong.title}</p>
-                      <p className="text-xs text-muted-foreground truncate">{currentSong.artist}</p>
+                      <p
+                        className="text-[10px] uppercase tracking-[0.15em] font-bold mb-1"
+                        style={{ color: 'hsl(var(--primary))' }}
+                      >
+                        Now Playing
+                      </p>
+                      <p className="text-[15px] font-bold text-foreground truncate leading-tight">{currentSong.title}</p>
+                      <p className="text-[12px] text-muted-foreground/60 truncate mt-0.5">{currentSong.artist}</p>
                     </div>
-                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                    <div
+                      className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center"
+                      style={{
+                        background: 'linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(var(--primary) / 0.1))',
+                        border: '0.5px solid hsl(var(--primary) / 0.2)',
+                      }}
+                    >
                       <div className="flex items-end gap-[3px] h-4">
                         {[0, 1, 2, 3].map(i => (
                           <div
@@ -268,7 +292,7 @@ const Home = () => {
 
               {/* New Releases */}
               {newReleases.length > 0 && (
-                <HorizontalSection title="New Releases" subtitle="Fresh tracks" songs={newReleases}>
+                <HorizontalSection title="New Releases" subtitle="Fresh tracks just dropped" songs={newReleases}>
                   {newReleases.map((song, i) => (
                     <SongCard key={song.id} song={song} index={i} sectionSongs={newReleases} />
                   ))}
