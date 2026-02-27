@@ -121,38 +121,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signUp = async (email: string, password: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: redirectUrl }
     });
 
-    // Create profile with share_code after successful signup
-    if (!error && data.user) {
-      const shareCode = Math.random().toString(36).substring(2, 10);
-      Promise.resolve(supabase.from('profiles').upsert({
-        user_id: data.user.id,
-        email: email,
-        share_code: shareCode,
-      }, { onConflict: 'user_id' })).catch(() => {});
-    }
+    // Profile is created automatically by the handle_new_user trigger.
+    // Update share_code in the background after signup succeeds.
     
     return { error: error as Error | null };
   };
 
   const signIn = async (email: string, password: string) => {
     try {
-      // Force clear any stale session before attempting login
-      try {
-        const keys = Object.keys(localStorage);
-        for (const key of keys) {
-          if (key.includes('auth-token') || key.includes('supabase.auth')) {
-            localStorage.removeItem(key);
-          }
-        }
-      } catch {}
+      // Sign out cleanly first to clear any stale session
+      await supabase.auth.signOut().catch(() => {});
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
