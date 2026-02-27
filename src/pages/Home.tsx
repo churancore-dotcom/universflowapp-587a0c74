@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { useSongCache } from '@/hooks/useSongCache';
-import { MOCK_SONGS } from '@/lib/mockData';
 import SongCard from '@/components/SongCard';
 import HorizontalSection from '@/components/HorizontalSection';
 import AllSongsSection from '@/components/AllSongsSection';
@@ -103,7 +102,7 @@ const Home = () => {
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
+      if (data) {
         const mappedSongs = data.map(s => {
           const artistData = s.artists as { id: string; name: string; photo_url: string | null } | null;
           return {
@@ -123,32 +122,14 @@ const Home = () => {
         });
         setSongs(mappedSongs);
         updateCache(mappedSongs);
-      } else {
-        // No data returned — use mock
-        useMockFallback();
       }
-    } catch {
-      // Backend unreachable — use mock data
-      useMockFallback();
+    } catch (err) {
+      console.error('Failed to fetch songs:', err);
     }
     setLoading(false);
   }, [updateCache]);
 
-  const useMockFallback = useCallback(() => {
-    const mapped = MOCK_SONGS.map(s => ({
-      id: s.id,
-      title: s.title,
-      artist: s.artist,
-      album: s.album,
-      cover_url: s.cover_url,
-      audio_url: s.audio_url,
-      duration: s.duration,
-      show_in_new_releases: s.show_in_new_releases,
-      show_in_trending: s.show_in_trending,
-      is_premium_only: s.is_premium_only,
-    }));
-    setSongs(mapped);
-  }, []);
+
 
   const greeting = useCallback(() => {
     const hour = new Date().getHours();

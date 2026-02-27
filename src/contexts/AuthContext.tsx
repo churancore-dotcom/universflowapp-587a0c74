@@ -1,13 +1,10 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-
-interface FakeUser {
-  id: string;
-  email: string;
-}
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import type { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
-  user: FakeUser | null;
-  session: unknown;
+  user: User | null;
+  session: Session | null;
   isAdmin: boolean;
   isLoading: boolean;
   isOffline: boolean;
@@ -18,49 +15,73 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const ADMIN_EMAIL = 'shashankyadavk12@gmail.com';
-const ADMIN_PASSWORD = 'Yadav7900';
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<FakeUser | null>(() => {
-    const saved = localStorage.getItem('uf_demo_user');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [isAdmin, setIsAdmin] = useState(() => {
-    const saved = localStorage.getItem('uf_demo_user');
-    if (!saved) return false;
-    return JSON.parse(saved).email === ADMIN_EMAIL;
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const admin = email === ADMIN_EMAIL && password === ADMIN_PASSWORD;
-    if (email === ADMIN_EMAIL && password !== ADMIN_PASSWORD) {
-      return { error: new Error('Invalid password') };
+  const checkAdminRole = useCallback(async (userId: string) => {
+    try {
+      const { data } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
+      setIsAdmin(!!data);
+      return !!data;
+    } catch {
+      setIsAdmin(false);
+      return false;
     }
-    const fakeUser = { id: crypto.randomUUID(), email };
-    localStorage.setItem('uf_demo_user', JSON.stringify(fakeUser));
-    setUser(fakeUser);
-    setIsAdmin(admin);
-    return { error: null, isAdmin: admin };
   }, []);
 
-  const signUp = useCallback(async (email: string, _password: string) => {
-    const fakeUser = { id: crypto.randomUUID(), email };
-    localStorage.setItem('uf_demo_user', JSON.stringify(fakeUser));
-    setUser(fakeUser);
-    setIsAdmin(false);
+  useEffect(() => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        // Use setTimeout to avoid deadlock with Supabase client
+        setTimeout(() => checkAdminRole(session.user.id), 0);
+      } else {
+        setIsAdmin(false);
+      }
+      setIsLoading(false);
+    });
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        checkAdminRole(session.user.id);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [checkAdminRole]);
+
+  const signIn = useCallback(async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error: new Error(error.message) };
+    const admin = data.user ? await checkAdminRole(data.user.id) : false;
+    return { error: null, isAdmin: admin };
+  }, [checkAdminRole]);
+
+  const signUp = useCallback(async (email: string, password: string) => {
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) return { error: new Error(error.message) };
     return { error: null };
   }, []);
 
   const signOut = useCallback(async () => {
-    localStorage.removeItem('uf_demo_user');
+    await supabase.auth.signOut();
     setUser(null);
+    setSession(null);
     setIsAdmin(false);
   }, []);
 
   return (
     <AuthContext.Provider
-      value={{ user, session: null, isAdmin, isLoading: false, isOffline: !navigator.onLine, signIn, signUp, signOut }}
+      value={{ user, session, isAdmin, isLoading, isOffline: !navigator.onLine, signIn, signUp, signOut }}
     >
       {children}
     </AuthContext.Provider>

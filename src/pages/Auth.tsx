@@ -21,7 +21,6 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Block when clearly offline
     if (!navigator.onLine) {
       toast.error('You are offline. Connect to the internet and try again.');
       return;
@@ -198,7 +197,6 @@ const Auth = () => {
                 </span>
               )}
             </Button>
-
 
             <p className="text-center text-xs text-muted-foreground">
               {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}

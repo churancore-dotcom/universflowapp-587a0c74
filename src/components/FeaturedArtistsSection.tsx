@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { User, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { triggerHaptic } from '@/hooks/useHaptics';
-import { MOCK_ARTISTS } from '@/lib/mockData';
 
 interface Artist {
   id: string;
@@ -103,9 +102,8 @@ const FeaturedArtistsSection = () => {
 
           setArtists(sorted);
         }
-      } catch {
-        // Fallback to mock artists
-        setArtists(MOCK_ARTISTS.map(a => ({ ...a, song_count: 3 })));
+      } catch (err) {
+        console.error('Failed to fetch artists:', err);
       }
       setLoading(false);
     };

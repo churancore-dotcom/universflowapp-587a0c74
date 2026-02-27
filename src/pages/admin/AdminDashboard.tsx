@@ -4,7 +4,7 @@ import { Music, Users, PlayCircle, TrendingUp, Upload, Disc, Clock, Download, Ac
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { MOCK_STATS, MOCK_PLAY_DATA, MOCK_GENRE_DATA, MOCK_SONGS } from '@/lib/mockData';
+
 
 interface Stats {
   totalSongs: number;
@@ -105,8 +105,8 @@ const AdminDashboard = () => {
         totalDownloads,
         storageUsed,
       });
-    } catch {
-      setStats(MOCK_STATS);
+    } catch (err) {
+      console.error('Failed to fetch stats:', err);
     }
     setLoading(false);
   };
@@ -146,8 +146,8 @@ const AdminDashboard = () => {
       }));
 
       setPlayData(chartData);
-    } catch {
-      setPlayData(MOCK_PLAY_DATA);
+    } catch (err) {
+      console.error('Failed to fetch play data:', err);
     }
   };
 
@@ -176,9 +176,8 @@ const AdminDashboard = () => {
 
         setTopSongs(songs.slice(0, 5));
       }
-    } catch {
-      setGenreData(MOCK_GENRE_DATA);
-      setTopSongs(MOCK_SONGS.slice(0, 5));
+    } catch (err) {
+      console.error('Failed to fetch chart data:', err);
     }
   };
 
