@@ -148,19 +148,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /* ── signIn ───────────────────────────────────────────── */
   const signIn = useCallback(async (email: string, password: string) => {
-    // 1. Pre-check: can we even reach the backend?
-    const reachable = await isBackendReachable();
-    if (!reachable) {
-      return {
-        error: new Error(
-          navigator.onLine
-            ? 'Unable to reach the server. Please try again in a moment.'
-            : 'You are offline. Connect to the internet and try again.'
-        ),
-      };
+    // Skip pre-check — go directly to sign in for faster + more reliable login
+    if (!navigator.onLine) {
+      return { error: new Error('You are offline. Connect to the internet and try again.') };
     }
 
-    // 2. Attempt sign in
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
