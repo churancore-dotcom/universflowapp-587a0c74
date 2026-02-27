@@ -149,11 +149,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (error) {
           if (isNetworkErrorMessage(error.message) && attempt < maxRetries) {
+            console.warn(`signIn network retry ${attempt + 1}/${maxRetries}:`, error.message);
             lastError = error as Error;
             await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
             continue;
           }
 
+          console.error('signIn failed:', error);
           return { error: error as Error };
         }
 
@@ -168,11 +170,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const asError = err instanceof Error ? err : new Error('Login failed');
 
         if (isNetworkErrorMessage(asError.message) && attempt < maxRetries) {
+          console.warn(`signIn exception retry ${attempt + 1}/${maxRetries}:`, asError.message);
           lastError = asError;
           await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
           continue;
         }
 
+        console.error('signIn exception:', asError);
         return { error: asError };
       }
     }

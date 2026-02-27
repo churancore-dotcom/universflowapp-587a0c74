@@ -28,6 +28,7 @@ const Auth = () => {
       if (isLogin) {
         const { error, isAdmin } = await signIn(email, password);
         if (error) {
+          console.error('Auth signIn failed:', error);
           toast.error(getAuthError(error));
         } else {
           toast.success('Welcome back!');
@@ -36,6 +37,7 @@ const Auth = () => {
       } else {
         const { error } = await signUp(email, password);
         if (error) {
+          console.error('Auth signUp failed:', error);
           toast.error(getAuthError(error));
         } else {
           toast.success('Account created successfully!');
@@ -43,6 +45,7 @@ const Auth = () => {
         }
       }
     } catch (err) {
+      console.error('Auth submit unexpected error:', err);
       toast.error('Something went wrong');
     } finally {
       setLoading(false);
