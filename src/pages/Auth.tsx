@@ -34,7 +34,6 @@ const Auth = () => {
       if (isLogin) {
         const { error, isAdmin } = await signIn(email, password);
         if (error) {
-          console.error('Auth signIn failed:', error);
           toast.error(getAuthError(error));
         } else {
           toast.success('Welcome back!');
@@ -43,16 +42,14 @@ const Auth = () => {
       } else {
         const { error } = await signUp(email, password);
         if (error) {
-          console.error('Auth signUp failed:', error);
           toast.error(getAuthError(error));
         } else {
           toast.success('Account created successfully!');
           navigate('/home');
         }
       }
-    } catch (err) {
-      console.error('Auth submit unexpected error:', err);
-      toast.error('Something went wrong');
+    } catch {
+      toast.error('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -61,11 +58,12 @@ const Auth = () => {
   return (
     <FadeTransition>
       <div className="h-[100dvh] bg-background flex flex-col items-center justify-center p-5 relative overflow-hidden">
-        {/* Static gradient background — no blur filters */}
+        {/* Static gradient background */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            background: 'radial-gradient(ellipse at 30% 20%, hsl(340 100% 50% / 0.18) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, hsl(260 100% 60% / 0.15) 0%, transparent 50%), radial-gradient(ellipse at 60% 30%, hsl(210 100% 60% / 0.08) 0%, transparent 40%)',
+            background:
+              'radial-gradient(ellipse at 30% 20%, hsl(340 100% 50% / 0.18) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, hsl(260 100% 60% / 0.15) 0%, transparent 50%), radial-gradient(ellipse at 60% 30%, hsl(210 100% 60% / 0.08) 0%, transparent 40%)',
           }}
         />
 
@@ -75,7 +73,7 @@ const Auth = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          {/* Logo — static glow, no rotating animation */}
+          {/* Logo */}
           <div className="flex flex-col items-center mb-8">
             <motion.div
               className="relative"
@@ -85,9 +83,7 @@ const Auth = () => {
             >
               <div
                 className="absolute -inset-4 rounded-full pointer-events-none"
-                style={{
-                  background: 'radial-gradient(circle, hsl(300 80% 55% / 0.25), transparent 70%)',
-                }}
+                style={{ background: 'radial-gradient(circle, hsl(300 80% 55% / 0.25), transparent 70%)' }}
               />
               <div
                 className="w-24 h-24 rounded-full overflow-hidden relative"
@@ -127,7 +123,7 @@ const Auth = () => {
             </motion.p>
           </div>
 
-          {/* Form card — lightweight glass */}
+          {/* Form card */}
           <motion.form
             onSubmit={handleSubmit}
             className="relative rounded-3xl p-6 space-y-5"
@@ -141,8 +137,12 @@ const Auth = () => {
             transition={{ delay: 0.15, duration: 0.4 }}
           >
             <div>
-              <h2 className="text-xl font-bold mb-0.5 text-foreground">{isLogin ? 'Welcome back' : 'Create account'}</h2>
-              <p className="text-muted-foreground text-xs">{isLogin ? 'Sign in to continue' : 'Start your music journey'}</p>
+              <h2 className="text-xl font-bold mb-0.5 text-foreground">
+                {isLogin ? 'Welcome back' : 'Create account'}
+              </h2>
+              <p className="text-muted-foreground text-xs">
+                {isLogin ? 'Sign in to continue' : 'Start your music journey'}
+              </p>
             </div>
 
             <div className="space-y-3">
@@ -181,7 +181,6 @@ const Auth = () => {
               </div>
             </div>
 
-            {/* Submit button */}
             <Button
               type="submit"
               className="w-full h-12 text-sm font-bold rounded-xl border-0 text-primary-foreground active:scale-[0.97] transition-transform"
@@ -201,14 +200,12 @@ const Auth = () => {
               )}
             </Button>
 
-            {/* Divider */}
             <div className="flex items-center gap-3">
               <div className="flex-1 h-px bg-white/[0.08]" />
               <span className="text-[10px] text-muted-foreground/60">or</span>
               <div className="flex-1 h-px bg-white/[0.08]" />
             </div>
 
-            {/* Google */}
             <Button
               type="button"
               variant="outline"
@@ -233,7 +230,6 @@ const Auth = () => {
               Continue with Google
             </Button>
 
-            {/* Toggle */}
             <p className="text-center text-xs text-muted-foreground">
               {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
               <button
@@ -252,7 +248,6 @@ const Auth = () => {
           </motion.form>
         </motion.div>
 
-        {/* Footer credit */}
         <motion.div
           className="absolute bottom-5 z-10 px-4 py-1.5 rounded-full flex items-center gap-2"
           style={{
