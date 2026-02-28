@@ -1,4 +1,4 @@
-import { useState, useEffect, memo, forwardRef } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X, Smartphone } from 'lucide-react';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -9,7 +9,7 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-const PWAInstallBanner = memo(forwardRef<HTMLDivElement>(function PWAInstallBanner(_props, _ref) {
+const PWAInstallBanner = memo(function PWAInstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showBanner, setShowBanner] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -153,7 +153,7 @@ const PWAInstallBanner = memo(forwardRef<HTMLDivElement>(function PWAInstallBann
       )}
     </AnimatePresence>
   );
-}));
+});
 
 PWAInstallBanner.displayName = 'PWAInstallBanner';
 
