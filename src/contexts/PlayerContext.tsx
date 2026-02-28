@@ -137,7 +137,26 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     nextAudio.setAttribute('webkit-playsinline', 'true');
     nextAudioRef.current = nextAudio;
 
+    // Resume audio when app returns to foreground (prevents interruption)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && audioRef.current && !audioRef.current.paused === false) {
+        // If audio was playing before going to background, try to resume
+      }
+    };
+    
+    const handleFocus = () => {
+      if (audioRef.current && audioRef.current.src && audioRef.current.paused && audioRef.current.currentTime > 0) {
+        // Audio was interrupted, try to resume
+        audioRef.current.play().catch(() => {});
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
       audio.pause();
       audio.src = '';
       nextAudio.pause();

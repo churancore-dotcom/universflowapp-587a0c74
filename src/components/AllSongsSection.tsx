@@ -37,10 +37,7 @@ const SongRow = memo(({ song, index, songs }: { song: Song; index: number; songs
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.03, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+    <div
       onClick={handleClick}
       className={`flex items-center gap-3.5 px-3 py-3 rounded-2xl active:scale-[0.98] transition-all cursor-pointer ${
         isCurrentSong
@@ -110,7 +107,7 @@ const SongRow = memo(({ song, index, songs }: { song: Song; index: number; songs
         </span>
         <LikeButton songId={song.id} size="sm" className="w-9 h-9" />
       </div>
-    </motion.div>
+    </div>
   );
 });
 
@@ -135,10 +132,7 @@ const CompactGridCard = memo(({ song, index, songs }: { song: Song; index: numbe
   }, [isCurrentSong, togglePlay, getDownloadedUrl, song, playSong, songs]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.92 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: index * 0.03, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+    <div
       onClick={handleClick}
       className="cursor-pointer active:scale-[0.94] transition-transform"
     >
@@ -203,7 +197,7 @@ const CompactGridCard = memo(({ song, index, songs }: { song: Song; index: numbe
         {song.title}
       </p>
       <p className="text-[10px] text-muted-foreground/40 truncate mt-0.5 font-medium">{song.artist}</p>
-    </motion.div>
+    </div>
   );
 });
 
@@ -234,8 +228,6 @@ const AllSongsSection = memo(({ songs }: AllSongsSectionProps) => {
         style={{
           background: 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)',
           border: '0.5px solid rgba(255,255,255,0.08)',
-          backdropFilter: 'blur(30px)',
-          WebkitBackdropFilter: 'blur(30px)',
         }}
       >
         {/* Header */}

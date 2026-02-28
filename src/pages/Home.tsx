@@ -98,7 +98,7 @@ const Home = () => {
         .select('*, artists(id, name, photo_url)')
         .eq('is_visible', true)
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(1000);
 
       if (error) throw error;
 

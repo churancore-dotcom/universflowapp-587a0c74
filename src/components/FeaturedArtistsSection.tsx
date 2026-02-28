@@ -120,8 +120,6 @@ const FeaturedArtistsSection = () => {
         style={{
           background: 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)',
           border: '0.5px solid rgba(255,255,255,0.08)',
-          backdropFilter: 'blur(30px)',
-          WebkitBackdropFilter: 'blur(30px)',
         }}
       >
         <div className="flex items-center gap-2 mb-4">
