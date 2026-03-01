@@ -1,8 +1,8 @@
-import { useState, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense, forwardRef } from 'react';
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, NavigateProps } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { PlayerProvider, usePlayer } from "./contexts/PlayerContext";
@@ -14,6 +14,12 @@ import { NavDirectionProvider } from "./components/PageTransition";
 import SEOHead from "./components/SEOHead";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+
+// Ref-safe Navigate wrapper for AnimatePresence
+const AnimatedNavigate = forwardRef<HTMLDivElement, NavigateProps>((props, ref) => (
+  <div ref={ref} style={{ display: 'none' }}><Navigate {...props} /></div>
+));
+AnimatedNavigate.displayName = 'AnimatedNavigate';
 
 // Lazy load all non-critical routes
 const Home = lazy(() => import("./pages/Home"));
@@ -81,19 +87,19 @@ const LazyFallback = () => <div className="min-h-screen bg-background" />;
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
   if (isLoading) return <LazyFallback />;
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) return <AnimatedNavigate to="/auth" replace />;
   return <>{children}</>;
 };
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isLoading } = useAuth();
   if (isLoading) return <LazyFallback />;
-  if (!user) return <Navigate to="/auth" replace />;
-  if (!isAdmin) return <Navigate to="/home" replace />;
+  if (!user) return <AnimatedNavigate to="/auth" replace />;
+  if (!isAdmin) return <AnimatedNavigate to="/home" replace />;
   return <>{children}</>;
 };
 
-const AnimatedRoutes = () => {
+const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
   const location = useLocation();
   const { user, isOffline } = useAuth();
 
@@ -103,11 +109,11 @@ const AnimatedRoutes = () => {
       <AnimatePresence mode="wait" initial={false}>
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={
-            user ? <Navigate to="/home" replace /> : 
-            <Navigate to="/auth" replace />
+            user ? <AnimatedNavigate to="/home" replace /> : 
+            <AnimatedNavigate to="/auth" replace />
           } />
           <Route path="/auth" element={
-            user ? <Navigate to="/home" replace /> : 
+            user ? <AnimatedNavigate to="/home" replace /> : 
             <Auth />
           } />
           <Route path="/offline-player" element={<OfflinePlayerShell />} />
@@ -158,7 +164,8 @@ const AnimatedRoutes = () => {
     </Suspense>
     </NavDirectionProvider>
   );
-};
+});
+AnimatedRoutes.displayName = 'AnimatedRoutes';
 
 const PrerollAdWrapper = () => {
   const { showPrerollAd, onPrerollAdComplete, adType } = usePlayer();

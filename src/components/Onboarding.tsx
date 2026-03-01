@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, forwardRef } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { Sparkles, ArrowRight } from 'lucide-react';
 
@@ -30,7 +30,7 @@ const slides = [
   },
 ];
 
-const Onboarding = ({ onComplete }: OnboardingProps) => {
+const Onboarding = forwardRef<HTMLDivElement, OnboardingProps>(({ onComplete }, ref) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [direction, setDirection] = useState(0);
 
@@ -69,7 +69,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
   };
 
   return (
-    <div className="h-[100dvh] bg-background flex flex-col relative overflow-hidden">
+    <div ref={ref} className="h-[100dvh] bg-background flex flex-col relative overflow-hidden">
       {/* Static background gradient — no blur filters */}
       <div
         className="absolute inset-0 pointer-events-none transition-all duration-500"
@@ -193,6 +193,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
       </div>
     </div>
   );
-};
+});
+Onboarding.displayName = 'Onboarding';
 
 export default Onboarding;
