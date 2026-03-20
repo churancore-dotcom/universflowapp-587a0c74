@@ -59,6 +59,32 @@ serve(async (req) => {
         url = `https://api.deezer.com/playlist/${query}/tracks?limit=${limit}&index=${index}`;
         break;
 
+      case 'track_genre':
+        // Get genre for a specific track via its album
+        if (!query) {
+          return new Response(
+            JSON.stringify({ error: 'Album ID required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        try {
+          const albumRes = await fetch(`https://api.deezer.com/album/${query}`);
+          if (albumRes.ok) {
+            const albumData = await albumRes.json();
+            const genres = albumData.genres?.data?.map((g: any) => g.name) || [];
+            return new Response(
+              JSON.stringify({ genre: genres[0] || null, genres }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } catch (e) {
+          console.error('Genre lookup failed:', e);
+        }
+        return new Response(
+          JSON.stringify({ genre: null, genres: [] }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+
       default:
         return new Response(
           JSON.stringify({ error: 'Invalid action. Use: search, chart, genre_artists, artist_top, playlist' }),
