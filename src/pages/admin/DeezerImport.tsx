@@ -17,6 +17,10 @@ interface DeezerTrack {
   cover_url: string | null;
   preview_url: string | null;
   rank: number;
+  source?: 'deezer' | 'jamendo';
+  jamendo_audio_url?: string;
+  jamendo_license?: string;
+  genre?: string | null;
 }
 
 type ImportStatus = 'idle' | 'extracting' | 'importing' | 'done' | 'error';
@@ -74,9 +78,48 @@ const DeezerImport = () => {
 
       if (error) throw error;
 
-      const newTracks = data.tracks || [];
+      let newTracks: DeezerTrack[] = (data?.tracks || []).map((track: DeezerTrack) => ({
+        ...track,
+        source: 'deezer',
+      }));
+      let nextTotal = data?.total || 0;
+
+      // Reliable fallback: if Deezer returns empty, use Jamendo full-song search
+      if (newTracks.length === 0) {
+        const { data: jamendoData, error: jamendoError } = await supabase.functions.invoke('jamendo-search', {
+          body: {
+            action: 'search',
+            query: searchQuery,
+            limit: 25,
+            offset: idx,
+            order: 'popularity_total',
+          },
+        });
+
+        if (!jamendoError && Array.isArray(jamendoData?.tracks) && jamendoData.tracks.length > 0) {
+          newTracks = jamendoData.tracks.map((track: any) => ({
+            deezer_id: -Number(track.jamendo_id),
+            title: track.title,
+            artist: track.artist,
+            artist_id: Number(track.artist_id || 0),
+            album: track.album || null,
+            album_id: null,
+            duration: track.duration || null,
+            cover_url: track.cover_url || null,
+            preview_url: null,
+            rank: 0,
+            source: 'jamendo',
+            jamendo_audio_url: track.audio_url,
+            jamendo_license: track.license,
+            genre: track.genre || null,
+          }));
+          nextTotal = jamendoData.total || newTracks.length;
+          toast.info('Switched to reliable full-song source.');
+        }
+      }
+
       setTracks(prev => append ? [...prev, ...newTracks] : newTracks);
-      setTotalResults(data.total || 0);
+      setTotalResults(nextTotal);
       setSearchIndex(idx + 25);
       setLastQuery(searchQuery);
     } catch (err: any) {
@@ -93,8 +136,42 @@ const DeezerImport = () => {
         body: { action: 'chart', limit: 50 },
       });
       if (error) throw error;
-      setTracks(data.tracks || []);
-      setTotalResults(data.total || 0);
+      const deezerTracks: DeezerTrack[] = (data?.tracks || []).map((track: DeezerTrack) => ({
+        ...track,
+        source: 'deezer',
+      }));
+
+      if (deezerTracks.length > 0) {
+        setTracks(deezerTracks);
+        setTotalResults(data.total || deezerTracks.length);
+      } else {
+        const { data: jamendoData, error: jamendoError } = await supabase.functions.invoke('jamendo-search', {
+          body: { action: 'popular', limit: 50, offset: 0, order: 'popularity_total' },
+        });
+
+        if (jamendoError) throw jamendoError;
+
+        const fallbackTracks: DeezerTrack[] = (jamendoData?.tracks || []).map((track: any) => ({
+          deezer_id: -Number(track.jamendo_id),
+          title: track.title,
+          artist: track.artist,
+          artist_id: Number(track.artist_id || 0),
+          album: track.album || null,
+          album_id: null,
+          duration: track.duration || null,
+          cover_url: track.cover_url || null,
+          preview_url: null,
+          rank: 0,
+          source: 'jamendo',
+          jamendo_audio_url: track.audio_url,
+          jamendo_license: track.license,
+          genre: track.genre || null,
+        }));
+
+        setTracks(fallbackTracks);
+        setTotalResults(jamendoData?.total || fallbackTracks.length);
+        toast.info('Global charts fallback loaded from reliable full-song source.');
+      }
       setLastQuery('🔥 Top Charts');
     } catch (err: any) {
       toast.error('Failed to load charts');
@@ -107,6 +184,42 @@ const DeezerImport = () => {
     setImportStates(prev => ({ ...prev, [track.deezer_id]: { status: 'extracting' } }));
 
     try {
+      // Direct full-song import path (reliable source)
+      if (track.source === 'jamendo' && track.jamendo_audio_url) {
+        setImportStates(prev => ({ ...prev, [track.deezer_id]: { status: 'importing' } }));
+
+        const { data: existing } = await supabase
+          .from('songs')
+          .select('id')
+          .ilike('title', track.title)
+          .ilike('artist', track.artist)
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          setImportStates(prev => ({ ...prev, [track.deezer_id]: { status: 'done' } }));
+          toast.info(`"${track.title}" already exists`);
+          return true;
+        }
+
+        const { error: insertError } = await supabase.from('songs').insert({
+          title: track.title,
+          artist: track.artist,
+          album: track.album || undefined,
+          audio_url: track.jamendo_audio_url,
+          cover_url: track.cover_url,
+          duration: track.duration || 0,
+          genre: track.genre || guessGenre(track, lastQuery),
+          is_visible: true,
+          show_in_new_releases: true,
+        });
+
+        if (insertError) throw insertError;
+
+        setImportStates(prev => ({ ...prev, [track.deezer_id]: { status: 'done' } }));
+        toast.success(`Imported "${track.title}" (full song)`);
+        return true;
+      }
+
       // Step 1: Resolve a YouTube video (server-side first, client fallback)
       const ytQuery = `${track.title} ${track.artist} official audio`;
       let videoId = '';
@@ -296,7 +409,7 @@ const DeezerImport = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Deezer Discovery</h1>
-            <p className="text-sm text-muted-foreground">Search any song → Auto-import full version via YouTube</p>
+            <p className="text-sm text-muted-foreground">Auto-fallback to a reliable full-song source when extraction providers fail</p>
           </div>
         </div>
       </motion.div>
@@ -404,6 +517,9 @@ const DeezerImport = () => {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm text-foreground truncate">{track.title}</p>
                   <p className="text-xs text-muted-foreground truncate">{track.artist} {track.album ? `· ${track.album}` : ''}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {track.source === 'jamendo' ? 'Reliable full-song source' : 'Deezer + YouTube extraction'}
+                  </p>
                 </div>
 
                 {/* Duration */}
