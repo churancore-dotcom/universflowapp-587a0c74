@@ -124,7 +124,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const audio = new Audio();
     audio.volume = volume;
     audio.preload = 'auto';
-    audio.crossOrigin = 'anonymous';
     audio.setAttribute('playsinline', 'true');
     audio.setAttribute('webkit-playsinline', 'true');
     
@@ -135,7 +134,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const nextAudio = new Audio();
     nextAudio.volume = 0;
     nextAudio.preload = 'auto';
-    nextAudio.crossOrigin = 'anonymous';
     nextAudio.setAttribute('playsinline', 'true');
     nextAudio.setAttribute('webkit-playsinline', 'true');
     nextAudioRef.current = nextAudio;
@@ -143,27 +141,40 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // FIX: Proper background/foreground handling
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        // Going to background - remember if we were playing
         wasPlayingBeforeHidden.current = !!(audioRef.current && !audioRef.current.paused);
       } else if (document.visibilityState === 'visible') {
-        // Returning to foreground - resume if we were playing
-        if (wasPlayingBeforeHidden.current && audioRef.current && audioRef.current.src && audioRef.current.paused) {
-          audioRef.current.play().catch(() => {
-            // If play fails, update state to reflect paused
-            setIsPlaying(false);
-          });
+        if (audioRef.current && audioRef.current.src) {
+          // Re-sync state with actual audio element
+          if (wasPlayingBeforeHidden.current && audioRef.current.paused) {
+            audioRef.current.play().catch(() => setIsPlaying(false));
+          }
+          // Always update progress on return
+          setProgress(audioRef.current.currentTime);
         }
       }
     };
-    
+
     const handleFocus = () => {
-      // Resume audio that was interrupted (e.g., by phone call)
-      if (wasPlayingBeforeHidden.current && audioRef.current && audioRef.current.src && audioRef.current.paused && audioRef.current.currentTime > 0) {
-        audioRef.current.play().catch(() => {
-          setIsPlaying(false);
-        });
+      if (audioRef.current && audioRef.current.src) {
+        // Resume audio that was interrupted
+        if (wasPlayingBeforeHidden.current && audioRef.current.paused && audioRef.current.currentTime > 0) {
+          audioRef.current.play().catch(() => setIsPlaying(false));
+        }
       }
     };
+
+    // Prevent audio suspension on mobile: periodically touch the audio context
+    let keepAliveInterval: number | null = null;
+    const startKeepAlive = () => {
+      if (keepAliveInterval) return;
+      keepAliveInterval = window.setInterval(() => {
+        if (audioRef.current && !audioRef.current.paused && audioRef.current.readyState >= 2) {
+          // Touch readyState to keep connection alive
+          void audioRef.current.buffered;
+        }
+      }, 5000);
+    };
+    startKeepAlive();
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
@@ -171,6 +182,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
+      if (keepAliveInterval) clearInterval(keepAliveInterval);
       audio.pause();
       audio.src = '';
       nextAudio.pause();
@@ -388,16 +400,27 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // FIX: Handle stalled/waiting - audio buffering issues
     const handleStalled = () => {
       console.warn('Audio stalled, attempting recovery...');
-      // Try to restart playback after a brief pause
-      if (!audio.paused && audio.currentTime > 0) {
+      if (audio.currentTime > 0) {
         const currentTime = audio.currentTime;
         setTimeout(() => {
-          if (audio.paused || audio.readyState < 3) {
+          if (audio.readyState < 3) {
             audio.currentTime = currentTime;
             audio.play().catch(() => {});
           }
-        }, 2000);
+        }, 1500);
       }
+    };
+
+    // Handle 'waiting' event — browser is buffering
+    const handleWaiting = () => {
+      console.warn('Audio waiting/buffering...');
+      setTimeout(() => {
+        if (audio.readyState < 3 && !audio.paused) {
+          // Try to nudge playback
+          const ct = audio.currentTime;
+          audio.currentTime = ct;
+        }
+      }, 3000);
     };
 
     const handleTimeUpdate = () => {
@@ -416,6 +439,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('error', handleError);
     audio.addEventListener('stalled', handleStalled);
+    audio.addEventListener('waiting', handleWaiting);
 
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
@@ -425,6 +449,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('error', handleError);
       audio.removeEventListener('stalled', handleStalled);
+      audio.removeEventListener('waiting', handleWaiting);
     };
   }, [currentIndex, queue, shuffle, repeat, crossfade, crossfadeDuration, getNextIndex, playSongAtIndex, isPremiumUser, songsPlayedSinceAd]);
 

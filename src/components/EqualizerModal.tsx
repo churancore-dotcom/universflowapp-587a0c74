@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, useRef, memo } from 'react';
+import { useState, useCallback, useEffect, useRef, memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Radio } from 'lucide-react';
+import { X, Sparkles, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Radio, Globe } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { iosSpring } from '@/lib/animations';
 import { usePlayer } from '@/contexts/PlayerContext';
@@ -33,7 +33,7 @@ const presets: Preset[] = [
   { name: 'Bass Boost', icon: <Zap className="w-4 h-4" />, bands: [8, 6, 4, 1, 0, -1, -2, -2], bassBoost: 60, reverb: 0, spatialAudio: false },
   { name: 'Treble Boost', icon: <Sparkles className="w-4 h-4" />, bands: [-2, -1, 0, 1, 3, 5, 6, 7], bassBoost: 0, reverb: 0, spatialAudio: false },
   { name: 'Vocal', icon: <Volume2 className="w-4 h-4" />, bands: [-3, -1, 1, 4, 5, 3, 1, 0], bassBoost: 0, reverb: 25, spatialAudio: false },
-  { name: '3D Audio', icon: <Waves className="w-4 h-4" />, bands: [2, 1, 0, 0, 0, 0, 1, 2], bassBoost: 20, reverb: 45, spatialAudio: true },
+  { name: '8D Audio', icon: <Globe className="w-4 h-4" />, bands: [2, 1, 0, -1, 0, 1, 2, 3], bassBoost: 15, reverb: 55, spatialAudio: true },
   { name: 'Phonk', icon: <Radio className="w-4 h-4" />, bands: [7, 5, 3, 0, -2, 1, 3, 4], bassBoost: 70, reverb: 15, spatialAudio: false },
   { name: 'Deep Bass', icon: <Headphones className="w-4 h-4" />, bands: [10, 8, 5, 2, 0, -1, -2, -3], bassBoost: 80, reverb: 10, spatialAudio: false },
   { name: 'Concert', icon: <Sparkles className="w-4 h-4" />, bands: [3, 1, 0, -1, 0, 2, 4, 5], bassBoost: 10, reverb: 60, spatialAudio: true },
@@ -88,6 +88,11 @@ const audioState = {
   filters: [] as BiquadFilterNode[],
   gainNode: null as GainNode | null,
   connectedElement: null as HTMLAudioElement | null,
+  pannerNode: null as StereoPannerNode | null,
+  convolverNode: null as ConvolverNode | null,
+  convolverGain: null as GainNode | null,
+  dryGain: null as GainNode | null,
+  spatialInterval: null as number | null,
 };
 
 const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
@@ -184,7 +189,42 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
       for (let i = 0; i < filters.length - 1; i++) {
         filters[i].connect(filters[i + 1]);
       }
-      filters[filters.length - 1].connect(gainNode);
+
+      // Create panner for 8D rotation
+      const panner = ctx.createStereoPanner();
+      panner.pan.value = 0;
+      audioState.pannerNode = panner;
+
+      // Create convolver for reverb
+      const convolver = ctx.createConvolver();
+      const convolverGain = ctx.createGain();
+      convolverGain.gain.value = 0;
+      const dryGain = ctx.createGain();
+      dryGain.gain.value = 1;
+
+      // Generate impulse response for reverb
+      const sampleRate = ctx.sampleRate;
+      const length = sampleRate * 2.5; // 2.5 second reverb
+      const impulse = ctx.createBuffer(2, length, sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = impulse.getChannelData(ch);
+        for (let i = 0; i < length; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.5);
+        }
+      }
+      convolver.buffer = impulse;
+
+      audioState.convolverNode = convolver;
+      audioState.convolverGain = convolverGain;
+      audioState.dryGain = dryGain;
+
+      // Chain: filters -> panner -> dry/wet split -> gain -> destination
+      filters[filters.length - 1].connect(panner);
+      panner.connect(dryGain);
+      panner.connect(convolver);
+      convolver.connect(convolverGain);
+      dryGain.connect(gainNode);
+      convolverGain.connect(gainNode);
       gainNode.connect(ctx.destination);
 
       audioState.connectedElement = audioElement;
@@ -212,6 +252,42 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     if (audioState.filters[1]) audioState.filters[1].gain.value = bands[1].gain + (boost * 0.7);
     if (audioState.filters[2]) audioState.filters[2].gain.value = bands[2].gain + (boost * 0.3);
   }, [bassBoost, bands]);
+
+  // Apply reverb wet/dry mix
+  useEffect(() => {
+    if (audioState.convolverGain && audioState.dryGain) {
+      const wet = reverb / 100;
+      audioState.convolverGain.gain.value = wet * 0.6;
+      audioState.dryGain.gain.value = 1 - (wet * 0.3);
+    }
+  }, [reverb]);
+
+  // 8D Spatial Audio — real rotating panner
+  useEffect(() => {
+    if (audioState.spatialInterval) {
+      clearInterval(audioState.spatialInterval);
+      audioState.spatialInterval = null;
+    }
+
+    if (spatialAudio && audioState.pannerNode && audioState.context) {
+      let angle = 0;
+      audioState.spatialInterval = window.setInterval(() => {
+        angle += 0.04; // Slow rotation speed
+        if (audioState.pannerNode) {
+          audioState.pannerNode.pan.value = Math.sin(angle) * 0.85;
+        }
+      }, 30) as unknown as number;
+    } else if (audioState.pannerNode) {
+      audioState.pannerNode.pan.value = 0;
+    }
+
+    return () => {
+      if (audioState.spatialInterval) {
+        clearInterval(audioState.spatialInterval);
+        audioState.spatialInterval = null;
+      }
+    };
+  }, [spatialAudio]);
 
   // Apply playback speed
   useEffect(() => {
@@ -428,7 +504,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                 onClick={() => {
                   setSpatialAudio(!spatialAudio);
                   setActivePreset(null);
-                  toast.success(spatialAudio ? '3D Audio disabled' : '3D Audio enabled');
+                  toast.success(spatialAudio ? '8D Audio disabled' : '8D Audio enabled — sound rotates around you');
                 }}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
                   spatialAudio
@@ -444,8 +520,8 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                     <Sparkles className={`w-4 h-4 ${spatialAudio ? 'text-white' : 'text-muted-foreground'}`} />
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-medium">3D Spatial Audio</p>
-                    <p className="text-xs text-muted-foreground">Immersive surround sound</p>
+                    <p className="text-sm font-medium">8D Audio</p>
+                    <p className="text-xs text-muted-foreground">Sound rotates around your head</p>
                   </div>
                 </div>
                 <div className={`w-12 h-7 rounded-full p-1 transition-colors ${

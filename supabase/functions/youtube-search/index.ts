@@ -5,6 +5,77 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// Piped instances for searching (NO API key needed, unlimited, free)
+const PIPED_INSTANCES = [
+  'https://pipedapi.kavin.rocks',
+  'https://pipedapi.adminforge.de',
+  'https://pipedapi.r4fo.com',
+  'https://pipedapi.leptons.xyz',
+  'https://pipedapi.moomoo.me',
+  'https://piped-api.lunar.icu',
+];
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Decode HTML entities
+function decodeEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, '/');
+}
+
+async function searchPiped(query: string, instance: string, filter: string): Promise<any[] | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const url = `${instance}/search?q=${encodeURIComponent(query)}&filter=${filter}`;
+    const resp = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json' },
+    });
+    clearTimeout(timeout);
+
+    if (!resp.ok) {
+      await resp.text();
+      return null;
+    }
+
+    const data = await resp.json();
+    const items = data.items || [];
+
+    return items
+      .filter((item: any) => item.url && item.type === 'stream')
+      .map((item: any) => {
+        // Extract videoId from /watch?v=XXXXX
+        const match = item.url?.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+        const videoId = match ? match[1] : '';
+        return {
+          videoId,
+          title: decodeEntities(item.title || ''),
+          channelTitle: decodeEntities(item.uploaderName || item.uploader || ''),
+          thumbnail: item.thumbnail || '',
+          duration: item.duration || 0,
+        };
+      })
+      .filter((r: any) => r.videoId);
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -19,58 +90,54 @@ serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get('YOUTUBE_API_KEY');
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'YouTube API key not configured' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    const searchQuery = query.trim();
+    const filter = 'music_songs'; // Piped music filter
+
+    // Try Piped instances (no API key needed!)
+    const instances = shuffle(PIPED_INSTANCES);
+    for (const instance of instances) {
+      console.log(`Trying Piped search: ${instance}`);
+      const results = await searchPiped(searchQuery, instance, filter);
+      if (results && results.length > 0) {
+        const limited = results.slice(0, Math.min(maxResults, 50));
+        console.log(`✓ Found ${limited.length} results via ${instance}`);
+        return new Response(JSON.stringify({
+          success: true,
+          results: limited,
+          totalResults: limited.length,
+          query: searchQuery,
+          source: 'piped',
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
-    const limit = Math.min(Math.max(1, maxResults), 50);
-    const params = new URLSearchParams({
-      part: 'snippet',
-      q: query.trim(),
-      type: 'video',
-      videoCategoryId: '10', // Music category
-      maxResults: String(limit),
-      key: apiKey,
-    });
-
-    const ytResponse = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?${params.toString()}`,
-      { headers: { 'Accept': 'application/json' } }
-    );
-
-    if (!ytResponse.ok) {
-      const errBody = await ytResponse.text();
-      console.error('YouTube API error:', ytResponse.status, errBody);
-      return new Response(JSON.stringify({
-        error: `YouTube API error: ${ytResponse.status}`,
-        details: errBody,
-      }), {
-        status: ytResponse.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // Fallback: try with 'videos' filter instead of 'music_songs'
+    for (const instance of instances) {
+      console.log(`Fallback search (videos filter): ${instance}`);
+      const results = await searchPiped(searchQuery, instance, 'videos');
+      if (results && results.length > 0) {
+        const limited = results.slice(0, Math.min(maxResults, 50));
+        console.log(`✓ Fallback found ${limited.length} results via ${instance}`);
+        return new Response(JSON.stringify({
+          success: true,
+          results: limited,
+          totalResults: limited.length,
+          query: searchQuery,
+          source: 'piped-fallback',
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
-
-    const ytData = await ytResponse.json();
-
-    const results = (ytData.items || []).map((item: any) => ({
-      videoId: item.id?.videoId || '',
-      title: item.snippet?.title || '',
-      channelTitle: item.snippet?.channelTitle || '',
-      thumbnail: item.snippet?.thumbnails?.high?.url
-        || item.snippet?.thumbnails?.medium?.url
-        || item.snippet?.thumbnails?.default?.url || '',
-      publishedAt: item.snippet?.publishedAt || '',
-    })).filter((r: any) => r.videoId);
 
     return new Response(JSON.stringify({
-      success: true,
-      results,
-      totalResults: ytData.pageInfo?.totalResults || results.length,
-      query: query.trim(),
+      success: false,
+      error: 'No results found. All search providers are temporarily unavailable.',
+      results: [],
     }), {
+      status: 502,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
