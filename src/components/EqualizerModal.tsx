@@ -279,31 +279,6 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                 </div>
               </div>
 
-              {/* 8D Audio Toggle */}
-              <motion.button
-                onClick={() => {
-                  setSpatialAudio(!spatialAudio);
-                  setActivePreset(null);
-                  toast.success(spatialAudio ? '8D Audio disabled' : '8D Audio enabled — sound rotates around you');
-                }}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
-                  spatialAudio ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30' : 'glass'
-                }`}
-                whileTap={{ scale: 0.99 }}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${spatialAudio ? 'bg-cyan-500' : 'bg-white/10'}`}>
-                    <Sparkles className={`w-4 h-4 ${spatialAudio ? 'text-white' : 'text-muted-foreground'}`} />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium">8D Audio</p>
-                    <p className="text-xs text-muted-foreground">Sound rotates around your head</p>
-                  </div>
-                </div>
-                <div className={`w-12 h-7 rounded-full p-1 transition-colors ${spatialAudio ? 'bg-cyan-500' : 'bg-white/10'}`}>
-                  <motion.div className="w-5 h-5 rounded-full bg-white shadow-lg" animate={{ x: spatialAudio ? 20 : 0 }} transition={iosSpring} />
-                </div>
-              </motion.button>
             </div>
           </div>
         </motion.div>
