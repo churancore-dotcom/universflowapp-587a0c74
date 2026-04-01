@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Radio, Globe } from 'lucide-react';
+import { X, Sparkles, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Radio } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { iosSpring } from '@/lib/animations';
 import { usePlayer } from '@/contexts/PlayerContext';
@@ -26,18 +26,17 @@ interface Preset {
   bands: number[];
   bassBoost: number;
   reverb: number;
-  spatialAudio: boolean;
 }
 
 const presets: Preset[] = [
-  { name: 'Flat', icon: <Music2 className="w-4 h-4" />, bands: [0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0, reverb: 0, spatialAudio: false },
-  { name: 'Bass Boost', icon: <Zap className="w-4 h-4" />, bands: [8, 6, 4, 1, 0, -1, -2, -2], bassBoost: 60, reverb: 0, spatialAudio: false },
-  { name: 'Treble Boost', icon: <Sparkles className="w-4 h-4" />, bands: [-2, -1, 0, 1, 3, 5, 6, 7], bassBoost: 0, reverb: 0, spatialAudio: false },
-  { name: 'Vocal', icon: <Volume2 className="w-4 h-4" />, bands: [-3, -1, 1, 4, 5, 3, 1, 0], bassBoost: 0, reverb: 25, spatialAudio: false },
-  { name: '8D Audio', icon: <Globe className="w-4 h-4" />, bands: [2, 1, 0, -1, 0, 1, 2, 3], bassBoost: 15, reverb: 55, spatialAudio: true },
-  { name: 'Phonk', icon: <Radio className="w-4 h-4" />, bands: [7, 5, 3, 0, -2, 1, 3, 4], bassBoost: 70, reverb: 15, spatialAudio: false },
-  { name: 'Deep Bass', icon: <Headphones className="w-4 h-4" />, bands: [10, 8, 5, 2, 0, -1, -2, -3], bassBoost: 80, reverb: 10, spatialAudio: false },
-  { name: 'Concert', icon: <Sparkles className="w-4 h-4" />, bands: [3, 1, 0, -1, 0, 2, 4, 5], bassBoost: 10, reverb: 60, spatialAudio: true },
+  { name: 'Flat', icon: <Music2 className="w-4 h-4" />, bands: [0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0, reverb: 0 },
+  { name: 'Bass Boost', icon: <Zap className="w-4 h-4" />, bands: [8, 6, 4, 1, 0, -1, -2, -2], bassBoost: 60, reverb: 0 },
+  { name: 'Deep Bass', icon: <Headphones className="w-4 h-4" />, bands: [10, 8, 5, 2, 0, -1, -2, -3], bassBoost: 80, reverb: 10 },
+  { name: 'Treble', icon: <Sparkles className="w-4 h-4" />, bands: [-2, -1, 0, 1, 3, 5, 6, 7], bassBoost: 0, reverb: 0 },
+  { name: 'Vocal', icon: <Volume2 className="w-4 h-4" />, bands: [-3, -1, 1, 4, 5, 3, 1, 0], bassBoost: 0, reverb: 25 },
+  { name: 'Phonk', icon: <Radio className="w-4 h-4" />, bands: [7, 5, 3, 0, -2, 1, 3, 4], bassBoost: 70, reverb: 15 },
+  { name: 'Rock', icon: <Sparkles className="w-4 h-4" />, bands: [5, 3, -1, -2, 0, 2, 4, 5], bassBoost: 30, reverb: 10 },
+  { name: 'Pop', icon: <Music2 className="w-4 h-4" />, bands: [-1, 2, 4, 5, 3, 0, -1, -1], bassBoost: 10, reverb: 15 },
 ];
 
 const defaultBands: EQBand[] = [
@@ -82,7 +81,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   });
   const [bassBoost, setBassBoost] = useState(() => { try { return Number(localStorage.getItem('eq_bass')) || 0; } catch { return 0; } });
   const [reverb, setReverb] = useState(() => { try { return Number(localStorage.getItem('eq_reverb')) || 0; } catch { return 0; } });
-  const [spatialAudio, setSpatialAudio] = useState(() => { try { return localStorage.getItem('eq_spatial') === 'true'; } catch { return false; } });
+  // 8D removed — was unreliable
   const [playbackSpeed, setPlaybackSpeed] = useState(() => { try { return Number(localStorage.getItem('eq_speed')) || 1; } catch { return 1; } });
   const [activePreset, setActivePreset] = useState<string | null>(() => { try { return localStorage.getItem('eq_preset') || 'Flat'; } catch { return 'Flat'; } });
   const [connected, setConnected] = useState(audioEngine.connected);
@@ -93,11 +92,10 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
       localStorage.setItem('eq_bands', JSON.stringify(bands));
       localStorage.setItem('eq_bass', String(bassBoost));
       localStorage.setItem('eq_reverb', String(reverb));
-      localStorage.setItem('eq_spatial', String(spatialAudio));
       localStorage.setItem('eq_speed', String(playbackSpeed));
       if (activePreset) localStorage.setItem('eq_preset', activePreset);
     } catch {}
-  }, [bands, bassBoost, reverb, spatialAudio, playbackSpeed, activePreset]);
+  }, [bands, bassBoost, reverb, playbackSpeed, activePreset]);
 
   // Bind engine when modal opens
   useEffect(() => {
@@ -110,11 +108,9 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
       if (cancelled) return;
       setConnected(ok);
       if (ok) {
-        // Apply all current settings immediately
         audioEngine.setBands(bands.map(b => b.gain));
         audioEngine.setBassBoost(bassBoost, bands.map(b => b.gain));
         audioEngine.setReverb(reverb);
-        audioEngine.set8D(spatialAudio);
       }
     })();
     return () => { cancelled = true; };
@@ -127,10 +123,6 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   useEffect(() => { if (connected) audioEngine.setBands(bands.map(b => b.gain)); }, [bands, connected]);
   useEffect(() => { if (connected) audioEngine.setBassBoost(bassBoost, bands.map(b => b.gain)); }, [bassBoost, bands, connected]);
   useEffect(() => { if (connected) audioEngine.setReverb(reverb); }, [reverb, connected]);
-  useEffect(() => {
-    if (connected) audioEngine.set8D(spatialAudio);
-    return () => { if (!spatialAudio) audioEngine.set8D(false); };
-  }, [spatialAudio, connected]);
   useEffect(() => { if (audioElement) audioElement.playbackRate = playbackSpeed; }, [playbackSpeed, audioElement]);
 
   const handleBandChange = useCallback((index: number, value: number) => {
@@ -142,7 +134,6 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     setBands(prev => prev.map((b, i) => ({ ...b, gain: preset.bands[i] ?? 0 })));
     setBassBoost(preset.bassBoost);
     setReverb(preset.reverb);
-    setSpatialAudio(preset.spatialAudio);
     setActivePreset(preset.name);
     toast.success(`${preset.name} preset applied`);
   }, []);
@@ -151,9 +142,9 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     setBands(defaultBands);
     setBassBoost(0);
     setReverb(0);
-    setSpatialAudio(false);
     setPlaybackSpeed(1);
     setActivePreset('Flat');
+    audioEngine.set8D(false);
     if (audioElement) audioElement.playbackRate = 1;
     toast.success('Equalizer reset');
   }, [audioElement]);
@@ -288,31 +279,6 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                 </div>
               </div>
 
-              {/* 8D Audio Toggle */}
-              <motion.button
-                onClick={() => {
-                  setSpatialAudio(!spatialAudio);
-                  setActivePreset(null);
-                  toast.success(spatialAudio ? '8D Audio disabled' : '8D Audio enabled — sound rotates around you');
-                }}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
-                  spatialAudio ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30' : 'glass'
-                }`}
-                whileTap={{ scale: 0.99 }}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${spatialAudio ? 'bg-cyan-500' : 'bg-white/10'}`}>
-                    <Sparkles className={`w-4 h-4 ${spatialAudio ? 'text-white' : 'text-muted-foreground'}`} />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium">8D Audio</p>
-                    <p className="text-xs text-muted-foreground">Sound rotates around your head</p>
-                  </div>
-                </div>
-                <div className={`w-12 h-7 rounded-full p-1 transition-colors ${spatialAudio ? 'bg-cyan-500' : 'bg-white/10'}`}>
-                  <motion.div className="w-5 h-5 rounded-full bg-white shadow-lg" animate={{ x: spatialAudio ? 20 : 0 }} transition={iosSpring} />
-                </div>
-              </motion.button>
             </div>
           </div>
         </motion.div>
