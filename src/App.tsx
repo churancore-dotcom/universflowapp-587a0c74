@@ -170,17 +170,21 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
 AnimatedRoutes.displayName = 'AnimatedRoutes';
 
 const PrerollAdWrapper = () => {
-  const { showPrerollAd, onPrerollAdComplete, adType } = usePlayer();
-  return (
-    <Suspense fallback={null}>
-      <PrerollAd 
-        isOpen={showPrerollAd} 
-        onComplete={onPrerollAdComplete}
-        onSkip={onPrerollAdComplete}
-        adType={adType}
-      />
-    </Suspense>
-  );
+  try {
+    const { showPrerollAd, onPrerollAdComplete, adType } = usePlayer();
+    return (
+      <Suspense fallback={null}>
+        <PrerollAd 
+          isOpen={showPrerollAd} 
+          onComplete={onPrerollAdComplete}
+          onSkip={onPrerollAdComplete}
+          adType={adType}
+        />
+      </Suspense>
+    );
+  } catch {
+    return null;
+  }
 };
 
 const AppContent = () => {
