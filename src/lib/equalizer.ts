@@ -1,219 +1,207 @@
 /**
- * Singleton equalizer engine — binds once per HTMLAudioElement,
- * survives modal open/close, and handles element swaps (crossfade).
+ * Singleton audio engine — owns the AudioContext and the single
+ * MediaElementAudioSourceNode. Both the EQ modal and the visualizer
+ * tap into this one graph so `createMediaElementSource` is only
+ * ever called once per HTMLAudioElement.
  */
-
-interface EQState {
-  ctx: AudioContext | null;
-  source: MediaElementAudioSourceNode | null;
-  filters: BiquadFilterNode[];
-  gainNode: GainNode | null;
-  pannerNode: StereoPannerNode | null;
-  convolverNode: ConvolverNode | null;
-  convolverGain: GainNode | null;
-  dryGain: GainNode | null;
-  boundElement: HTMLAudioElement | null;
-  spatialInterval: number | null;
-  // Track which elements we've already called createMediaElementSource on
-  // because it can only be called ONCE per element ever
-  boundElements: WeakSet<HTMLAudioElement>;
-}
-
-const state: EQState = {
-  ctx: null,
-  source: null,
-  filters: [],
-  gainNode: null,
-  pannerNode: null,
-  convolverNode: null,
-  convolverGain: null,
-  dryGain: null,
-  boundElement: null,
-  spatialInterval: null,
-  boundElements: new WeakSet(),
-};
 
 const FREQUENCIES = [32, 64, 125, 500, 1000, 4000, 8000, 16000];
 
-function ensureContext(): AudioContext {
-  if (!state.ctx || state.ctx.state === 'closed') {
-    const Ctor = window.AudioContext || (window as any).webkitAudioContext;
-    state.ctx = new Ctor();
-  }
-  return state.ctx;
-}
+class AudioEngine {
+  private ctx: AudioContext | null = null;
+  private src: MediaElementAudioSourceNode | null = null;
+  private el: HTMLAudioElement | null = null;
 
-function buildGraph(ctx: AudioContext, source: MediaElementAudioSourceNode) {
-  // EQ filters
-  const filters = FREQUENCIES.map((freq, i) => {
-    const f = ctx.createBiquadFilter();
-    f.type = i === 0 ? 'lowshelf' : i === FREQUENCIES.length - 1 ? 'highshelf' : 'peaking';
-    f.frequency.value = freq;
-    f.Q.value = 1.4;
-    f.gain.value = 0;
-    return f;
-  });
+  // EQ nodes
+  private filters: BiquadFilterNode[] = [];
+  private masterGain: GainNode | null = null;
+  private panner: StereoPannerNode | null = null;
+  private convolver: ConvolverNode | null = null;
+  private wetGain: GainNode | null = null;
+  private dryGain: GainNode | null = null;
 
-  // Panner for 8D
-  const panner = ctx.createStereoPanner();
-  panner.pan.value = 0;
+  // Visualizer
+  private analyserNode: AnalyserNode | null = null;
 
-  // Reverb via convolver
-  const convolver = ctx.createConvolver();
-  const sampleRate = ctx.sampleRate;
-  const length = sampleRate * 2.5;
-  const impulse = ctx.createBuffer(2, length, sampleRate);
-  for (let ch = 0; ch < 2; ch++) {
-    const data = impulse.getChannelData(ch);
-    for (let i = 0; i < length; i++) {
-      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.5);
+  // 8D
+  private panRAF: number | null = null;
+  private is8DActive = false;
+
+  // State tracking
+  private boundElements = new WeakSet<HTMLAudioElement>();
+
+  private ensureCtx(): AudioContext {
+    if (!this.ctx || this.ctx.state === 'closed') {
+      const C = window.AudioContext || (window as any).webkitAudioContext;
+      this.ctx = new C();
     }
+    return this.ctx;
   }
-  convolver.buffer = impulse;
 
-  const convolverGain = ctx.createGain();
-  convolverGain.gain.value = 0;
-  const dryGain = ctx.createGain();
-  dryGain.gain.value = 1;
-  const masterGain = ctx.createGain();
-  masterGain.gain.value = 1;
-
-  // Wire: source → filters → panner → dry/wet → master → destination
-  source.connect(filters[0]);
-  for (let i = 0; i < filters.length - 1; i++) {
-    filters[i].connect(filters[i + 1]);
-  }
-  filters[filters.length - 1].connect(panner);
-  panner.connect(dryGain);
-  panner.connect(convolver);
-  convolver.connect(convolverGain);
-  dryGain.connect(masterGain);
-  convolverGain.connect(masterGain);
-  masterGain.connect(ctx.destination);
-
-  state.source = source;
-  state.filters = filters;
-  state.gainNode = masterGain;
-  state.pannerNode = panner;
-  state.convolverNode = convolver;
-  state.convolverGain = convolverGain;
-  state.dryGain = dryGain;
-}
-
-/**
- * Bind the equalizer to an audio element. Safe to call repeatedly —
- * it no-ops if already bound to the same element.
- */
-export async function bindEqualizer(audio: HTMLAudioElement): Promise<boolean> {
-  if (state.boundElement === audio && state.source) {
-    // Already bound — just ensure context is running
-    if (state.ctx?.state === 'suspended') {
-      await state.ctx.resume();
+  /**
+   * Bind to an audio element. Safe to call repeatedly — no-ops if
+   * already bound to the same element.
+   */
+  async bind(audio: HTMLAudioElement): Promise<boolean> {
+    if (this.el === audio && this.src) {
+      await this.resume();
+      return true;
     }
-    return true;
-  }
 
-  // If this element was already bound before (e.g. crossfade swap back),
-  // we can't call createMediaElementSource again
-  if (state.boundElements.has(audio)) {
-    // Element was previously bound but graph was rebuilt for another element.
-    // We can't rebind — this is a browser limitation.
-    // The old source is dead. We just need a fresh element.
-    return false;
-  }
+    // createMediaElementSource can only be called once per element EVER
+    if (this.boundElements.has(audio)) {
+      return false;
+    }
 
-  try {
-    const ctx = ensureContext();
-    
-    // CRITICAL: Resume BEFORE creating source
-    if (ctx.state === 'suspended') {
+    try {
+      const ctx = this.ensureCtx();
       await ctx.resume();
-    }
 
-    const wasPlaying = !audio.paused;
+      const wasPlaying = !audio.paused;
 
-    // Disconnect old graph if switching elements
-    if (state.source) {
-      try { state.source.disconnect(); } catch {}
-    }
-    state.filters.forEach(f => { try { f.disconnect(); } catch {} });
-    if (state.pannerNode) try { state.pannerNode.disconnect(); } catch {}
-    if (state.convolverNode) try { state.convolverNode.disconnect(); } catch {}
-    if (state.convolverGain) try { state.convolverGain.disconnect(); } catch {}
-    if (state.dryGain) try { state.dryGain.disconnect(); } catch {}
-    if (state.gainNode) try { state.gainNode.disconnect(); } catch {}
+      // Disconnect old source (but keep same context)
+      this.disconnectGraph();
 
-    const source = ctx.createMediaElementSource(audio);
-    state.boundElements.add(audio);
-    state.boundElement = audio;
+      this.src = ctx.createMediaElementSource(audio);
+      this.boundElements.add(audio);
+      this.el = audio;
 
-    buildGraph(ctx, source);
+      this.buildGraph(ctx);
 
-    // Ensure playback continues
-    if (wasPlaying && audio.paused) {
-      await audio.play().catch(() => {});
-    }
-
-    return true;
-  } catch (err) {
-    console.error('Equalizer bind failed:', err);
-    return false;
-  }
-}
-
-export function isConnected(): boolean {
-  return state.boundElement !== null && state.source !== null;
-}
-
-export function setBandGain(index: number, gain: number) {
-  if (state.filters[index]) {
-    state.filters[index].gain.value = gain;
-  }
-}
-
-export function setBands(gains: number[]) {
-  gains.forEach((g, i) => {
-    if (state.filters[i]) state.filters[i].gain.value = g;
-  });
-}
-
-export function setBassBoost(boost: number, bandGains: number[]) {
-  const factor = boost / 8;
-  if (state.filters[0]) state.filters[0].gain.value = (bandGains[0] || 0) + factor;
-  if (state.filters[1]) state.filters[1].gain.value = (bandGains[1] || 0) + factor * 0.7;
-  if (state.filters[2]) state.filters[2].gain.value = (bandGains[2] || 0) + factor * 0.3;
-}
-
-export function setReverb(amount: number) {
-  if (state.convolverGain && state.dryGain) {
-    const wet = amount / 100;
-    state.convolverGain.gain.value = wet * 0.6;
-    state.dryGain.gain.value = 1 - wet * 0.3;
-  }
-}
-
-export function setSpatialAudio(enabled: boolean) {
-  // Clear previous interval
-  if (state.spatialInterval) {
-    clearInterval(state.spatialInterval);
-    state.spatialInterval = null;
-  }
-
-  if (enabled && state.pannerNode) {
-    let angle = 0;
-    state.spatialInterval = window.setInterval(() => {
-      angle += 0.04;
-      if (state.pannerNode) {
-        state.pannerNode.pan.value = Math.sin(angle) * 0.85;
+      if (wasPlaying && audio.paused) {
+        audio.play().catch(() => {});
       }
-    }, 30);
-  } else if (state.pannerNode) {
-    state.pannerNode.pan.value = 0;
+
+      return true;
+    } catch (err) {
+      console.error('AudioEngine bind failed:', err);
+      return false;
+    }
+  }
+
+  private disconnectGraph() {
+    [this.src, ...this.filters, this.panner, this.convolver,
+     this.wetGain, this.dryGain, this.masterGain, this.analyserNode
+    ].forEach(n => { try { n?.disconnect(); } catch {} });
+  }
+
+  private buildGraph(ctx: AudioContext) {
+    if (!this.src) return;
+
+    // Analyser (for visualizer)
+    this.analyserNode = ctx.createAnalyser();
+    this.analyserNode.fftSize = 128;
+    this.analyserNode.smoothingTimeConstant = 0.85;
+
+    // EQ filters
+    this.filters = FREQUENCIES.map((freq, i) => {
+      const f = ctx.createBiquadFilter();
+      f.type = i === 0 ? 'lowshelf' : i === FREQUENCIES.length - 1 ? 'highshelf' : 'peaking';
+      f.frequency.value = freq;
+      f.Q.value = 1.4;
+      f.gain.value = 0;
+      return f;
+    });
+
+    // Panner for 8D
+    this.panner = ctx.createStereoPanner();
+    this.panner.pan.value = 0;
+
+    // Reverb
+    this.convolver = ctx.createConvolver();
+    const sr = ctx.sampleRate;
+    const len = sr * 2.5;
+    const impulse = ctx.createBuffer(2, len, sr);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = impulse.getChannelData(ch);
+      for (let i = 0; i < len; i++) {
+        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
+      }
+    }
+    this.convolver.buffer = impulse;
+
+    this.wetGain = ctx.createGain();
+    this.wetGain.gain.value = 0;
+    this.dryGain = ctx.createGain();
+    this.dryGain.gain.value = 1;
+    this.masterGain = ctx.createGain();
+    this.masterGain.gain.value = 1;
+
+    // Wire: source → analyser → filters → panner → dry/wet → master → destination
+    this.src.connect(this.analyserNode);
+    this.analyserNode.connect(this.filters[0]);
+    for (let i = 0; i < this.filters.length - 1; i++) {
+      this.filters[i].connect(this.filters[i + 1]);
+    }
+    this.filters[this.filters.length - 1].connect(this.panner);
+    this.panner.connect(this.dryGain);
+    this.panner.connect(this.convolver);
+    this.convolver.connect(this.wetGain);
+    this.dryGain.connect(this.masterGain);
+    this.wetGain.connect(this.masterGain);
+    this.masterGain.connect(ctx.destination);
+  }
+
+  get connected(): boolean {
+    return this.el !== null && this.src !== null;
+  }
+
+  /** Expose analyser for the visualizer hook */
+  getAnalyser(): AnalyserNode | null {
+    return this.analyserNode;
+  }
+
+  async resume() {
+    if (this.ctx?.state === 'suspended') {
+      await this.ctx.resume().catch(() => {});
+    }
+  }
+
+  // ─── EQ Controls ───
+
+  setBands(gains: number[]) {
+    gains.forEach((g, i) => {
+      if (this.filters[i]) this.filters[i].gain.value = g;
+    });
+  }
+
+  setBassBoost(boost: number, bandGains: number[]) {
+    const factor = boost / 8;
+    if (this.filters[0]) this.filters[0].gain.value = (bandGains[0] || 0) + factor;
+    if (this.filters[1]) this.filters[1].gain.value = (bandGains[1] || 0) + factor * 0.7;
+    if (this.filters[2]) this.filters[2].gain.value = (bandGains[2] || 0) + factor * 0.3;
+  }
+
+  setReverb(amount: number) {
+    if (this.wetGain && this.dryGain) {
+      const wet = amount / 100;
+      this.wetGain.gain.value = wet * 0.6;
+      this.dryGain.gain.value = 1 - wet * 0.3;
+    }
+  }
+
+  set8D(enabled: boolean) {
+    this.is8DActive = enabled;
+    if (enabled) {
+      if (!this.panRAF) this.startPanLoop();
+    } else {
+      if (this.panRAF) {
+        cancelAnimationFrame(this.panRAF);
+        this.panRAF = null;
+      }
+      if (this.panner) this.panner.pan.value = 0;
+    }
+  }
+
+  private startPanLoop() {
+    const loop = () => {
+      if (!this.is8DActive || !this.panner || !this.ctx) return;
+      this.panner.pan.value = Math.sin(this.ctx.currentTime * 0.8) * 0.85;
+      this.panRAF = requestAnimationFrame(loop);
+    };
+    this.panRAF = requestAnimationFrame(loop);
   }
 }
 
-export function resumeContext() {
-  if (state.ctx?.state === 'suspended') {
-    state.ctx.resume().catch(() => {});
-  }
-}
+// Export singleton
+export const audioEngine = new AudioEngine();
