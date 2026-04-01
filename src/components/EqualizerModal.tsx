@@ -161,8 +161,6 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     setPlaybackSpeed(1);
     setActivePreset('Flat');
     if (audioElement) audioElement.playbackRate = 1;
-    try { audioEngine.set8D(false); } catch {}
-    localStorage.removeItem('eq_spatial');
     toast.success('Equalizer reset');
   }, [audioElement]);
 
