@@ -151,16 +151,6 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     setBassBoost(preset.bassBoost);
     setReverb(preset.reverb);
     setActivePreset(preset.name);
-    
-    // For 8D Audio preset, enable spatial panning
-    if (preset.name === '8D Audio') {
-      audioEngine.set8D(true);
-      localStorage.setItem('eq_spatial', 'true');
-    } else {
-      audioEngine.set8D(false);
-      localStorage.setItem('eq_spatial', 'false');
-    }
-    
     toast.success(`${preset.name} preset applied`);
   }, []);
 
