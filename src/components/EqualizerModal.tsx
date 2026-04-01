@@ -135,104 +135,119 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
 
   // Connect audio graph (only once per audio element)
   useEffect(() => {
-    if (!audioElement) return;
+    if (!audioElement || !isOpen) return;
     if (audioState.connectedElement === audioElement) {
+      // Already connected — just make sure context is running
+      if (audioState.context?.state === 'suspended') {
+        audioState.context.resume().catch(() => {});
+      }
       setIsConnected(true);
       return;
     }
 
-    try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) return;
+    const connectGraph = async () => {
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContextClass) return;
 
-      // If we had a previous context connected to a different element, we can't
-      // reconnect — MediaElementSource can only be created once per element.
-      // So we create fresh context only if the element changed.
-      if (audioState.context && audioState.connectedElement && audioState.connectedElement !== audioElement) {
-        // Previous context is stale; we'll create a new one
-        try { audioState.context.close(); } catch {}
-        audioState.context = null;
-        audioState.source = null;
-        audioState.filters = [];
-        audioState.gainNode = null;
-        audioState.connectedElement = null;
-      }
-
-      const ctx = audioState.context || new AudioContextClass();
-      audioState.context = ctx;
-
-      // Resume context if suspended (browser autoplay policy)
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-
-      const source = ctx.createMediaElementSource(audioElement);
-      audioState.source = source;
-
-      // Create 8-band EQ
-      const filters = defaultBands.map((band, i) => {
-        const filter = ctx.createBiquadFilter();
-        filter.type = i === 0 ? 'lowshelf' : i === defaultBands.length - 1 ? 'highshelf' : 'peaking';
-        filter.frequency.value = band.frequency;
-        filter.Q.value = 1.4;
-        filter.gain.value = bands[i]?.gain || 0;
-        return filter;
-      });
-      audioState.filters = filters;
-
-      const gainNode = ctx.createGain();
-      gainNode.gain.value = 1;
-      audioState.gainNode = gainNode;
-
-      // Chain: source -> filters -> gain -> destination
-      source.connect(filters[0]);
-      for (let i = 0; i < filters.length - 1; i++) {
-        filters[i].connect(filters[i + 1]);
-      }
-
-      // Create panner for 8D rotation
-      const panner = ctx.createStereoPanner();
-      panner.pan.value = 0;
-      audioState.pannerNode = panner;
-
-      // Create convolver for reverb
-      const convolver = ctx.createConvolver();
-      const convolverGain = ctx.createGain();
-      convolverGain.gain.value = 0;
-      const dryGain = ctx.createGain();
-      dryGain.gain.value = 1;
-
-      // Generate impulse response for reverb
-      const sampleRate = ctx.sampleRate;
-      const length = sampleRate * 2.5; // 2.5 second reverb
-      const impulse = ctx.createBuffer(2, length, sampleRate);
-      for (let ch = 0; ch < 2; ch++) {
-        const data = impulse.getChannelData(ch);
-        for (let i = 0; i < length; i++) {
-          data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.5);
+        // If we had a previous context connected to a different element, clean up
+        if (audioState.context && audioState.connectedElement && audioState.connectedElement !== audioElement) {
+          try { audioState.context.close(); } catch {}
+          audioState.context = null;
+          audioState.source = null;
+          audioState.filters = [];
+          audioState.gainNode = null;
+          audioState.connectedElement = null;
         }
+
+        const ctx = audioState.context || new AudioContextClass();
+        audioState.context = ctx;
+
+        // CRITICAL: Resume context BEFORE creating source so audio doesn't go silent
+        if (ctx.state === 'suspended') {
+          await ctx.resume();
+        }
+
+        // Remember if audio was playing so we can ensure it continues
+        const wasPlaying = !audioElement.paused;
+
+        const source = ctx.createMediaElementSource(audioElement);
+        audioState.source = source;
+
+        // Create 8-band EQ
+        const filters = defaultBands.map((band, i) => {
+          const filter = ctx.createBiquadFilter();
+          filter.type = i === 0 ? 'lowshelf' : i === defaultBands.length - 1 ? 'highshelf' : 'peaking';
+          filter.frequency.value = band.frequency;
+          filter.Q.value = 1.4;
+          filter.gain.value = bands[i]?.gain || 0;
+          return filter;
+        });
+        audioState.filters = filters;
+
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = 1;
+        audioState.gainNode = gainNode;
+
+        // Chain: source -> filters -> gain -> destination
+        source.connect(filters[0]);
+        for (let i = 0; i < filters.length - 1; i++) {
+          filters[i].connect(filters[i + 1]);
+        }
+
+        // Create panner for 8D rotation
+        const panner = ctx.createStereoPanner();
+        panner.pan.value = 0;
+        audioState.pannerNode = panner;
+
+        // Create convolver for reverb
+        const convolver = ctx.createConvolver();
+        const convolverGain = ctx.createGain();
+        convolverGain.gain.value = 0;
+        const dryGain = ctx.createGain();
+        dryGain.gain.value = 1;
+
+        // Generate impulse response for reverb
+        const sampleRate = ctx.sampleRate;
+        const length = sampleRate * 2.5;
+        const impulse = ctx.createBuffer(2, length, sampleRate);
+        for (let ch = 0; ch < 2; ch++) {
+          const data = impulse.getChannelData(ch);
+          for (let i = 0; i < length; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.5);
+          }
+        }
+        convolver.buffer = impulse;
+
+        audioState.convolverNode = convolver;
+        audioState.convolverGain = convolverGain;
+        audioState.dryGain = dryGain;
+
+        // Chain: filters -> panner -> dry/wet split -> gain -> destination
+        filters[filters.length - 1].connect(panner);
+        panner.connect(dryGain);
+        panner.connect(convolver);
+        convolver.connect(convolverGain);
+        dryGain.connect(gainNode);
+        convolverGain.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        audioState.connectedElement = audioElement;
+        setIsConnected(true);
+
+        // Ensure playback continues after rerouting through AudioContext
+        if (wasPlaying && audioElement.paused) {
+          audioElement.play().catch(() => {});
+        }
+      } catch (error) {
+        console.error('Equalizer connect error:', error);
+        // If connection fails, ensure audio still plays through default output
+        // by not setting connectedElement
       }
-      convolver.buffer = impulse;
+    };
 
-      audioState.convolverNode = convolver;
-      audioState.convolverGain = convolverGain;
-      audioState.dryGain = dryGain;
-
-      // Chain: filters -> panner -> dry/wet split -> gain -> destination
-      filters[filters.length - 1].connect(panner);
-      panner.connect(dryGain);
-      panner.connect(convolver);
-      convolver.connect(convolverGain);
-      dryGain.connect(gainNode);
-      convolverGain.connect(gainNode);
-      gainNode.connect(ctx.destination);
-
-      audioState.connectedElement = audioElement;
-      setIsConnected(true);
-    } catch (error) {
-      console.error('Equalizer connect error:', error);
-    }
-  }, [audioElement]);
+    connectGraph();
+  }, [audioElement, isOpen]);
 
   // Apply EQ band changes in real-time
   useEffect(() => {
