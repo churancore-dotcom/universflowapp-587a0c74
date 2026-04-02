@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect, useRef, memo } from 'react';
+import { useState, useCallback, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Globe } from 'lucide-react';
+import { X, Sparkles, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Globe, Radio } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { iosSpring } from '@/lib/animations';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { toast } from 'sonner';
@@ -9,8 +10,6 @@ import { toast } from 'sonner';
 interface EqualizerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  audioContext?: AudioContext | null;
-  sourceNode?: MediaElementAudioSourceNode | null;
 }
 
 interface EQBand {
@@ -27,134 +26,176 @@ interface Preset {
   bassBoost: number;
 }
 
-// Singleton audio graph - survives re-renders and re-mounts
+// Singleton audio graph
 const eqState = {
   ctx: null as AudioContext | null,
   source: null as MediaElementAudioSourceNode | null,
   filters: [] as BiquadFilterNode[],
   gainNode: null as GainNode | null,
+  convolver: null as ConvolverNode | null,
+  dryGain: null as GainNode | null,
+  wetGain: null as GainNode | null,
+  pannerNode: null as StereoPannerNode | null,
   connectedElement: null as HTMLAudioElement | null,
+  spatialInterval: null as number | null,
 };
 
 const presets: Preset[] = [
-  { id: 'flat', name: 'Flat', icon: Music2, bands: [0, 0, 0, 0, 0, 0], bassBoost: 0 },
-  { id: 'bass-boost', name: 'Bass Boost', icon: Zap, bands: [6, 5, 3, 0, -1, -2], bassBoost: 50 },
-  { id: 'treble-boost', name: 'Treble Boost', icon: Sparkles, bands: [-2, -1, 0, 2, 4, 5], bassBoost: 0 },
-  { id: 'vocal', name: 'Vocal', icon: Volume2, bands: [-2, 0, 3, 4, 2, 0], bassBoost: 0 },
-  { id: '8d-audio', name: '8D Audio', icon: Globe, bands: [1, 0, -1, 0, 1, 2], bassBoost: 20 },
-  { id: 'phonk', name: 'Phonk', icon: Headphones, bands: [7, 5, 1, -1, 2, 4], bassBoost: 60 },
-  { id: 'deep-bass', name: 'Deep Bass', icon: Waves, bands: [8, 6, 3, 0, -2, -3], bassBoost: 80 },
-  { id: 'concert', name: 'Concert', icon: Sparkles, bands: [3, 1, 0, 2, 3, 4], bassBoost: 10 },
+  { id: 'flat', name: 'Flat', icon: Music2, bands: [0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0 },
+  { id: 'bass-boost', name: 'Bass Boost', icon: Zap, bands: [6, 5, 4, 2, 0, -1, -2, -2], bassBoost: 50 },
+  { id: 'treble-boost', name: 'Treble Boost', icon: Sparkles, bands: [-2, -1, 0, 0, 1, 3, 4, 5], bassBoost: 0 },
+  { id: 'vocal', name: 'Vocal', icon: Volume2, bands: [-3, -1, 0, 3, 4, 3, 1, 0], bassBoost: 0 },
+  { id: '3d-audio', name: '3D Audio', icon: Globe, bands: [1, 0, -1, 0, 0, 1, 2, 1], bassBoost: 20 },
+  { id: 'phonk', name: 'Phonk', icon: Headphones, bands: [7, 5, 3, 0, -1, 1, 3, 4], bassBoost: 60 },
+  { id: 'deep-bass', name: 'Deep Bass', icon: Waves, bands: [8, 7, 5, 2, 0, -2, -3, -3], bassBoost: 80 },
+  { id: 'concert', name: 'Concert', icon: Sparkles, bands: [3, 2, 0, 1, 2, 3, 3, 2], bassBoost: 10 },
 ];
 
 const defaultBands: EQBand[] = [
-  { frequency: 60, gain: 0, label: '60Hz' },
-  { frequency: 230, gain: 0, label: '230Hz' },
-  { frequency: 910, gain: 0, label: '910Hz' },
-  { frequency: 3600, gain: 0, label: '3.6kHz' },
-  { frequency: 14000, gain: 0, label: '14kHz' },
-  { frequency: 20000, gain: 0, label: '20kHz' },
+  { frequency: 32, gain: 0, label: '32Hz' },
+  { frequency: 64, gain: 0, label: '64Hz' },
+  { frequency: 125, gain: 0, label: '125Hz' },
+  { frequency: 500, gain: 0, label: '500Hz' },
+  { frequency: 1000, gain: 0, label: '1kHz' },
+  { frequency: 4000, gain: 0, label: '4kHz' },
+  { frequency: 8000, gain: 0, label: '8kHz' },
+  { frequency: 16000, gain: 0, label: '16kHz' },
 ];
 
-function FrequencySliderComponent({ band, index, onChange }: { band: EQBand; index: number; onChange: (i: number, v: number) => void }) {
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <span className="text-[10px] text-muted-foreground font-mono">{band.gain > 0 ? '+' : ''}{band.gain}dB</span>
-      <div className="h-28 flex items-center">
-        <Slider
-          orientation="vertical"
-          value={[band.gain]}
-          min={-12}
-          max={12}
-          step={1}
-          onValueChange={([value]) => onChange(index, value)}
-          className="h-full"
-        />
-      </div>
-      <span className="text-[10px] text-muted-foreground/70">{band.label}</span>
-    </div>
-  );
+const STORAGE_KEY = 'eq_settings';
+
+function loadSettings() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return null;
 }
 
-const FrequencySlider = memo(FrequencySliderComponent);
-FrequencySlider.displayName = 'FrequencySlider';
+function saveSettings(data: any) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {}
+}
+
+function createReverbIR(ctx: AudioContext, duration = 2, decay = 2) {
+  const length = ctx.sampleRate * duration;
+  const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const channelData = impulse.getChannelData(ch);
+    for (let i = 0; i < length; i++) {
+      channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+    }
+  }
+  return impulse;
+}
 
 const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const { audioElement } = usePlayer();
-  const [bands, setBands] = useState<EQBand[]>(defaultBands);
-  const [bassBoost, setBassBoost] = useState(0);
-  const [activePreset, setActivePreset] = useState<string>('flat');
+
+  const saved = loadSettings();
+  const [bands, setBands] = useState<EQBand[]>(
+    saved?.bands ? defaultBands.map((b, i) => ({ ...b, gain: saved.bands[i] ?? 0 })) : defaultBands
+  );
+  const [bassBoost, setBassBoost] = useState(saved?.bassBoost ?? 0);
+  const [reverb, setReverb] = useState(saved?.reverb ?? 0);
+  const [playbackSpeed, setPlaybackSpeed] = useState(saved?.playbackSpeed ?? 1);
+  const [spatialAudio, setSpatialAudio] = useState(saved?.spatialAudio ?? false);
+  const [activePreset, setActivePreset] = useState<string>(saved?.activePreset ?? 'flat');
   const [isConnected, setIsConnected] = useState(false);
 
-  // Connect to audio element using singleton pattern
+  // Connect to audio element
   useEffect(() => {
     if (!audioElement) {
       setIsConnected(false);
       return;
     }
 
-    // Already connected to this element
     if (eqState.connectedElement === audioElement && eqState.ctx) {
       setIsConnected(true);
       return;
     }
 
     try {
-      // Reuse existing context or create new one
       if (!eqState.ctx || eqState.ctx.state === 'closed') {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        if (!AudioContextClass) return;
-        eqState.ctx = new AudioContextClass();
+        const AC = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AC) return;
+        eqState.ctx = new AC();
       }
 
       const ctx = eqState.ctx;
 
-      // Only create source if element changed
       if (eqState.connectedElement !== audioElement) {
         // Disconnect old chain
         try {
           eqState.source?.disconnect();
           eqState.filters.forEach(f => f.disconnect());
           eqState.gainNode?.disconnect();
+          eqState.dryGain?.disconnect();
+          eqState.wetGain?.disconnect();
+          eqState.convolver?.disconnect();
+          eqState.pannerNode?.disconnect();
         } catch {}
 
         try {
           eqState.source = ctx.createMediaElementSource(audioElement);
         } catch {
-          // Already has a source - element was connected before
-          // This means we can't reconnect, just update filters
           setIsConnected(true);
           eqState.connectedElement = audioElement;
           return;
         }
 
-        // Create filter chain
+        // Create 8 peaking filters
         const filters = defaultBands.map((band) => {
           const filter = ctx.createBiquadFilter();
           filter.type = 'peaking';
           filter.frequency.value = band.frequency;
-          filter.Q.value = 1;
+          filter.Q.value = 1.4;
           filter.gain.value = 0;
           return filter;
         });
 
+        // Bass boost gain
         const gainNode = ctx.createGain();
         gainNode.gain.value = 1;
 
-        // Wire: source -> filters -> gain -> destination
+        // Reverb: dry/wet mix
+        const dryGain = ctx.createGain();
+        dryGain.gain.value = 1;
+        const wetGain = ctx.createGain();
+        wetGain.gain.value = 0;
+        const convolver = ctx.createConvolver();
+        convolver.buffer = createReverbIR(ctx);
+
+        // Spatial panner
+        const pannerNode = ctx.createStereoPanner();
+        pannerNode.pan.value = 0;
+
+        // Wire: source -> filters -> gainNode -> dryGain -> pannerNode -> destination
+        //                                     -> convolver -> wetGain -> pannerNode
         eqState.source.connect(filters[0]);
         for (let i = 0; i < filters.length - 1; i++) {
           filters[i].connect(filters[i + 1]);
         }
         filters[filters.length - 1].connect(gainNode);
-        gainNode.connect(ctx.destination);
+
+        gainNode.connect(dryGain);
+        gainNode.connect(convolver);
+        convolver.connect(wetGain);
+
+        dryGain.connect(pannerNode);
+        wetGain.connect(pannerNode);
+        pannerNode.connect(ctx.destination);
 
         eqState.filters = filters;
         eqState.gainNode = gainNode;
+        eqState.dryGain = dryGain;
+        eqState.wetGain = wetGain;
+        eqState.convolver = convolver;
+        eqState.pannerNode = pannerNode;
         eqState.connectedElement = audioElement;
       }
 
-      // Resume if suspended
       if (ctx.state === 'suspended') {
         ctx.resume();
       }
@@ -165,7 +206,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     }
   }, [audioElement]);
 
-  // Apply EQ band changes to filters
+  // Apply EQ band changes
   useEffect(() => {
     if (!eqState.filters.length) return;
     bands.forEach((band, i) => {
@@ -175,25 +216,76 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     });
   }, [bands]);
 
-  // Apply bass boost on top of band values
+  // Apply bass boost
   useEffect(() => {
     if (!eqState.filters.length) return;
     const boost = bassBoost / 10;
-    if (eqState.filters[0]) {
-      eqState.filters[0].gain.value = bands[0].gain + boost;
-    }
-    if (eqState.filters[1]) {
-      eqState.filters[1].gain.value = bands[1].gain + (boost * 0.5);
-    }
+    if (eqState.filters[0]) eqState.filters[0].gain.value = bands[0].gain + boost;
+    if (eqState.filters[1]) eqState.filters[1].gain.value = bands[1].gain + (boost * 0.7);
+    if (eqState.filters[2]) eqState.filters[2].gain.value = bands[2].gain + (boost * 0.3);
   }, [bassBoost, bands]);
 
-  // Keep context alive when audio plays
+  // Apply reverb
+  useEffect(() => {
+    if (!eqState.dryGain || !eqState.wetGain) return;
+    const wet = reverb / 100;
+    eqState.dryGain.gain.value = 1 - (wet * 0.5);
+    eqState.wetGain.gain.value = wet * 0.6;
+  }, [reverb]);
+
+  // Apply playback speed
+  useEffect(() => {
+    if (audioElement) {
+      audioElement.playbackRate = playbackSpeed;
+    }
+  }, [playbackSpeed, audioElement]);
+
+  // Apply spatial audio (oscillating panner)
+  useEffect(() => {
+    if (eqState.spatialInterval) {
+      clearInterval(eqState.spatialInterval);
+      eqState.spatialInterval = null;
+    }
+
+    if (spatialAudio && eqState.pannerNode) {
+      let angle = 0;
+      eqState.spatialInterval = window.setInterval(() => {
+        angle += 0.05;
+        if (eqState.pannerNode) {
+          eqState.pannerNode.pan.value = Math.sin(angle) * 0.8;
+        }
+      }, 50);
+    } else if (eqState.pannerNode) {
+      eqState.pannerNode.pan.value = 0;
+    }
+
+    return () => {
+      if (eqState.spatialInterval) {
+        clearInterval(eqState.spatialInterval);
+        eqState.spatialInterval = null;
+      }
+    };
+  }, [spatialAudio]);
+
+  // Resume context on play
   useEffect(() => {
     if (!eqState.ctx || eqState.ctx.state !== 'suspended') return;
     const resume = () => { eqState.ctx?.resume(); };
     audioElement?.addEventListener('play', resume);
     return () => { audioElement?.removeEventListener('play', resume); };
   }, [audioElement]);
+
+  // Save settings on change
+  useEffect(() => {
+    saveSettings({
+      bands: bands.map(b => b.gain),
+      bassBoost,
+      reverb,
+      playbackSpeed,
+      spatialAudio,
+      activePreset,
+    });
+  }, [bands, bassBoost, reverb, playbackSpeed, spatialAudio, activePreset]);
 
   const handleBandChange = useCallback((index: number, value: number) => {
     setBands(prev => prev.map((b, i) => i === index ? { ...b, gain: value } : b));
@@ -210,11 +302,17 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const handleReset = useCallback(() => {
     setBands(defaultBands);
     setBassBoost(0);
+    setReverb(0);
+    setPlaybackSpeed(1);
+    setSpatialAudio(false);
     setActivePreset('flat');
+    if (audioElement) audioElement.playbackRate = 1;
     toast.success('Equalizer reset');
-  }, []);
+  }, [audioElement]);
 
   if (!isOpen) return null;
+
+  const speedMarks = [0.5, 1, 1.5, 2];
 
   return (
     <AnimatePresence>
@@ -251,33 +349,24 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
               </div>
               <div>
                 <h2 className="text-lg font-semibold">Equalizer</h2>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  {isConnected && <span className="w-1.5 h-1.5 rounded-full bg-green-400" />}
                   {isConnected ? 'Connected' : 'Play a song to connect'}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <motion.button
-                onClick={handleReset}
-                className="w-10 h-10 rounded-full flex items-center justify-center glass"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
+              <motion.button onClick={handleReset} className="w-10 h-10 rounded-full flex items-center justify-center glass" whileTap={{ scale: 0.95 }}>
                 <RotateCcw className="w-4 h-4 text-muted-foreground" />
               </motion.button>
-              <motion.button
-                onClick={onClose}
-                className="w-10 h-10 rounded-full flex items-center justify-center glass"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
+              <motion.button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center glass" whileTap={{ scale: 0.95 }}>
                 <X className="w-5 h-5" />
               </motion.button>
             </div>
           </div>
 
           <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
-            {/* Presets - 2x4 Grid */}
+            {/* Presets 2x4 Grid */}
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-3">Presets</h3>
               <div className="grid grid-cols-4 gap-2">
@@ -297,7 +386,6 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                           ? '1px solid hsl(var(--primary) / 0.6)'
                           : '1px solid rgba(255, 255, 255, 0.06)',
                       }}
-                      whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.96 }}
                     >
                       <Icon className={`w-5 h-5 ${isSelected ? 'text-white' : 'text-muted-foreground'}`} />
@@ -310,46 +398,142 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
               </div>
             </div>
 
-            {/* EQ Bands */}
+            {/* 8-Band Equalizer */}
             <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">Frequency Bands</h3>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">8-Band Equalizer</h3>
               <div
-                className="flex justify-between px-3 py-4 rounded-2xl"
+                className="rounded-2xl p-4"
                 style={{
                   background: 'rgba(28, 28, 30, 0.8)',
                   border: '1px solid rgba(255, 255, 255, 0.06)',
                 }}
               >
-                {bands.map((band, index) => (
-                  <FrequencySlider
-                    key={band.frequency}
-                    band={band}
-                    index={index}
-                    onChange={handleBandChange}
-                  />
-                ))}
+                {/* Gain values */}
+                <div className="flex justify-between mb-2 px-1">
+                  {bands.map((band) => (
+                    <span key={band.frequency} className="text-[10px] text-muted-foreground font-mono w-8 text-center">
+                      {band.gain}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Sliders */}
+                <div className="flex justify-between gap-1 mb-2">
+                  {bands.map((band, index) => (
+                    <div key={band.frequency} className="flex-1 flex items-center h-20">
+                      <Slider
+                        orientation="vertical"
+                        value={[band.gain]}
+                        min={-12}
+                        max={12}
+                        step={1}
+                        onValueChange={([value]) => handleBandChange(index, value)}
+                        className="h-full [&_[role=slider]]:w-5 [&_[role=slider]]:h-5 [&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-2 [&_[role=slider]]:border-rose-400 [&_[data-radix-slider-track]]:bg-white/10 [&_[data-radix-slider-range]]:bg-rose-500/40"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Frequency labels */}
+                <div className="flex justify-between px-1">
+                  {bands.map((band) => (
+                    <span key={band.frequency} className="text-[9px] text-muted-foreground/60 w-8 text-center">
+                      {band.label}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Bass Boost */}
+            {/* Effects */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-orange-400" />
-                  <span className="text-sm">Bass Boost</span>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Effects</h3>
+              <div className="space-y-4">
+                {/* Bass Boost */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-orange-400" />
+                      <span className="text-sm font-medium">Bass Boost</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{bassBoost}%</span>
+                  </div>
+                  <Slider
+                    value={[bassBoost]}
+                    min={0}
+                    max={100}
+                    step={5}
+                    onValueChange={([value]) => { setBassBoost(value); setActivePreset('custom'); }}
+                    className="w-full [&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-rose-400 [&_[data-radix-slider-range]]:bg-rose-500/60"
+                  />
                 </div>
-                <span className="text-xs text-muted-foreground">{bassBoost}%</span>
+
+                {/* Reverb */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Waves className="w-4 h-4 text-blue-400" />
+                      <span className="text-sm font-medium">Reverb</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{reverb}%</span>
+                  </div>
+                  <Slider
+                    value={[reverb]}
+                    min={0}
+                    max={100}
+                    step={5}
+                    onValueChange={([value]) => setReverb(value)}
+                    className="w-full [&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-rose-400 [&_[data-radix-slider-range]]:bg-rose-500/60"
+                  />
+                </div>
+
+                {/* Playback Speed */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Radio className="w-4 h-4 text-rose-400" />
+                      <span className="text-sm font-medium">Playback Speed</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{playbackSpeed}x</span>
+                  </div>
+                  <Slider
+                    value={[playbackSpeed * 100]}
+                    min={50}
+                    max={200}
+                    step={25}
+                    onValueChange={([value]) => setPlaybackSpeed(value / 100)}
+                    className="w-full [&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-rose-400 [&_[data-radix-slider-range]]:bg-rose-500"
+                  />
+                  <div className="flex justify-between mt-1">
+                    {speedMarks.map(s => (
+                      <span key={s} className="text-[10px] text-muted-foreground/50">{s}x</span>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <Slider
-                value={[bassBoost]}
-                min={0}
-                max={100}
-                step={5}
-                onValueChange={([value]) => {
-                  setBassBoost(value);
-                  setActivePreset('custom');
-                }}
-                className="w-full"
+            </div>
+
+            {/* 3D Spatial Audio */}
+            <div
+              className="flex items-center justify-between p-4 rounded-2xl"
+              style={{
+                background: 'rgba(28, 28, 30, 0.8)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5">
+                  <Globe className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <span className="text-sm font-medium">3D Spatial Audio</span>
+                  <p className="text-[11px] text-muted-foreground">Immersive surround sound</p>
+                </div>
+              </div>
+              <Switch
+                checked={spatialAudio}
+                onCheckedChange={setSpatialAudio}
+                className="data-[state=checked]:bg-primary"
               />
             </div>
           </div>

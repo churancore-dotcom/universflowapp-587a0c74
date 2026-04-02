@@ -357,6 +357,7 @@ export type Database = {
           id: string
           is_admin: boolean
           share_code: string | null
+          status: string
           updated_at: string
           user_id: string
           username: string | null
@@ -369,6 +370,7 @@ export type Database = {
           id?: string
           is_admin?: boolean
           share_code?: string | null
+          status?: string
           updated_at?: string
           user_id: string
           username?: string | null
@@ -381,6 +383,7 @@ export type Database = {
           id?: string
           is_admin?: boolean
           share_code?: string | null
+          status?: string
           updated_at?: string
           user_id?: string
           username?: string | null

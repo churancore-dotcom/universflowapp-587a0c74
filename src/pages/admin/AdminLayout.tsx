@@ -63,7 +63,7 @@ const navItems = [
   { icon: BarChart3, label: 'Scheduler', path: '/admin/scheduler' },
   { icon: BarChart3, label: 'Backup', path: '/admin/backup' },
   { icon: Settings, label: 'Settings', path: '/admin/settings' },
-  { icon: Globe, label: 'Jamendo Library', path: '/admin/jamendo' },
+  
 ];
 
 const AdminLayout = () => {

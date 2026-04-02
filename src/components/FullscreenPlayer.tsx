@@ -267,6 +267,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   </motion.div>
                 </AnimatePresence>
                 <div className="flex items-center gap-1 flex-shrink-0">
+                  <DownloadButton song={currentSong} size="sm" />
                   <LikeButton songId={currentSong.id} size="sm" />
                 </div>
               </div>

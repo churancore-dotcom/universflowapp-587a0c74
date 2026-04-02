@@ -1,18 +1,8 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Users, 
-  Search, 
-  Shield, 
-  ShieldOff, 
-  MoreVertical, 
-  Mail, 
-  Calendar,
-  Music,
-  Heart,
-  Clock,
-  UserX,
-  Crown
+  Users, Search, Shield, ShieldOff, MoreVertical, Mail, Calendar,
+  Music, Heart, Clock, Crown, Ban, PlayCircle, UserCheck
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -30,92 +20,70 @@ interface UserProfile {
   avatar_url: string | null;
   is_admin: boolean;
   created_at: string;
+  status: string;
   library_count?: number;
   playlist_count?: number;
+  play_count?: number;
 }
 
 const ManageUsers = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [stats, setStats] = useState({
-    total: 0,
-    admins: 0,
-    thisMonth: 0,
-  });
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'banned' | 'suspended'>('all');
+  const [stats, setStats] = useState({ total: 0, admins: 0, thisMonth: 0, banned: 0, active: 0 });
 
   useEffect(() => {
     fetchUsers();
-
-    // Realtime for profiles
     const channel = supabase
       .channel('admin-users-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchUsers)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_subscriptions' }, fetchUsers)
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchUsers = async () => {
     try {
-      // Fetch profiles
-      const { data: profiles, error: profilesError } = await supabase
+      const { data: profiles, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
+      if (error) throw error;
 
-      if (profilesError) throw profilesError;
-
-      // Fetch admin roles
-      const { data: adminRoles } = await supabase
-        .from('user_roles')
-        .select('user_id, role')
-        .eq('role', 'admin');
-
+      const { data: adminRoles } = await supabase.from('user_roles').select('user_id, role').eq('role', 'admin');
       const adminUserIds = new Set((adminRoles || []).map(r => r.user_id));
 
-      // Fetch library counts
-      const { data: libraryCounts } = await supabase
-        .from('user_library')
-        .select('user_id');
+      const { data: libraryCounts } = await supabase.from('user_library').select('user_id');
+      const { data: playlistCounts } = await supabase.from('playlists').select('user_id');
+      const { data: playCounts } = await supabase.from('recently_played').select('user_id');
 
-      // Fetch playlist counts
-      const { data: playlistCounts } = await supabase
-        .from('playlists')
-        .select('user_id');
-
-      // Map counts to users
       const libraryMap: Record<string, number> = {};
       const playlistMap: Record<string, number> = {};
+      const playMap: Record<string, number> = {};
 
-      (libraryCounts || []).forEach(item => {
-        libraryMap[item.user_id] = (libraryMap[item.user_id] || 0) + 1;
-      });
-
-      (playlistCounts || []).forEach(item => {
-        if (item.user_id) {
-          playlistMap[item.user_id] = (playlistMap[item.user_id] || 0) + 1;
-        }
-      });
+      (libraryCounts || []).forEach(i => { libraryMap[i.user_id] = (libraryMap[i.user_id] || 0) + 1; });
+      (playlistCounts || []).forEach(i => { if (i.user_id) playlistMap[i.user_id] = (playlistMap[i.user_id] || 0) + 1; });
+      (playCounts || []).forEach(i => { playMap[i.user_id] = (playMap[i.user_id] || 0) + 1; });
 
       const usersWithCounts = (profiles || []).map(profile => ({
         ...profile,
+        status: (profile as any).status || 'active',
         is_admin: adminUserIds.has(profile.user_id),
         library_count: libraryMap[profile.user_id] || 0,
         playlist_count: playlistMap[profile.user_id] || 0,
+        play_count: playMap[profile.user_id] || 0,
       }));
 
       setUsers(usersWithCounts);
 
-      // Calculate stats
       const now = new Date();
       const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      
       setStats({
         total: usersWithCounts.length,
         admins: usersWithCounts.filter(u => u.is_admin).length,
         thisMonth: usersWithCounts.filter(u => new Date(u.created_at) >= thisMonth).length,
+        banned: usersWithCounts.filter(u => u.status === 'banned').length,
+        active: usersWithCounts.filter(u => u.status === 'active').length,
       });
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -127,50 +95,37 @@ const ManageUsers = () => {
 
   const toggleAdminStatus = async (user: UserProfile) => {
     const newStatus = !user.is_admin;
-    const action = newStatus ? 'grant admin privileges to' : 'revoke admin privileges from';
-    
-    if (!confirm(`Are you sure you want to ${action} ${user.email || user.username || 'this user'}?`)) {
-      return;
-    }
-
+    if (!confirm(`${newStatus ? 'Grant admin to' : 'Revoke admin from'} ${user.email || user.username}?`)) return;
     try {
       if (newStatus) {
-        // Grant admin role
-        const { error } = await supabase
-          .from('user_roles')
-          .insert({ user_id: user.user_id, role: 'admin' });
-        if (error) throw error;
+        await supabase.from('user_roles').insert({ user_id: user.user_id, role: 'admin' });
       } else {
-        // Revoke admin role
-        const { error } = await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', user.user_id)
-          .eq('role', 'admin');
-        if (error) throw error;
+        await supabase.from('user_roles').delete().eq('user_id', user.user_id).eq('role', 'admin');
       }
-
-      toast.success(newStatus ? 'Admin privileges granted' : 'Admin privileges revoked');
+      toast.success(newStatus ? 'Admin granted' : 'Admin revoked');
       fetchUsers();
-    } catch (error) {
-      console.error('Error updating user:', error);
-      toast.error('Failed to update user');
-    }
+    } catch { toast.error('Failed to update'); }
   };
 
-  const filteredUsers = users.filter(user =>
-    (user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     user.username?.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+  const updateUserStatus = async (user: UserProfile, newStatus: 'active' | 'banned' | 'suspended') => {
+    const action = newStatus === 'banned' ? 'ban' : newStatus === 'suspended' ? 'suspend' : 'activate';
+    if (!confirm(`${action} ${user.email || user.username}?`)) return;
+    try {
+      const { error } = await supabase.from('profiles').update({ status: newStatus } as any).eq('user_id', user.user_id);
+      if (error) throw error;
+      toast.success(`User ${action}${action.endsWith('e') ? 'd' : 'ed'}`);
+      fetchUsers();
+    } catch { toast.error('Failed to update status'); }
   };
 
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.username?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = filterStatus === 'all' || user.status === filterStatus;
+    return matchesSearch && matchesFilter;
+  });
+
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   const getInitials = (email: string | null, username: string | null) => {
     if (username) return username.slice(0, 2).toUpperCase();
     if (email) return email.slice(0, 2).toUpperCase();
@@ -179,76 +134,49 @@ const ManageUsers = () => {
 
   return (
     <div className="p-4 md:p-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
         <h1 className="text-2xl md:text-3xl font-display font-bold">Manage Users</h1>
-        <p className="text-muted-foreground mt-1">View and manage user accounts</p>
+        <p className="text-muted-foreground mt-1">View, manage, ban or suspend user accounts</p>
       </motion.div>
 
-      {/* Stats Cards */}
-      <motion.div
-        className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-      >
-        <div className="glass rounded-xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-            <Users className="w-5 h-5 text-primary" />
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        {[
+          { label: 'Total', value: stats.total, icon: Users, color: 'primary' },
+          { label: 'Active', value: stats.active, icon: UserCheck, color: 'green-500' },
+          { label: 'Admins', value: stats.admins, icon: Crown, color: 'accent' },
+          { label: 'Banned', value: stats.banned, icon: Ban, color: 'red-500' },
+          { label: 'New This Month', value: stats.thisMonth, icon: Calendar, color: 'blue-500' },
+        ].map(s => (
+          <div key={s.label} className="glass rounded-xl p-4 flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-lg bg-${s.color}/20 flex items-center justify-center`}>
+              <s.icon className={`w-5 h-5 text-${s.color}`} />
+            </div>
+            <div>
+              <p className="text-xl font-bold">{s.value}</p>
+              <p className="text-[10px] text-muted-foreground">{s.label}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-2xl font-bold">{stats.total}</p>
-            <p className="text-xs text-muted-foreground">Total Users</p>
-          </div>
-        </div>
-        <div className="glass rounded-xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-accent/20 flex items-center justify-center">
-            <Crown className="w-5 h-5 text-accent" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold">{stats.admins}</p>
-            <p className="text-xs text-muted-foreground">Admins</p>
-          </div>
-        </div>
-        <div className="glass rounded-xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
-            <Calendar className="w-5 h-5 text-green-500" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold">{stats.thisMonth}</p>
-            <p className="text-xs text-muted-foreground">New This Month</p>
-          </div>
-        </div>
-      </motion.div>
+        ))}
+      </div>
 
-      {/* Search */}
-      <motion.div
-        className="mb-6"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search users by email or username..."
-            className="pl-10 bg-muted/50 border-white/10"
-          />
+      {/* Filter + Search */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex gap-2">
+          {(['all', 'active', 'banned', 'suspended'] as const).map(f => (
+            <Button key={f} variant={filterStatus === f ? 'default' : 'outline'} size="sm" onClick={() => setFilterStatus(f)} className="capitalize text-xs">
+              {f}
+            </Button>
+          ))}
         </div>
-      </motion.div>
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search users..." className="pl-10 bg-muted/50 border-white/10" />
+        </div>
+      </div>
 
       {/* Users Grid */}
-      <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? (
           <div className="col-span-full p-12 text-center">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
@@ -256,53 +184,51 @@ const ManageUsers = () => {
         ) : filteredUsers.length === 0 ? (
           <div className="col-span-full p-12 text-center text-muted-foreground">
             <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>{searchQuery ? 'No users match your search' : 'No users found'}</p>
+            <p>No users found</p>
           </div>
         ) : (
           <AnimatePresence>
-            {filteredUsers.map((user, index) => (
+            {filteredUsers.map((u, i) => (
               <motion.div
-                key={user.id}
-                className="glass rounded-2xl p-4 hover:ring-1 hover:ring-primary/30 transition-all"
+                key={u.id}
+                className={`glass rounded-2xl p-4 hover:ring-1 hover:ring-primary/30 transition-all ${u.status === 'banned' ? 'opacity-60 border-red-500/20' : u.status === 'suspended' ? 'opacity-75 border-yellow-500/20' : ''}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: index * 0.03 }}
+                transition={{ delay: i * 0.02 }}
               >
                 <div className="flex items-start gap-4">
                   <Avatar className="w-12 h-12">
-                    <AvatarImage src={user.avatar_url || undefined} />
+                    <AvatarImage src={u.avatar_url || undefined} />
                     <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground">
-                      {getInitials(user.email, user.username)}
+                      {getInitials(u.email, u.username)}
                     </AvatarFallback>
                   </Avatar>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium truncate">{user.username || user.email || 'Anonymous'}</p>
-                      {user.is_admin && (
-                        <Badge variant="secondary" className="bg-accent/20 text-accent text-xs">
-                          <Crown className="w-3 h-3 mr-1" />
-                          Admin
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium truncate">{u.username || u.email || 'Anonymous'}</p>
+                      {u.is_admin && (
+                        <Badge variant="secondary" className="bg-accent/20 text-accent text-[10px]">
+                          <Crown className="w-2.5 h-2.5 mr-0.5" /> Admin
                         </Badge>
                       )}
+                      {u.status === 'banned' && (
+                        <Badge variant="destructive" className="text-[10px]">Banned</Badge>
+                      )}
+                      {u.status === 'suspended' && (
+                        <Badge className="bg-yellow-500/20 text-yellow-400 text-[10px]">Suspended</Badge>
+                      )}
                     </div>
-                    {user.email && user.username && (
-                      <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                    {u.email && u.username && (
+                      <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                     )}
                     <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Heart className="w-3 h-3" />
-                        {user.library_count} liked
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Music className="w-3 h-3" />
-                        {user.playlist_count} playlists
-                      </span>
+                      <span className="flex items-center gap-1"><Heart className="w-3 h-3" />{u.library_count}</span>
+                      <span className="flex items-center gap-1"><Music className="w-3 h-3" />{u.playlist_count}</span>
+                      <span className="flex items-center gap-1"><PlayCircle className="w-3 h-3" />{u.play_count} plays</span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Joined {formatDate(user.created_at)}
+                    <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> Joined {formatDate(u.created_at)}
                     </p>
                   </div>
 
@@ -313,17 +239,29 @@ const ManageUsers = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="glass border-white/10">
-                      <DropdownMenuItem onClick={() => user.email && window.open(`mailto:${user.email}`)}>
+                      <DropdownMenuItem onClick={() => u.email && window.open(`mailto:${u.email}`)}>
                         <Mail className="w-4 h-4 mr-2" /> Send Email
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => toggleAdminStatus(user)}>
-                        {user.is_admin ? (
-                          <><ShieldOff className="w-4 h-4 mr-2" /> Remove Admin</>
-                        ) : (
-                          <><Shield className="w-4 h-4 mr-2" /> Make Admin</>
-                        )}
+                      <DropdownMenuItem onClick={() => toggleAdminStatus(u)}>
+                        {u.is_admin ? <><ShieldOff className="w-4 h-4 mr-2" /> Remove Admin</> : <><Shield className="w-4 h-4 mr-2" /> Make Admin</>}
                       </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {u.status !== 'banned' && (
+                        <DropdownMenuItem onClick={() => updateUserStatus(u, 'banned')} className="text-red-400">
+                          <Ban className="w-4 h-4 mr-2" /> Ban User
+                        </DropdownMenuItem>
+                      )}
+                      {u.status !== 'suspended' && u.status !== 'banned' && (
+                        <DropdownMenuItem onClick={() => updateUserStatus(u, 'suspended')} className="text-yellow-400">
+                          <Clock className="w-4 h-4 mr-2" /> Suspend User
+                        </DropdownMenuItem>
+                      )}
+                      {(u.status === 'banned' || u.status === 'suspended') && (
+                        <DropdownMenuItem onClick={() => updateUserStatus(u, 'active')} className="text-green-400">
+                          <UserCheck className="w-4 h-4 mr-2" /> Activate User
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -331,7 +269,7 @@ const ManageUsers = () => {
             ))}
           </AnimatePresence>
         )}
-      </motion.div>
+      </div>
     </div>
   );
 };

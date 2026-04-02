@@ -152,7 +152,7 @@ const AnimatedRoutes = () => {
             <Route path="engagement" element={<UserEngagement />} />
             <Route path="ab-testing" element={<ABTesting />} />
             <Route path="security" element={<SecurityCenter />} />
-            <Route path="jamendo" element={<JamendoBrowse />} />
+            
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
