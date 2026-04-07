@@ -111,11 +111,17 @@ const ManageUsers = () => {
     const action = newStatus === 'banned' ? 'ban' : newStatus === 'suspended' ? 'suspend' : 'activate';
     if (!confirm(`${action} ${user.email || user.username}?`)) return;
     try {
-      const { error } = await supabase.from('profiles').update({ status: newStatus } as any).eq('user_id', user.user_id);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ status: newStatus })
+        .eq('user_id', user.user_id);
       if (error) throw error;
-      toast.success(`User ${action}${action.endsWith('e') ? 'd' : 'ed'}`);
+      toast.success(`User ${action === 'ban' ? 'banned' : action === 'suspend' ? 'suspended' : 'activated'} successfully`);
       fetchUsers();
-    } catch { toast.error('Failed to update status'); }
+    } catch (err) {
+      console.error('Status update error:', err);
+      toast.error('Failed to update user status');
+    }
   };
 
   const filteredUsers = users.filter(user => {

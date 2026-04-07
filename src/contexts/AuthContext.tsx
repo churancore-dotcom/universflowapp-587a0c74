@@ -95,6 +95,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data.user) {
         await ensureUserProfile(data.user);
+        
+        // Check if user is banned or suspended
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('status')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+        
+        if (profile?.status === 'banned') {
+          await supabase.auth.signOut();
+          return { error: new Error('Your account has been banned. Contact support for help.') };
+        }
+        if (profile?.status === 'suspended') {
+          await supabase.auth.signOut();
+          return { error: new Error('Your account is temporarily suspended. Please try again later.') };
+        }
       }
 
       const admin = data.user ? await checkAdminRole(data.user.id) : false;
