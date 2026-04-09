@@ -53,6 +53,31 @@ const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
 const EQ_SETTINGS_KEY = 'eq_settings';
 
+const CORS_ENABLED_AUDIO_HOSTS = ['supabase.co', 'the-standard.io'];
+
+const shouldUseAnonymousCors = (audioUrl?: string | null) => {
+  if (!audioUrl) return false;
+  if (audioUrl.startsWith('blob:') || audioUrl.startsWith('data:')) return false;
+
+  try {
+    const parsed = new URL(audioUrl, window.location.href);
+    return parsed.origin === window.location.origin || CORS_ENABLED_AUDIO_HOSTS.some((host) => parsed.hostname.endsWith(host));
+  } catch {
+    return false;
+  }
+};
+
+const configureAudioElementSource = (audio: HTMLAudioElement, sourceUrl: string) => {
+  if (shouldUseAnonymousCors(sourceUrl)) {
+    audio.crossOrigin = 'anonymous';
+  } else {
+    audio.crossOrigin = null;
+    audio.removeAttribute('crossorigin');
+  }
+
+  audio.src = sourceUrl;
+};
+
 const isEqProcessingEnabled = () => {
   try {
     const raw = localStorage.getItem(EQ_SETTINGS_KEY);
@@ -305,7 +330,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsPlaying(true); // Set playing immediately to prevent UI flicker
     
     // Set source and play immediately
-    audioRef.current.src = song.audio_url;
+    configureAudioElementSource(audioRef.current, song.audio_url);
     audioRef.current.volume = volume;
     audioRef.current.currentTime = 0;
     
@@ -324,7 +349,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (nextIdx !== index && nextAudioRef.current) {
       const nextSong = songQueue[nextIdx];
       if (nextSong) {
-        nextAudioRef.current.src = nextSong.audio_url;
+        configureAudioElementSource(nextAudioRef.current, nextSong.audio_url);
         nextAudioRef.current.preload = 'auto';
         nextAudioRef.current.load();
       }
@@ -427,7 +452,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     isCrossfading.current = true;
 
     // Prepare next audio
-    nextAudioRef.current.src = nextSong.audio_url;
+    configureAudioElementSource(nextAudioRef.current, nextSong.audio_url);
     nextAudioRef.current.volume = 0;
     nextAudioRef.current.currentTime = 0;
     
@@ -496,7 +521,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsPlaying(true);
     
     // Set audio source - use offline URL if available
-    audioRef.current.src = offlineUrl || song.audio_url;
+    configureAudioElementSource(audioRef.current, offlineUrl || song.audio_url);
     audioRef.current.volume = volume;
     audioRef.current.currentTime = 0;
 

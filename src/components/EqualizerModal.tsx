@@ -106,6 +106,49 @@ function createReverbIR(ctx: AudioContext, duration = 2, decay = 3) {
 // Keep a WeakMap so we never call createMediaElementSource twice on the same element
 const sourceMap = new WeakMap<HTMLAudioElement, MediaElementAudioSourceNode>();
 
+function isEqCompatibleSource(audioElement: HTMLAudioElement) {
+  const sourceUrl = audioElement.currentSrc || audioElement.src;
+  if (!sourceUrl) return false;
+  if (audioElement.crossOrigin === 'anonymous') return true;
+  return sourceUrl.startsWith('blob:') || sourceUrl.startsWith('data:');
+}
+
+function bypassEQGraph(audioElement: HTMLAudioElement) {
+  if (!eqState.ctx) return false;
+
+  try {
+    eqState.source?.disconnect();
+    eqState.filters.forEach((filter) => {
+      try { filter.disconnect(); } catch {}
+    });
+    eqState.gainNode?.disconnect();
+    eqState.compressor?.disconnect();
+    eqState.dryGain?.disconnect();
+    eqState.wetGain?.disconnect();
+    eqState.convolver?.disconnect();
+    eqState.pannerNode?.disconnect();
+  } catch {}
+
+  const source = sourceMap.get(audioElement);
+  if (source) {
+    try {
+      source.disconnect();
+      source.connect(eqState.ctx.destination);
+    } catch {}
+  }
+
+  eqState.connectedElement = null;
+  eqState.filters = [];
+  eqState.gainNode = null;
+  eqState.compressor = null;
+  eqState.dryGain = null;
+  eqState.wetGain = null;
+  eqState.convolver = null;
+  eqState.pannerNode = null;
+
+  return false;
+}
+
 function buildChain(ctx: AudioContext, source: MediaElementAudioSourceNode) {
   // Create 8 peaking filters with musical Q values
   const filters = defaultBands.map((band) => {
@@ -167,6 +210,10 @@ function buildChain(ctx: AudioContext, source: MediaElementAudioSourceNode) {
 }
 
 function initEQGraph(audioElement: HTMLAudioElement): boolean {
+  if (!isEqCompatibleSource(audioElement)) {
+    return bypassEQGraph(audioElement);
+  }
+
   if (eqState.connectedElement === audioElement && eqState.ctx && eqState.filters.length) {
     if (eqState.ctx.state === 'suspended') eqState.ctx.resume();
     return true;
@@ -208,19 +255,12 @@ function initEQGraph(audioElement: HTMLAudioElement): boolean {
     return true;
   } catch (error) {
     console.error('EQ init error:', error);
-    // Fallback: connect source directly to destination so audio still plays
-    try {
-      const source = sourceMap.get(audioElement);
-      if (source && eqState.ctx) {
-        source.connect(eqState.ctx.destination);
-      }
-    } catch {}
-    return false;
+    return bypassEQGraph(audioElement);
   }
 }
 
 const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
-  const { audioElement } = usePlayer();
+  const { audioElement, currentSong } = usePlayer();
 
   const saved = loadSettings();
   const [bands, setBands] = useState<EQBand[]>(
@@ -248,8 +288,12 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
       applyReverb(reverb);
       applySpeed(playbackSpeed, audioElement);
       applySpatial(spatialAudio);
+      return;
     }
-  }, [audioElement]);
+
+    applySpeed(playbackSpeed, audioElement);
+    applySpatial(false);
+  }, [audioElement, currentSong?.id]);
 
   // Resume AudioContext on user interaction / play
   useEffect(() => {
@@ -430,7 +474,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                 <h2 className="text-lg font-semibold">Equalizer</h2>
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   {isConnected && <span className="w-1.5 h-1.5 rounded-full bg-green-400" />}
-                  {isConnected ? 'Connected' : 'Play a song to connect'}
+                  {isConnected ? 'Connected' : currentSong ? 'EQ unavailable for this stream' : 'Play a song to connect'}
                 </p>
               </div>
             </div>
@@ -501,8 +545,8 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                       <Slider
                         orientation="vertical"
                         value={[band.gain]}
-                        min={-12}
-                        max={12}
+                        min={-8}
+                        max={8}
                         step={1}
                         onValueChange={([value]) => handleBandChange(index, value)}
                         className="h-full [&_[role=slider]]:w-5 [&_[role=slider]]:h-5 [&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-2 [&_[role=slider]]:border-rose-400 [&_[data-radix-slider-track]]:bg-white/10 [&_[data-radix-slider-range]]:bg-rose-500/40"

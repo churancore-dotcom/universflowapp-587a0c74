@@ -10,11 +10,25 @@ const LASTFM_API_KEY = Deno.env.get('LASTFM_API_KEY') || '9560c1d6069ed833e8104e
 const LASTFM_BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
 const INVIDIOUS_INSTANCES = [
   'https://inv.nadeko.net',
+  'https://invidious.private.coffee',
   'https://invidious.nerdvpn.de',
-  'https://iv.datura.network',
+  'https://yt.artemislena.eu',
   'https://invidious.protokolla.fi',
   'https://invidious.fdn.fr',
   'https://invidious.perennialte.ch',
+  'https://invidious.slipfox.xyz',
+  'https://invidious.jing.rocks',
+  'https://iv.nboez.cc',
+];
+
+const PIPED_INSTANCES = [
+  'https://pipedapi.kavin.rocks',
+  'https://api.piped.private.coffee',
+  'https://pipedapi.tokhmi.xyz',
+  'https://pipedapi.moomoo.me',
+  'https://pipedapi.syncpundit.io',
+  'https://api-piped.mha.fi',
+  'https://pipedapi.leptons.xyz',
 ];
 
 type LastFmTrack = {
@@ -263,6 +277,18 @@ function normalizeExternalUrl(candidate: string | undefined, origin: string) {
   return candidate;
 }
 
+function extractVideoId(candidate: unknown) {
+  if (typeof candidate !== 'string') return undefined;
+
+  const directMatch = candidate.match(/^[a-zA-Z0-9_-]{11}$/);
+  if (directMatch) return directMatch[0];
+
+  const watchMatch = candidate.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+  if (watchMatch?.[1]) return watchMatch[1];
+
+  return undefined;
+}
+
 async function searchInvidious(artist: string, title: string) {
   const query = encodeURIComponent(`${artist} ${title} audio`);
 
@@ -286,6 +312,41 @@ async function searchInvidious(artist: string, title: string) {
   return null;
 }
 
+async function searchPiped(artist: string, title: string) {
+  const query = encodeURIComponent(`${artist} ${title} audio`);
+
+  for (const instance of PIPED_INSTANCES) {
+    try {
+      const data = await fetchJson(`${instance}/search?q=${query}&filter=videos`, 8000);
+      const rawItems = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+
+      const best = rawItems
+        .map((item) => {
+          const record = item as Record<string, unknown>;
+          const videoId = typeof record.videoId === 'string' ? record.videoId : extractVideoId(record.url);
+          return {
+            item: { ...record, videoId },
+            score: scoreVideoCandidate({
+              title: record.title,
+              author: record.uploaderName || record.uploader,
+              lengthSeconds: record.duration || record.lengthSeconds,
+            }, artist, title),
+          };
+        })
+        .filter((entry) => entry.item.videoId)
+        .sort((a, b) => b.score - a.score)[0];
+
+      if (best?.item?.videoId) {
+        return best.item as Record<string, unknown>;
+      }
+    } catch (error) {
+      console.warn(`Piped search failed: ${instance}`, error);
+    }
+  }
+
+  return null;
+}
+
 function pickBestStream(data: Record<string, any>, instance: string) {
   const adaptiveFormats = Array.isArray(data.adaptiveFormats) ? data.adaptiveFormats : [];
   const audioFormats = adaptiveFormats
@@ -302,12 +363,27 @@ function pickBestStream(data: Record<string, any>, instance: string) {
   return normalizeExternalUrl(chosen?.url, instance);
 }
 
+function pickBestPipedStream(data: Record<string, any>, instance: string) {
+  const audioStreams = Array.isArray(data.audioStreams) ? data.audioStreams : [];
+  const preferred = audioStreams
+    .filter((stream) => typeof stream?.url === 'string')
+    .sort((a, b) => {
+      const aMp4 = a.mimeType?.includes('mp4') || a.format === 'm4a';
+      const bMp4 = b.mimeType?.includes('mp4') || b.format === 'm4a';
+      if (aMp4 && !bMp4) return -1;
+      if (!aMp4 && bMp4) return 1;
+      return (b.bitrate || 0) - (a.bitrate || 0);
+    })[0];
+
+  return normalizeExternalUrl(preferred?.url, instance);
+}
+
 async function resolveStream(artist: string, title: string): Promise<ResolveResult> {
   const cacheKey = `resolve:${artist}:${title}`;
   const cached = getCached<ResolveResult>(cacheKey);
   if (cached) return cached;
 
-  const candidate = await searchInvidious(artist, title);
+  const candidate = await searchInvidious(artist, title) || await searchPiped(artist, title);
   if (!candidate?.videoId) {
     return { success: false, error: 'Could not find a playable stream for this track' };
   }
@@ -333,6 +409,28 @@ async function resolveStream(artist: string, title: string): Promise<ResolveResu
       }
     } catch (error) {
       console.warn(`Resolve instance failed: ${instance}`, error);
+    }
+  }
+
+  for (const instance of PIPED_INSTANCES) {
+    try {
+      const data = await fetchJson(`${instance}/streams/${videoId}`, 9000);
+      const streamUrl = pickBestPipedStream(data, instance);
+
+      if (streamUrl) {
+        const result: ResolveResult = {
+          success: true,
+          streamUrl,
+          videoId,
+          duration: Number(data.duration || candidate.lengthSeconds || candidate.duration || 0) || undefined,
+          title: title,
+          artist: artist,
+        };
+        setCached(cacheKey, result, 10 * 60 * 1000);
+        return result;
+      }
+    } catch (error) {
+      console.warn(`Resolve piped instance failed: ${instance}`, error);
     }
   }
 
