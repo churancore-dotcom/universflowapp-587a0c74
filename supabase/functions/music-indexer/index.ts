@@ -291,36 +291,45 @@ function extractVideoId(candidate: unknown) {
 
 async function searchInvidious(artist: string, title: string) {
   const query = encodeURIComponent(`${artist} ${title} audio`);
+  const candidates: Record<string, unknown>[] = [];
 
   for (const instance of INVIDIOUS_INSTANCES) {
     try {
       const data = await fetchJson(`${instance}/api/v1/search?q=${query}&type=video&sort_by=relevance`, 8000);
       const items = Array.isArray(data) ? data : [];
 
-      const best = items
+      const ranked = items
         .map((item) => ({ item, score: scoreVideoCandidate(item, artist, title) }))
-        .sort((a, b) => b.score - a.score)[0];
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 4);
 
-      if (best?.item?.videoId) {
-        return best.item as Record<string, unknown>;
+      for (const entry of ranked) {
+        if (entry?.item?.videoId) {
+          candidates.push(entry.item as Record<string, unknown>);
+        }
+      }
+
+      if (candidates.length >= 4) {
+        return candidates;
       }
     } catch (error) {
       console.warn(`Search instance failed: ${instance}`, error);
     }
   }
 
-  return null;
+  return candidates;
 }
 
 async function searchPiped(artist: string, title: string) {
   const query = encodeURIComponent(`${artist} ${title} audio`);
+  const candidates: Record<string, unknown>[] = [];
 
   for (const instance of PIPED_INSTANCES) {
     try {
       const data = await fetchJson(`${instance}/search?q=${query}&filter=videos`, 8000);
       const rawItems = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
 
-      const best = rawItems
+      const ranked = rawItems
         .map((item) => {
           const record = item as Record<string, unknown>;
           const videoId = typeof record.videoId === 'string' ? record.videoId : extractVideoId(record.url);
@@ -334,17 +343,24 @@ async function searchPiped(artist: string, title: string) {
           };
         })
         .filter((entry) => entry.item.videoId)
-        .sort((a, b) => b.score - a.score)[0];
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 4);
 
-      if (best?.item?.videoId) {
-        return best.item as Record<string, unknown>;
+      for (const entry of ranked) {
+        if (entry?.item?.videoId) {
+          candidates.push(entry.item as Record<string, unknown>);
+        }
+      }
+
+      if (candidates.length >= 4) {
+        return candidates;
       }
     } catch (error) {
       console.warn(`Piped search failed: ${instance}`, error);
     }
   }
 
-  return null;
+  return candidates;
 }
 
 function pickBestStream(data: Record<string, any>, instance: string) {
@@ -383,54 +399,60 @@ async function resolveStream(artist: string, title: string): Promise<ResolveResu
   const cached = getCached<ResolveResult>(cacheKey);
   if (cached) return cached;
 
-  const candidate = await searchInvidious(artist, title) || await searchPiped(artist, title);
-  if (!candidate?.videoId) {
+  const rankedCandidates = [...await searchInvidious(artist, title), ...await searchPiped(artist, title)]
+    .filter((candidate) => candidate?.videoId)
+    .filter((candidate, index, all) => index === all.findIndex((entry) => entry.videoId === candidate.videoId))
+    .slice(0, 8);
+
+  if (!rankedCandidates.length) {
     return { success: false, error: 'Could not find a playable stream for this track' };
   }
 
-  const videoId = String(candidate.videoId);
+  for (const candidate of rankedCandidates) {
+    const videoId = String(candidate.videoId);
 
-  for (const instance of INVIDIOUS_INSTANCES) {
-    try {
-      const data = await fetchJson(`${instance}/api/v1/videos/${videoId}`, 9000);
-      const streamUrl = pickBestStream(data, instance);
+    for (const instance of INVIDIOUS_INSTANCES) {
+      try {
+        const data = await fetchJson(`${instance}/api/v1/videos/${videoId}`, 9000);
+        const streamUrl = pickBestStream(data, instance);
 
-      if (streamUrl) {
-        const result: ResolveResult = {
-          success: true,
-          streamUrl,
-          videoId,
-          duration: Number(data.lengthSeconds || candidate.lengthSeconds || 0) || undefined,
-          title: title,
-          artist: artist,
-        };
-        setCached(cacheKey, result, 10 * 60 * 1000);
-        return result;
+        if (streamUrl) {
+          const result: ResolveResult = {
+            success: true,
+            streamUrl,
+            videoId,
+            duration: Number(data.lengthSeconds || candidate.lengthSeconds || candidate.duration || 0) || undefined,
+            title: title,
+            artist: artist,
+          };
+          setCached(cacheKey, result, 10 * 60 * 1000);
+          return result;
+        }
+      } catch (error) {
+        console.warn(`Resolve instance failed: ${instance}`, error);
       }
-    } catch (error) {
-      console.warn(`Resolve instance failed: ${instance}`, error);
     }
-  }
 
-  for (const instance of PIPED_INSTANCES) {
-    try {
-      const data = await fetchJson(`${instance}/streams/${videoId}`, 9000);
-      const streamUrl = pickBestPipedStream(data, instance);
+    for (const instance of PIPED_INSTANCES) {
+      try {
+        const data = await fetchJson(`${instance}/streams/${videoId}`, 9000);
+        const streamUrl = pickBestPipedStream(data, instance);
 
-      if (streamUrl) {
-        const result: ResolveResult = {
-          success: true,
-          streamUrl,
-          videoId,
-          duration: Number(data.duration || candidate.lengthSeconds || candidate.duration || 0) || undefined,
-          title: title,
-          artist: artist,
-        };
-        setCached(cacheKey, result, 10 * 60 * 1000);
-        return result;
+        if (streamUrl) {
+          const result: ResolveResult = {
+            success: true,
+            streamUrl,
+            videoId,
+            duration: Number(data.duration || candidate.lengthSeconds || candidate.duration || 0) || undefined,
+            title: title,
+            artist: artist,
+          };
+          setCached(cacheKey, result, 10 * 60 * 1000);
+          return result;
+        }
+      } catch (error) {
+        console.warn(`Resolve piped instance failed: ${instance}`, error);
       }
-    } catch (error) {
-      console.warn(`Resolve piped instance failed: ${instance}`, error);
     }
   }
 
