@@ -224,7 +224,7 @@ const MiniPlayer = memo(function MiniPlayer() {
             </div>
             
             {/* Song info with crossfade */}
-            <div className="flex-1 min-w-0 pr-1 relative h-10 flex flex-col justify-center">
+            <div className="flex-1 min-w-0 pr-0 relative min-h-[2.5rem] flex flex-col justify-center">
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.div
                   key={currentSong.id + '-mini-info'}
@@ -234,10 +234,18 @@ const MiniPlayer = memo(function MiniPlayer() {
                   exit="exit"
                   className="absolute inset-0 flex flex-col justify-center"
                 >
-                  <p className="font-semibold text-[15px] text-white truncate leading-tight">
+                  <p
+                    className="font-semibold text-[14px] text-white leading-tight pr-1"
+                    style={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
                     {currentSong.title}
                   </p>
-                  <p className="text-[13px] text-white/60 truncate mt-0.5">
+                  <p className="text-[12px] text-white/60 truncate mt-0.5 pr-1">
                     {currentSong.artist}
                   </p>
                 </motion.div>

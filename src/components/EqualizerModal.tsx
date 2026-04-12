@@ -138,6 +138,7 @@ function bypassEQGraph(audioElement: HTMLAudioElement) {
   }
 
   eqState.connectedElement = null;
+  eqState.source = null;
   eqState.filters = [];
   eqState.gainNode = null;
   eqState.compressor = null;
@@ -474,7 +475,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                 <h2 className="text-lg font-semibold">Equalizer</h2>
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   {isConnected && <span className="w-1.5 h-1.5 rounded-full bg-green-400" />}
-                  {isConnected ? 'Connected' : currentSong ? 'EQ unavailable for this stream' : 'Play a song to connect'}
+                  {isConnected ? 'Connected' : currentSong ? 'This stream does not expose safe audio processing' : 'Play a song to connect'}
                 </p>
               </div>
             </div>
@@ -489,6 +490,18 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
           </div>
 
           <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
+              {!isConnected && currentSong && (
+                <div
+                  className="rounded-2xl px-4 py-3 text-xs text-muted-foreground"
+                  style={{
+                    background: 'rgba(28, 28, 30, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                  }}
+                >
+                  Equalizer settings are saved, but this specific stream is playing in direct mode to avoid broken vocals or silent playback.
+                </div>
+              )}
+
             {/* Presets 2x4 Grid */}
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-3">Presets</h3>

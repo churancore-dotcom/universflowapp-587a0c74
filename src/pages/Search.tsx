@@ -96,7 +96,7 @@ const Search = () => {
       const [libraryResponse, audiusResponse, indexedResponse] = await Promise.allSettled([
         searchSongs(trimmedQuery),
         searchAudius(trimmedQuery),
-        searchIndexedTracks(trimmedQuery),
+        searchIndexedTracks(trimmedQuery, 24),
       ]);
 
       if (cancelled) return;
@@ -120,7 +120,7 @@ const Search = () => {
       .select('*, artists(id, name, photo_url)')
       .eq('is_visible', true)
       .or(`title.ilike.%${safeSearchTerm}%,artist.ilike.%${safeSearchTerm}%,album.ilike.%${safeSearchTerm}%`)
-      .limit(15);
+      .limit(20);
     return Array.isArray(data) ? data.map(mapSongRow) : [];
   };
 
@@ -132,7 +132,7 @@ const Search = () => {
       );
       if (!res.ok) return [];
       const json = await res.json();
-      const tracks = (json.data || []).slice(0, 15);
+        const tracks = (json.data || []).slice(0, 20);
       return tracks.map((t: any) => ({
         id: `audius-${t.id}`,
         title: t.title,

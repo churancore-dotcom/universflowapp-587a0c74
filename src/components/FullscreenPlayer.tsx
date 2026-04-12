@@ -179,7 +179,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
 
             {/* Album Art - flex-1 to fill available space */}
             <div className="flex-1 flex items-center justify-center min-h-0">
-              <div className="relative w-[85vw] max-w-[340px] aspect-square">
+              <div className="relative w-[78vw] max-w-[312px] aspect-square">
                 {isPlaying && (
                   <motion.div
                     className="absolute inset-[-15%] rounded-3xl pointer-events-none"
@@ -226,7 +226,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
             {/* Controls Section - fixed at bottom */}
             <div className="flex-shrink-0 space-y-2 mt-2">
               {/* Title and Artist */}
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start justify-between gap-3 rounded-3xl bg-black/20 px-3 py-2.5 backdrop-blur-md">
                 <AnimatePresence mode="popLayout" initial={false}>
                   <motion.div 
                     key={currentSong.id + '-info'}
@@ -236,9 +236,25 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                     animate="animate"
                     exit="exit"
                   >
-                    <h2 className="text-xl font-bold text-white truncate">{currentSong.title}</h2>
+                    <h2
+                      className="text-lg font-bold text-white leading-tight"
+                      style={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {currentSong.title}
+                    </h2>
                     <button 
-                      className="text-base text-rose-400 font-medium truncate block active:opacity-70" 
+                      className="text-sm text-rose-400 font-medium block active:opacity-70 mt-1 text-left" 
+                      style={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
                       onClick={() => {
                         if (currentSong.artist_id) {
                           triggerHaptic('selection');

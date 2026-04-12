@@ -53,7 +53,7 @@ const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
 const EQ_SETTINGS_KEY = 'eq_settings';
 
-const CORS_ENABLED_AUDIO_HOSTS = ['supabase.co', 'the-standard.io'];
+const CORS_ENABLED_AUDIO_HOSTS = ['supabase.co', 'the-standard.io', 'private.coffee'];
 
 const shouldUseAnonymousCors = (audioUrl?: string | null) => {
   if (!audioUrl) return false;

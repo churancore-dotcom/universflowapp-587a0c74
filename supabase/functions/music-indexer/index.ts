@@ -102,8 +102,10 @@ type IndexedTrack = {
 
 type ResolveResult = {
   success: boolean; streamUrl?: string; videoId?: string;
-  duration?: number; title?: string; artist?: string; error?: string;
+  duration?: number; title?: string; artist?: string; error?: string; fallback?: boolean;
 };
+
+const LASTFM_PLACEHOLDER_HASH = '2a96cbd8b46e442fc41c2b86b821562f';
 
 // ── Caching ──
 
@@ -128,6 +130,54 @@ function makeTrackId(artist: string, title: string) {
 }
 function getArtistName(a: LastFmTrack['artist']) { return typeof a === 'string' ? a : a?.name || 'Unknown Artist'; }
 function getExtralargeImage(images?: Array<{ '#text'?: string }>) { return images?.[3]?.['#text'] || ''; }
+function sanitizeArtwork(url?: string) {
+  if (!url) return undefined;
+  if (url.includes(LASTFM_PLACEHOLDER_HASH)) return undefined;
+  return url;
+}
+
+function upscaleItunesArtwork(url?: string) {
+  if (!url) return undefined;
+  return url.replace(/\/\d+x\d+bb\./, '/600x600bb.');
+}
+
+function scoreMetadataCandidate(item: Record<string, unknown>, artist: string, title: string) {
+  const itemArtist = normalizeText(String(item.artistName || ''));
+  const itemTitle = normalizeText(String(item.trackName || ''));
+  const wantedArtist = normalizeText(artist);
+  const wantedTitle = normalizeText(title);
+  let score = 0;
+  if (wantedArtist && itemArtist.includes(wantedArtist)) score += 8;
+  if (wantedTitle && itemTitle.includes(wantedTitle)) score += 10;
+  score += wantedTitle.split(' ').filter((word) => word.length > 2 && itemTitle.includes(word)).length;
+  return score;
+}
+
+async function getItunesArtwork(artist: string, title: string): Promise<string | undefined> {
+  const cacheKey = `itunes-art:${artist}:${title}`;
+  const cached = getCached<string | null>(cacheKey);
+  if (cached !== null) return cached || undefined;
+
+  try {
+    const url = new URL('https://itunes.apple.com/search');
+    url.searchParams.set('term', `${artist} ${title}`);
+    url.searchParams.set('entity', 'song');
+    url.searchParams.set('limit', '5');
+
+    const data = await fetchJson(url.toString(), 5000);
+    const results = Array.isArray(data?.results) ? data.results : [];
+    const best = results
+      .map((item: Record<string, unknown>) => ({ item, score: scoreMetadataCandidate(item, artist, title) }))
+      .sort((a, b) => b.score - a.score)[0]?.item;
+
+    const artwork = sanitizeArtwork(upscaleItunesArtwork(String(best?.artworkUrl100 || '')));
+    setCached(cacheKey, artwork || null, 12 * 60 * 60 * 1000);
+    return artwork;
+  } catch {
+    setCached(cacheKey, null, 30 * 60 * 1000);
+    return undefined;
+  }
+}
 
 async function fetchJson(url: string, timeoutMs = 6000) {
   const controller = new AbortController();
@@ -166,7 +216,13 @@ function mapTrack(base: LastFmTrack, info?: LastFmTrack | null): IndexedTrack | 
   const title = info?.name || base?.name || '';
   const artist = getArtistName(info?.artist || base?.artist);
   if (!title || !artist) return null;
-  const cover_url = getExtralargeImage(info?.album?.image) || getExtralargeImage(info?.image) || getExtralargeImage(base?.image) || getExtralargeImage(base?.album?.image) || undefined;
+  const cover_url = sanitizeArtwork(
+    getExtralargeImage(info?.album?.image) ||
+    getExtralargeImage(info?.image) ||
+    getExtralargeImage(base?.image) ||
+    getExtralargeImage(base?.album?.image) ||
+    undefined
+  );
   const rawD = info?.duration || base?.duration;
   const duration = rawD ? Math.round(Number(rawD) / (Number(rawD) > 1000 ? 1000 : 1)) : undefined;
   return {
@@ -176,6 +232,12 @@ function mapTrack(base: LastFmTrack, info?: LastFmTrack | null): IndexedTrack | 
     listeners: Number(info?.listeners || base?.listeners || 0) || undefined,
     rank: Number(base?.['@attr']?.rank || 0) || undefined,
   };
+}
+
+async function hydrateTrackArtwork(track: IndexedTrack): Promise<IndexedTrack> {
+  if (track.cover_url) return track;
+  const artwork = await getItunesArtwork(track.artist, track.title);
+  return artwork ? { ...track, cover_url: artwork } : track;
 }
 
 function uniqueTracks(tracks: Array<IndexedTrack | null>) {
@@ -188,7 +250,7 @@ function uniqueTracks(tracks: Array<IndexedTrack | null>) {
   });
 }
 
-async function searchLastFm(query: string, limit = 12) {
+async function searchLastFm(query: string, limit = 24) {
   const ck = `search:${query}:${limit}`;
   const c = getCached<IndexedTrack[]>(ck);
   if (c) return c;
@@ -197,7 +259,8 @@ async function searchLastFm(query: string, limit = 12) {
   const matches: LastFmTrack[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
   const enriched = await Promise.all(matches.slice(0, limit).map(async (t) => {
     const info = t.name ? await getTrackInfo(getArtistName(t.artist), t.name) : null;
-    return mapTrack(t, info);
+    const mapped = mapTrack(t, info);
+    return mapped ? hydrateTrackArtwork(mapped) : null;
   }));
   const results = uniqueTracks(enriched);
   setCached(ck, results, 5 * 60 * 1000);
@@ -213,7 +276,8 @@ async function getTopTracks(limit = 20) {
   const tracks: LastFmTrack[] = Array.isArray(raw) ? raw : [];
   const enriched = await Promise.all(tracks.slice(0, limit).map(async (t) => {
     const info = t.name ? await getTrackInfo(getArtistName(t.artist), t.name) : null;
-    return mapTrack(t, info);
+    const mapped = mapTrack(t, info);
+    return mapped ? hydrateTrackArtwork(mapped) : null;
   }));
   const results = uniqueTracks(enriched).slice(0, limit);
   setCached(ck, results, 15 * 60 * 1000);
@@ -363,7 +427,7 @@ function pickBestStream(data: Record<string, any>, instance: string) {
       return (b.bitrate || 0) - (a.bitrate || 0);
     });
   const chosen = audio[0] || (Array.isArray(data.formatStreams) ? data.formatStreams[0] : null);
-  return normalizeUrl(chosen?.url, instance);
+  return normalizeUrl(chosen?.proxyUrl || chosen?.url, instance);
 }
 
 function pickBestPipedStream(data: Record<string, any>, instance: string) {
@@ -376,7 +440,7 @@ function pickBestPipedStream(data: Record<string, any>, instance: string) {
       if (am !== bm) return bm - am;
       return (b.bitrate || 0) - (a.bitrate || 0);
     })[0];
-  return normalizeUrl(best?.url, instance);
+  return normalizeUrl(best?.proxyUrl || best?.url, instance);
 }
 
 async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; duration?: number } | null> {
@@ -447,11 +511,10 @@ async function resolveStream(artist: string, title: string): Promise<ResolveResu
   console.log(`[resolve] found ${candidates.length} candidates: ${candidates.map(c => c.videoId).join(', ')}`);
 
   if (!candidates.length) {
-    return { success: false, error: 'Could not find a playable stream for this track' };
+    return { success: false, error: 'Could not find a playable stream for this track', fallback: true };
   }
 
-  // Try top 3 candidates only (each resolves in parallel across instances)
-  for (const candidate of candidates.slice(0, 3)) {
+  for (const candidate of candidates.slice(0, 6)) {
     const videoId = String(candidate.videoId);
     console.log(`[resolve] trying videoId: ${videoId}`);
     const resolved = await resolveVideoId(videoId);
@@ -468,7 +531,7 @@ async function resolveStream(artist: string, title: string): Promise<ResolveResu
     }
   }
 
-  return { success: false, error: 'All stream sources are currently unavailable' };
+  return { success: false, error: 'All stream sources are currently unavailable', fallback: true };
 }
 
 // ── HTTP handler ──
@@ -490,23 +553,38 @@ serve(async (req) => {
 
     if (action === 'search') {
       const query = typeof body.query === 'string' ? body.query.trim() : '';
+      const limit = Math.max(1, Math.min(30, typeof body.limit === 'number' ? body.limit : 24));
       if (query.length < 2) {
         return new Response(JSON.stringify({ success: false, error: 'Search query must be at least 2 characters' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      const results = await searchLastFm(query, 12);
-      return new Response(JSON.stringify({ success: true, results }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      try {
+        const results = await searchLastFm(query, limit);
+        return new Response(JSON.stringify({ success: true, results }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        console.error('music-indexer search error:', error);
+        return new Response(JSON.stringify({ success: true, results: [], error: 'Search is temporarily unavailable' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     if (action === 'top') {
       const limit = Math.max(1, Math.min(20, typeof body.limit === 'number' ? body.limit : 20));
-      const results = await getTopTracks(limit);
-      return new Response(JSON.stringify({ success: true, results }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      try {
+        const results = await getTopTracks(limit);
+        return new Response(JSON.stringify({ success: true, results }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        console.error('music-indexer top error:', error);
+        return new Response(JSON.stringify({ success: true, results: [], error: 'Top tracks are temporarily unavailable' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     if (action === 'resolve') {
@@ -519,7 +597,7 @@ serve(async (req) => {
       }
       const result = await resolveStream(artist, title);
       return new Response(JSON.stringify(result), {
-        status: result.success ? 200 : 503,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -529,8 +607,8 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('music-indexer error:', error);
-    return new Response(JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unexpected error' }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unexpected error', fallback: true }), {
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
