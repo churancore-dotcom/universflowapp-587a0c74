@@ -48,12 +48,17 @@ const GlobalTopTracksSection = () => {
         title: resolved.title || track.title,
         artist: resolved.artist || track.artist,
         album: track.album,
-        cover_url: track.cover_url,
+        cover_url: resolved.cover_url || track.cover_url,
         audio_url: resolved.streamUrl,
         duration: resolved.duration || track.duration,
+        source: 'indexed',
       };
 
-      playSong(song, undefined, [song]);
+      const allSongs: Song[] = tracks.map(t => ({
+        id: t.id, title: t.title, artist: t.artist, album: t.album,
+        cover_url: t.cover_url, audio_url: '', source: 'indexed' as const,
+      }));
+      playSong(song, undefined, allSongs);
     } catch (error) {
       console.error('Failed to resolve top track:', error);
       toast.error(error instanceof Error ? error.message : 'Could not play this track');

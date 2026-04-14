@@ -27,6 +27,7 @@ const Support = lazy(() => import("./pages/Support"));
 import OfflinePlayerShell from "./components/OfflinePlayerShell";
 const Offline = lazy(() => import("./pages/Offline"));
 const SongRequest = lazy(() => import("./pages/SongRequest"));
+const AllArtists = lazy(() => import("./pages/AllArtists"));
 
 const DownloadQueuePanel = lazy(() => import("./components/DownloadQueuePanel"));
 const PrerollAd = lazy(() => import("./components/ads/PrerollAd"));
@@ -123,6 +124,7 @@ const AnimatedRoutes = () => {
           <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
           <Route path="/offline" element={<ProtectedRoute><Offline /></ProtectedRoute>} />
           <Route path="/request-song" element={<ProtectedRoute><SongRequest /></ProtectedRoute>} />
+          <Route path="/artists" element={<ProtectedRoute><AllArtists /></ProtectedRoute>} />
           
           <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
             <Route index element={<AdminDashboard />} />
