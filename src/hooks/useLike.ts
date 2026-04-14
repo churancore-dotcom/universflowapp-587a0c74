@@ -2,23 +2,36 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { canLikeSong, getLikeUnavailableMessage } from '@/lib/songSupport';
+import { isCatalogSongId } from '@/lib/songSupport';
 
 // ============================================================
-// Batch Like Cache — single query loads ALL user likes,
-// eliminates per-song DB calls (critical for 2000+ users)
+// Batch Like Cache — single query loads ALL user likes
+// For catalog songs: uses Supabase user_library
+// For stream songs: uses localStorage
 // ============================================================
 
-// Global cache shared across all LikeButton instances
 let likeCache = new Set<string>();
 let likeCacheLoaded = false;
 let likeCacheUserId: string | null = null;
 let likeCachePromise: Promise<void> | null = null;
 
+const STREAM_LIKES_KEY = 'uf_stream_likes';
+
+const getStreamLikes = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(STREAM_LIKES_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch { return new Set(); }
+};
+
+const saveStreamLikes = (likes: Set<string>) => {
+  try {
+    localStorage.setItem(STREAM_LIKES_KEY, JSON.stringify([...likes]));
+  } catch { /* ignore */ }
+};
+
 const loadLikeCache = async (userId: string): Promise<void> => {
   if (likeCacheLoaded && likeCacheUserId === userId) return;
-  
-  // Deduplicate concurrent calls
   if (likeCachePromise && likeCacheUserId === userId) return likeCachePromise;
 
   likeCacheUserId = userId;
@@ -29,15 +42,14 @@ const loadLikeCache = async (userId: string): Promise<void> => {
       .eq('user_id', userId);
 
     likeCache = new Set(data?.map(d => d.song_id) || []);
+    // Merge stream likes
+    const streamLikes = getStreamLikes();
+    for (const id of streamLikes) likeCache.add(id);
     likeCacheLoaded = true;
     likeCachePromise = null;
   })();
 
   return likeCachePromise;
-};
-
-const invalidateLikeCache = () => {
-  likeCacheLoaded = false;
 };
 
 export const useLike = (songId: string) => {
@@ -51,15 +63,13 @@ export const useLike = (songId: string) => {
     return () => { mountedRef.current = false; };
   }, []);
 
-  // Load entire library once, then check cache
   useEffect(() => {
-    if (!songId || !canLikeSong({ id: songId })) {
-      setIsLiked(false);
-      return;
-    }
+    if (!songId) { setIsLiked(false); return; }
 
     if (!user) {
-      setIsLiked(false);
+      // Check localStorage for stream likes even when not logged in
+      const streamLikes = getStreamLikes();
+      setIsLiked(streamLikes.has(songId));
       return;
     }
 
@@ -73,10 +83,7 @@ export const useLike = (songId: string) => {
   }, [user?.id, songId]);
 
   const toggleLike = useCallback(async () => {
-    if (!canLikeSong({ id: songId })) {
-      toast.error(getLikeUnavailableMessage());
-      return;
-    }
+    if (!songId) return;
 
     if (!user) {
       toast.error('Please sign in to like songs');
@@ -84,48 +91,46 @@ export const useLike = (songId: string) => {
     }
 
     if (isLoading) return;
-
     setIsLoading(true);
     const newLiked = !isLiked;
-    
+
     // Optimistic update
     setIsLiked(newLiked);
-    if (newLiked) {
-      likeCache.add(songId);
-    } else {
-      likeCache.delete(songId);
-    }
+    if (newLiked) { likeCache.add(songId); } else { likeCache.delete(songId); }
+
+    const isCatalog = isCatalogSongId(songId);
 
     try {
-      if (!newLiked) {
-        const { error } = await supabase
-          .from('user_library')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('song_id', songId);
-        if (error) throw error;
-        toast.success('Removed from library');
+      if (isCatalog) {
+        // Database operation for catalog songs
+        if (!newLiked) {
+          const { error } = await supabase
+            .from('user_library')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('song_id', songId);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('user_library')
+            .insert({ user_id: user.id, song_id: songId });
+          if (error) throw error;
+        }
       } else {
-        const { error } = await supabase
-          .from('user_library')
-          .insert({ user_id: user.id, song_id: songId });
-        if (error) throw error;
-        toast.success('Added to library ❤️');
+        // localStorage for stream/audius songs
+        const streamLikes = getStreamLikes();
+        if (newLiked) { streamLikes.add(songId); } else { streamLikes.delete(songId); }
+        saveStreamLikes(streamLikes);
       }
+
+      toast.success(newLiked ? 'Added to favorites ❤️' : 'Removed from favorites');
     } catch (error) {
       console.error('Error toggling like:', error);
-      // Rollback
       setIsLiked(!newLiked);
-      if (!newLiked) {
-        likeCache.add(songId);
-      } else {
-        likeCache.delete(songId);
-      }
-      toast.error('Failed to update library');
+      if (!newLiked) { likeCache.add(songId); } else { likeCache.delete(songId); }
+      toast.error('Failed to update favorites');
     } finally {
-      if (mountedRef.current) {
-        setIsLoading(false);
-      }
+      if (mountedRef.current) setIsLoading(false);
     }
   }, [user, songId, isLiked, isLoading]);
 
@@ -136,13 +141,13 @@ export const useRecentlyPlayed = () => {
   const { user } = useAuth();
 
   const trackPlay = useCallback(async (songId: string) => {
-    if (!user) return;
+    if (!user || !isCatalogSongId(songId)) return;
 
     try {
       await supabase
         .from('recently_played')
         .insert({ user_id: user.id, song_id: songId });
-    } catch (error) {
+    } catch {
       // Silent fail
     }
   }, [user]);
