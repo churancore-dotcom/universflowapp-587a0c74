@@ -41,8 +41,7 @@ const RedeemCodeModal = memo(function RedeemCodeModal({ isOpen, onClose }: Redee
       // Use atomic database function to prevent race conditions
       const { data, error: redeemError } = await supabase
         .rpc('redeem_promo_code', {
-          p_code: code.trim(),
-          p_user_id: user.id
+          p_code: code.trim()
         });
 
       if (redeemError) {
