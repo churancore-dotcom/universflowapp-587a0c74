@@ -36,9 +36,6 @@ const PlayWithMate = () => {
   const [memberCount, setMemberCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const channelRef = useRef<any>(null);
-
-  // Premium gate
-  if (!isPremium) {
     return (
       <PageTransition>
         <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
