@@ -13,7 +13,7 @@ import DownloadButton from '@/components/DownloadButton';
 import { TabTransition } from '@/components/PageTransition';
 import { Input } from '@/components/ui/input';
 import { SearchSkeleton } from '@/components/PageSkeletons';
-import { resolveIndexedTrack, searchIndexedTracks, type IndexedTrack } from '@/lib/musicIndexer';
+import { prefetchIndexedTrack, resolveIndexedTrack, searchIndexedTracks, type IndexedTrack } from '@/lib/musicIndexer';
 import { toast } from 'sonner';
 
 const AUDIUS_BASE = 'https://discoveryprovider.audius.co/v1';
@@ -136,6 +136,12 @@ const Search = () => {
       clearTimeout(timer);
     };
   }, [query, activeFilter]);
+
+  useEffect(() => {
+    indexedResults.slice(0, 6).forEach((track) => {
+      prefetchIndexedTrack(track.artist, track.title);
+    });
+  }, [indexedResults]);
 
   const searchSongs = async (searchTerm: string) => {
     const safeSearchTerm = searchTerm.replace(/[%,]/g, ' ').trim();
