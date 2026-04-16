@@ -30,9 +30,22 @@ interface ResolveTrackResponse {
   fallback?: boolean;
 }
 
+interface SearchCandidate {
+  videoId: string;
+  title: string;
+  artist: string;
+  cover_url?: string;
+  duration?: number;
+}
+
 // ── In-memory stream cache ──
 const streamCache = new Map<string, { url: string; expiresAt: number; meta?: Partial<ResolveTrackResponse> }>();
+const inFlightResolutions = new Map<string, Promise<ResolveTrackResponse>>();
 const STREAM_CACHE_TTL = 55 * 60 * 1000; // 55 min
+
+function makeCacheKey(artist: string, title: string) {
+  return `${artist.toLowerCase()}::${title.toLowerCase()}`;
+}
 
 function getCachedStream(key: string): { url: string; meta?: Partial<ResolveTrackResponse> } | null {
   const hit = streamCache.get(key);
@@ -84,6 +97,35 @@ async function resolveViaCobalt(videoId: string): Promise<string | null> {
     } catch { continue; }
   }
   return null;
+}
+
+function requireValue<T>(promise: Promise<T | null>): Promise<T> {
+  return promise.then((value) => {
+    if (!value) throw new Error('No value');
+    return value;
+  });
+}
+
+function firstFulfilled<T>(promises: Promise<T>[]): Promise<T> {
+  return new Promise((resolve, reject) => {
+    if (promises.length === 0) {
+      reject(new Error('No promises provided'));
+      return;
+    }
+
+    let rejected = 0;
+    const errors: unknown[] = [];
+
+    promises.forEach((promise, index) => {
+      promise.then(resolve).catch((error) => {
+        errors[index] = error;
+        rejected += 1;
+        if (rejected === promises.length) {
+          reject(errors[0] instanceof Error ? errors[0] : new Error('All promises failed'));
+        }
+      });
+    });
+  });
 }
 
 // ── Piped instances (reliable, fast) ──
@@ -183,23 +225,21 @@ async function resolveViaInvidious(videoId: string): Promise<string | null> {
 
 // ── Resolve a videoId to audio URL using ALL providers in parallel ──
 async function resolveVideoToAudio(videoId: string): Promise<string | null> {
-  // Race all 3 providers simultaneously for maximum speed
-  const results = await Promise.allSettled([
-    resolveViaPiped(videoId),
-    resolveViaCobalt(videoId),
-    resolveViaInvidious(videoId),
-  ]);
-
-  for (const r of results) {
-    if (r.status === 'fulfilled' && r.value) return r.value;
+  try {
+    return await firstFulfilled([
+      requireValue(resolveViaCobalt(videoId)),
+      requireValue(resolveViaPiped(videoId)),
+      requireValue(resolveViaInvidious(videoId)),
+    ]);
+  } catch {
+    return null;
   }
-  return null;
 }
 
 // ── Edge function caller ──
-const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/music-indexer`;
+const FUNCTION_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
-async function requestIndexer<T>(body: Record<string, unknown>): Promise<T> {
+async function requestFunction<T>(functionName: string, body: Record<string, unknown>, requireSuccess = false): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
 
@@ -207,7 +247,7 @@ async function requestIndexer<T>(body: Record<string, unknown>): Promise<T> {
   const timeout = setTimeout(() => controller.abort(), 10000);
 
   try {
-    const response = await fetch(FUNCTION_URL, {
+    const response = await fetch(`${FUNCTION_BASE_URL}/${functionName}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -219,13 +259,62 @@ async function requestIndexer<T>(body: Record<string, unknown>): Promise<T> {
     });
 
     const json = await response.json().catch(() => null);
-    if (!response.ok || !json?.success) {
+    if (!response.ok || (requireSuccess && !json?.success)) {
       throw new Error(json?.error || `Request failed with status ${response.status}`);
     }
     return json as T;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function requestIndexer<T>(body: Record<string, unknown>): Promise<T> {
+  return requestFunction<T>('music-indexer', body, true);
+}
+
+async function searchYouTubeCandidates(query: string): Promise<SearchCandidate[]> {
+  const data = await requestFunction<{ success?: boolean; results?: SearchCandidate[] }>('yt-music-search', { query }, false);
+  return Array.isArray(data?.results) ? data.results : [];
+}
+
+function dedupeCandidates(candidates: SearchCandidate[]): SearchCandidate[] {
+  const seen = new Set<string>();
+  return candidates.filter((candidate) => {
+    if (!candidate.videoId || seen.has(candidate.videoId)) return false;
+    seen.add(candidate.videoId);
+    return true;
+  });
+}
+
+async function resolveFromFastCandidates(artist: string, title: string): Promise<ResolveTrackResponse> {
+  const query = `${artist} ${title}`;
+  const [youtubeResult, invidiousResult] = await Promise.allSettled([
+    searchYouTubeCandidates(query),
+    searchInvidiousDirect(query),
+  ]);
+
+  const candidates = dedupeCandidates([
+    ...(youtubeResult.status === 'fulfilled' ? youtubeResult.value : []),
+    ...(invidiousResult.status === 'fulfilled' ? invidiousResult.value : []),
+  ]).slice(0, 5);
+
+  if (candidates.length === 0) {
+    throw new Error('No stream candidates found');
+  }
+
+  const resolved = await firstFulfilled(
+    candidates.map((candidate) => requireValue(resolveVideoToAudio(candidate.videoId)).then((streamUrl) => ({ candidate, streamUrl })))
+  );
+
+  return {
+    success: true,
+    streamUrl: resolved.streamUrl,
+    videoId: resolved.candidate.videoId,
+    title: resolved.candidate.title || title,
+    artist: resolved.candidate.artist || artist,
+    cover_url: resolved.candidate.cover_url,
+    duration: resolved.candidate.duration,
+  };
 }
 
 // ── Public API ──
@@ -248,8 +337,7 @@ export async function getTopIndexedTracks(limit = 30): Promise<IndexedTrack[]> {
 }
 
 export async function resolveIndexedTrack(artist: string, title: string): Promise<ResolveTrackResponse> {
-  // 1. Check memory cache (instant)
-  const cacheKey = `${artist.toLowerCase()}::${title.toLowerCase()}`;
+  const cacheKey = makeCacheKey(artist, title);
   const cached = getCachedStream(cacheKey);
   if (cached) {
     return {
@@ -263,59 +351,55 @@ export async function resolveIndexedTrack(artist: string, title: string): Promis
     };
   }
 
-  // 2. Search for video candidates (client-side direct, no edge function delay)
-  const query = `${artist} ${title}`;
-  const candidatesPromise = searchInvidiousDirect(query);
+  const existing = inFlightResolutions.get(cacheKey);
+  if (existing) return existing;
 
-  // 3. Also try edge function in parallel
-  const edgePromise = requestIndexer<ResolveTrackResponse>({
-    action: 'resolve',
-    artist,
-    title,
-  }).catch(() => null);
-
-  // Wait for candidates first (usually faster)
-  const candidates = await candidatesPromise;
-
-  // 4. If we have candidates, resolve audio URL using all providers in parallel
-  if (candidates.length > 0) {
-    // Try first 3 candidates simultaneously
-    const audioResults = await Promise.allSettled(
-      candidates.slice(0, 3).map(c => resolveVideoToAudio(c.videoId))
-    );
-
-    for (let i = 0; i < audioResults.length; i++) {
-      const r = audioResults[i];
-      if (r.status === 'fulfilled' && r.value) {
-        const streamUrl = r.value;
-        setCachedStream(cacheKey, streamUrl, {
-          title,
-          artist,
-          videoId: candidates[i].videoId,
-        });
-        return {
-          success: true,
-          streamUrl,
-          videoId: candidates[i].videoId,
-          title,
-          artist,
-        };
-      }
-    }
-  }
-
-  // 5. Check edge function result
-  const edgeResult = await edgePromise;
-  if (edgeResult?.success && edgeResult?.streamUrl) {
-    setCachedStream(cacheKey, edgeResult.streamUrl, {
-      title: edgeResult.title,
-      artist: edgeResult.artist,
-      cover_url: edgeResult.cover_url,
-      duration: edgeResult.duration,
-      videoId: edgeResult.videoId,
+  const pending = (async () => {
+    const fastResolver = resolveFromFastCandidates(artist, title).then((result) => {
+      if (!result.streamUrl) throw new Error('Fast resolve failed');
+      setCachedStream(cacheKey, result.streamUrl, {
+        title: result.title,
+        artist: result.artist,
+        cover_url: result.cover_url,
+        duration: result.duration,
+        videoId: result.videoId,
+      });
+      return result;
     });
-    return edgeResult;
-  }
 
-  throw new Error('Could not find a playable stream for this track');
+    const edgeResolver = requestIndexer<ResolveTrackResponse>({
+      action: 'resolve',
+      artist,
+      title,
+    }).then((result) => {
+      if (!result?.success || !result.streamUrl) {
+        throw new Error(result?.error || 'Edge resolve failed');
+      }
+      setCachedStream(cacheKey, result.streamUrl, {
+        title: result.title,
+        artist: result.artist,
+        cover_url: result.cover_url,
+        duration: result.duration,
+        videoId: result.videoId,
+      });
+      return result;
+    });
+
+    try {
+      return await firstFulfilled([fastResolver, edgeResolver]);
+    } catch {
+      throw new Error('Could not find a playable stream for this track');
+    }
+  })().finally(() => {
+    inFlightResolutions.delete(cacheKey);
+  });
+
+  inFlightResolutions.set(cacheKey, pending);
+  return pending;
+}
+
+export function prefetchIndexedTrack(artist: string, title: string) {
+  const cacheKey = makeCacheKey(artist, title);
+  if (getCachedStream(cacheKey) || inFlightResolutions.has(cacheKey)) return;
+  void resolveIndexedTrack(artist, title).catch(() => null);
 }
