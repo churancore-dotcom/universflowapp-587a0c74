@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { useMediaSession } from '@/hooks/useMediaSession';
 import { supabase } from '@/integrations/supabase/client';
+import { resolveIndexedTrack } from '@/lib/musicIndexer';
 
 export interface Song {
   id: string;
@@ -307,8 +308,26 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return nextIdx;
   }, []);
 
-  // Play a song at specific index - synchronous for gapless playback
-  const playSongAtIndex = useCallback((index: number, songQueue: Song[]) => {
+  // Helper to check if a URL is actually playable (not empty/placeholder)
+  const isPlayableUrl = useCallback((url?: string) => {
+    if (!url) return false;
+    if (url === '' || url === 'pending' || url === 'resolving') return false;
+    return url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:');
+  }, []);
+
+  // Resolve audio URL for indexed/stream tracks that have no real URL
+  const resolveAudioUrl = useCallback(async (song: Song): Promise<string | null> => {
+    if (isPlayableUrl(song.audio_url)) return song.audio_url;
+    // Try to resolve via music indexer
+    try {
+      const result = await resolveIndexedTrack(song.artist, song.title);
+      if (result?.streamUrl) return result.streamUrl;
+    } catch { /* fall through */ }
+    return null;
+  }, [isPlayableUrl]);
+
+  // Play a song at specific index - with lazy URL resolution
+  const playSongAtIndex = useCallback(async (index: number, songQueue: Song[]) => {
     const song = songQueue[index];
     if (!song || !audioRef.current) return;
 
@@ -324,18 +343,40 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       nextAudioRef.current.src = '';
     }
 
-    // Update state first
+    // Update state first for instant UI response
     setCurrentSong(song);
     setCurrentIndex(index);
     setProgress(0);
-    setIsPlaying(true); // Set playing immediately to prevent UI flicker
+    setIsPlaying(true);
+
+    // Resolve audio URL if needed
+    let audioUrl = song.audio_url;
+    if (!isPlayableUrl(audioUrl)) {
+      try {
+        const resolved = await resolveAudioUrl(song);
+        if (resolved) {
+          audioUrl = resolved;
+          // Update the song in queue with resolved URL
+          const updatedSong = { ...song, audio_url: resolved };
+          setCurrentSong(updatedSong);
+          songQueue[index] = updatedSong;
+          setQueueState([...songQueue]);
+        } else {
+          console.warn('Could not resolve audio for:', song.title);
+          setIsPlaying(false);
+          return;
+        }
+      } catch {
+        setIsPlaying(false);
+        return;
+      }
+    }
     
     // Set source and play immediately
-    configureAudioElementSource(audioRef.current, song.audio_url);
+    configureAudioElementSource(audioRef.current, audioUrl);
     audioRef.current.volume = volume;
     audioRef.current.currentTime = 0;
     
-    // Use load() + play() for faster start
     audioRef.current.load();
     const playPromise = audioRef.current.play();
     if (playPromise) {
@@ -349,13 +390,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const nextIdx = (index + 1) % songQueue.length;
     if (nextIdx !== index && nextAudioRef.current) {
       const nextSong = songQueue[nextIdx];
-      if (nextSong) {
+      if (nextSong && isPlayableUrl(nextSong.audio_url)) {
         configureAudioElementSource(nextAudioRef.current, nextSong.audio_url);
         nextAudioRef.current.preload = 'auto';
         nextAudioRef.current.load();
       }
     }
-  }, [volume]);
+  }, [volume, isPlayableUrl, resolveAudioUrl]);
 
   // Handle song end and crossfade
   useEffect(() => {
