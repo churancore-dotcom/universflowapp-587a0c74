@@ -106,6 +106,28 @@ function requireValue<T>(promise: Promise<T | null>): Promise<T> {
   });
 }
 
+function firstFulfilled<T>(promises: Promise<T>[]): Promise<T> {
+  return new Promise((resolve, reject) => {
+    if (promises.length === 0) {
+      reject(new Error('No promises provided'));
+      return;
+    }
+
+    let rejected = 0;
+    const errors: unknown[] = [];
+
+    promises.forEach((promise, index) => {
+      promise.then(resolve).catch((error) => {
+        errors[index] = error;
+        rejected += 1;
+        if (rejected === promises.length) {
+          reject(errors[0] instanceof Error ? errors[0] : new Error('All promises failed'));
+        }
+      });
+    });
+  });
+}
+
 // ── Piped instances (reliable, fast) ──
 const PIPED_INSTANCES = [
   'https://pipedapi.kavin.rocks',
@@ -204,7 +226,7 @@ async function resolveViaInvidious(videoId: string): Promise<string | null> {
 // ── Resolve a videoId to audio URL using ALL providers in parallel ──
 async function resolveVideoToAudio(videoId: string): Promise<string | null> {
   try {
-    return await Promise.any([
+    return await firstFulfilled([
       requireValue(resolveViaCobalt(videoId)),
       requireValue(resolveViaPiped(videoId)),
       requireValue(resolveViaInvidious(videoId)),
@@ -280,7 +302,7 @@ async function resolveFromFastCandidates(artist: string, title: string): Promise
     throw new Error('No stream candidates found');
   }
 
-  const resolved = await Promise.any(
+  const resolved = await firstFulfilled(
     candidates.map((candidate) => requireValue(resolveVideoToAudio(candidate.videoId)).then((streamUrl) => ({ candidate, streamUrl })))
   );
 
@@ -364,7 +386,7 @@ export async function resolveIndexedTrack(artist: string, title: string): Promis
     });
 
     try {
-      return await Promise.any([fastResolver, edgeResolver]);
+      return await firstFulfilled([fastResolver, edgeResolver]);
     } catch {
       throw new Error('Could not find a playable stream for this track');
     }

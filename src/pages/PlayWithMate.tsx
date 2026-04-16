@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Heart, Copy, Users, Music, Loader2, X, Crown } from 'lucide-react';
+import { ChevronLeft, Heart, Copy, Users, Music, Loader2, X, Crown, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,6 +36,13 @@ interface PlaybackStatePayload {
   isPlaying: boolean;
   playbackPosition: number;
   syncedAt: number;
+}
+
+interface ParticipantPresence {
+  userId: string;
+  username: string;
+  avatarUrl?: string;
+  isHost: boolean;
 }
 
 const parseSessionSong = (value: unknown): SessionSongPayload | null => {
@@ -74,10 +81,39 @@ const PlayWithMate = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [participants, setParticipants] = useState<ParticipantPresence[]>([]);
+  const [currentProfile, setCurrentProfile] = useState<{ username: string; avatarUrl?: string } | null>(null);
   const channelRef = useRef<any>(null);
   const broadcastIntervalRef = useRef<number | null>(null);
   const persistIntervalRef = useRef<number | null>(null);
   const isApplyingRemoteStateRef = useRef(false);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let active = true;
+
+    supabase
+      .from('profiles')
+      .select('username, avatar_url')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!active) return;
+        setCurrentProfile({
+          username: data?.username || user.email?.split('@')[0] || 'Listener',
+          avatarUrl: data?.avatar_url || undefined,
+        });
+      })
+      .catch(() => {
+        if (!active) return;
+        setCurrentProfile({ username: user.email?.split('@')[0] || 'Listener' });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   const buildSongPayload = useCallback((song: Song | null): SessionSongPayload | null => {
     if (!song?.audio_url) return null;
@@ -114,6 +150,8 @@ const PlayWithMate = () => {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
+
+    setParticipants([]);
   }, []);
 
   const applyRemoteState = useCallback(async (payload: PlaybackStatePayload | null | undefined) => {
@@ -230,6 +268,21 @@ const PlayWithMate = () => {
 
     const channel = supabase
       .channel(`session-${sid}`)
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const nextParticipants = Object.values(state)
+          .flatMap((entries: any) => entries as any[])
+          .map((entry: any) => ({
+            userId: entry.userId,
+            username: entry.username || 'Listener',
+            avatarUrl: entry.avatarUrl,
+            isHost: Boolean(entry.isHost),
+          }))
+          .filter((entry: ParticipantPresence) => Boolean(entry.userId))
+          .sort((a: ParticipantPresence, b: ParticipantPresence) => Number(b.isHost) - Number(a.isHost) || a.username.localeCompare(b.username));
+
+        setParticipants(nextParticipants);
+      })
       .on('broadcast', {
         event: 'playback-state',
       }, ({ payload }) => {
@@ -262,13 +315,22 @@ const PlayWithMate = () => {
         }
       })
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED' && isHost) {
-          broadcastPlaybackState();
+        if (status === 'SUBSCRIBED') {
+          channel.track({
+            userId: user?.id,
+            username: currentProfile?.username || user?.email?.split('@')[0] || 'Listener',
+            avatarUrl: currentProfile?.avatarUrl,
+            isHost,
+          });
+
+          if (isHost) {
+            broadcastPlaybackState();
+          }
         }
       });
 
     channelRef.current = channel;
-  }, [applyRemoteState, broadcastPlaybackState, clearSessionSync]);
+  }, [applyRemoteState, broadcastPlaybackState, clearSessionSync, currentProfile?.avatarUrl, currentProfile?.username, user?.email, user?.id]);
 
   const createSession = async () => {
     if (!user) return;
@@ -324,6 +386,20 @@ const PlayWithMate = () => {
   };
 
   const copyCode = () => { navigator.clipboard.writeText(sessionCode); toast.success('Code copied!'); triggerHaptic('impactLight'); };
+
+  const shareSession = async () => {
+    const inviteText = `Join my Play with Mate ❤️ session on Univers Flow\nCode: ${sessionCode}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Play with Mate ❤️', text: inviteText });
+      } else {
+        await navigator.clipboard.writeText(inviteText);
+      }
+      toast.success('Invite ready');
+    } catch {
+      toast.error('Could not share right now');
+    }
+  };
 
   // Premium gate (rendered after all hooks)
   if (!isPremium) {
@@ -427,6 +503,48 @@ const PlayWithMate = () => {
                   </div>
                   <Copy className="w-5 h-5 text-muted-foreground" />
                 </motion.button>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="p-4 rounded-2xl" style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
+                    <p className="text-xs text-muted-foreground">Live listeners</p>
+                    <p className="text-2xl font-bold text-primary mt-1">{participants.length}</p>
+                  </div>
+                  <button onClick={shareSession} className="p-4 rounded-2xl text-left" style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
+                    <p className="text-xs text-muted-foreground">Invite</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-sm font-semibold">Share code</p>
+                      <Share2 className="w-4 h-4 text-primary" />
+                    </div>
+                  </button>
+                </div>
+                <div className="p-4 rounded-2xl mb-4" style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-sm font-bold">Who joined</p>
+                      <p className="text-xs text-muted-foreground">Live room presence</p>
+                    </div>
+                    <Users className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="space-y-2">
+                    {participants.length > 0 ? participants.map((participant) => (
+                      <div key={participant.userId} className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-primary/15">
+                          {participant.avatarUrl ? (
+                            <img src={participant.avatarUrl} alt={participant.username} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-bold text-primary">{participant.username.slice(0, 1).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold truncate">{participant.username}</p>
+                          <p className="text-xs text-muted-foreground">{participant.isHost ? 'Host controls playback' : 'Synced listener'}</p>
+                        </div>
+                        {participant.isHost && <span className="px-2 py-1 rounded-full text-[10px] font-semibold bg-primary/15 text-primary">HOST</span>}
+                      </div>
+                    )) : (
+                      <p className="text-xs text-muted-foreground">Waiting for listeners to join...</p>
+                    )}
+                  </div>
+                </div>
                 {currentSong && (
                   <div className="p-4 rounded-2xl flex items-center gap-3" style={{
                     background: 'linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
