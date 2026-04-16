@@ -38,6 +38,13 @@ const Library = () => {
 
   useEffect(() => {
     if (user) fetchLibrary();
+
+    // Re-fetch when tab becomes visible (catches like changes from other pages)
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible' && user) fetchLibrary();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [user]);
 
   const fetchLibrary = async () => {

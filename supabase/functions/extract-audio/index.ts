@@ -15,25 +15,20 @@ const PIPED_INSTANCES = [
   'https://pipedapi.syncpundit.io',
   'https://api-piped.mha.fi',
   'https://pipedapi.leptons.xyz',
-  'https://piped-api.lunar.icu',
   'https://pipedapi.r4fo.com',
   'https://pipedapi.adminforge.de',
   'https://api.piped.yt',
-  'https://pipedapi.drgns.space',
 ];
 
-// Invidious instances (alternative YouTube proxy network)
 const INVIDIOUS_INSTANCES = [
   'https://inv.nadeko.net',
   'https://invidious.private.coffee',
   'https://invidious.nerdvpn.de',
-  'https://yt.artemislena.eu',
-  'https://invidious.fdn.fr',
-  'https://invidious.perennialte.ch',
-  'https://invidious.slipfox.xyz',
+  'https://iv.datura.network',
+  'https://invidious.protokolla.fi',
   'https://invidious.jing.rocks',
   'https://iv.nboez.cc',
-  'https://invidious.protokolla.fi',
+  'https://invidious.slipfox.xyz',
 ];
 
 interface ExtractionResult {

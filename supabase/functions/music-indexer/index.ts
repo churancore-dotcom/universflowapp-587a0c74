@@ -20,10 +20,17 @@ const PIPED_INSTANCES = [
   'https://pipedapi.syncpundit.io',
   'https://api-piped.mha.fi',
   'https://pipedapi.leptons.xyz',
+  'https://pipedapi.r4fo.com',
+  'https://pipedapi.adminforge.de',
+  'https://api.piped.yt',
 ];
 
 const INVIDIOUS_INSTANCES = [
-  'https://inv.thepixora.com',
+  'https://inv.nadeko.net',
+  'https://invidious.private.coffee',
+  'https://invidious.nerdvpn.de',
+  'https://iv.datura.network',
+  'https://invidious.protokolla.fi',
   'https://invidious.jing.rocks',
   'https://iv.nboez.cc',
   'https://invidious.slipfox.xyz',
