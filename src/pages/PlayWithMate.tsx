@@ -38,6 +38,30 @@ interface PlaybackStatePayload {
   syncedAt: number;
 }
 
+const parseSessionSong = (value: unknown): SessionSongPayload | null => {
+  if (!value || typeof value !== 'object') return null;
+
+  const record = value as Record<string, unknown>;
+
+  if (
+    typeof record.id !== 'string' ||
+    typeof record.title !== 'string' ||
+    typeof record.artist !== 'string' ||
+    typeof record.audio_url !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    id: record.id,
+    title: record.title,
+    artist: record.artist,
+    audio_url: record.audio_url,
+    cover_url: typeof record.cover_url === 'string' ? record.cover_url : undefined,
+    duration: typeof record.duration === 'number' ? record.duration : undefined,
+  };
+};
+
 const PlayWithMate = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -230,7 +254,7 @@ const PlayWithMate = () => {
 
         if (!isHost) {
           applyRemoteState({
-            song: (updated.current_song_data as SessionSongPayload) || null,
+            song: parseSessionSong(updated.current_song_data),
             isPlaying: Boolean(updated.is_playing),
             playbackPosition: Number(updated.playback_position) || 0,
             syncedAt: Date.now(),
@@ -279,7 +303,7 @@ const PlayWithMate = () => {
       await supabase.from('listening_session_members').insert({ session_id: session.id, user_id: user.id });
       setSessionId(session.id); setSessionCode(session.session_code); setIsConnected(true); setMode('join');
       await applyRemoteState({
-        song: (session.current_song_data as SessionSongPayload) || null,
+        song: parseSessionSong(session.current_song_data),
         isPlaying: Boolean(session.is_playing),
         playbackPosition: Number(session.playback_position) || 0,
         syncedAt: Date.now(),
