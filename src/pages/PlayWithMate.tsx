@@ -22,11 +22,27 @@ const generateCode = () => {
   return code;
 };
 
+interface SessionSongPayload {
+  id: string;
+  title: string;
+  artist: string;
+  cover_url?: string;
+  audio_url: string;
+  duration?: number;
+}
+
+interface PlaybackStatePayload {
+  song: SessionSongPayload | null;
+  isPlaying: boolean;
+  playbackPosition: number;
+  syncedAt: number;
+}
+
 const PlayWithMate = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isPremium } = usePremium();
-  const { currentSong, isPlaying, playSong, seek } = usePlayer();
+  const { currentSong, isPlaying, progress, audioElement, playSong, play, pause, seek } = usePlayer();
 
   const [mode, setMode] = useState<'choose' | 'host' | 'join'>('choose');
   const [sessionCode, setSessionCode] = useState('');
@@ -35,49 +51,200 @@ const PlayWithMate = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(false);
   const channelRef = useRef<any>(null);
+  const broadcastIntervalRef = useRef<number | null>(null);
+  const persistIntervalRef = useRef<number | null>(null);
+  const isApplyingRemoteStateRef = useRef(false);
 
-  // Host: sync current song to session
-  useEffect(() => {
-    if (mode !== 'host' || !sessionId || !currentSong) return;
-    const syncTimer = setTimeout(async () => {
-      await supabase.from('listening_sessions').update({
-        current_song_data: {
-          id: currentSong.id, title: currentSong.title, artist: currentSong.artist,
-          cover_url: currentSong.cover_url, audio_url: currentSong.audio_url, duration: currentSong.duration,
-        },
-        is_playing: isPlaying,
-      }).eq('id', sessionId);
-    }, 300);
-    return () => clearTimeout(syncTimer);
-  }, [currentSong?.id, isPlaying, mode, sessionId]);
+  const buildSongPayload = useCallback((song: Song | null): SessionSongPayload | null => {
+    if (!song?.audio_url) return null;
 
-  useEffect(() => {
-    return () => { if (channelRef.current) supabase.removeChannel(channelRef.current); };
+    return {
+      id: song.id,
+      title: song.title,
+      artist: song.artist,
+      cover_url: song.cover_url,
+      audio_url: song.audio_url,
+      duration: song.duration,
+    };
   }, []);
 
+  const getPlaybackState = useCallback((): PlaybackStatePayload => ({
+    song: buildSongPayload(currentSong),
+    isPlaying,
+    playbackPosition: Math.max(audioElement?.currentTime ?? 0, progress),
+    syncedAt: Date.now(),
+  }), [audioElement, buildSongPayload, currentSong, isPlaying, progress]);
+
+  const clearSessionSync = useCallback(() => {
+    if (broadcastIntervalRef.current) {
+      window.clearInterval(broadcastIntervalRef.current);
+      broadcastIntervalRef.current = null;
+    }
+
+    if (persistIntervalRef.current) {
+      window.clearInterval(persistIntervalRef.current);
+      persistIntervalRef.current = null;
+    }
+
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+  }, []);
+
+  const applyRemoteState = useCallback(async (payload: PlaybackStatePayload | null | undefined) => {
+    if (!payload?.song?.audio_url) return;
+
+    const remoteSong: Song = {
+      id: payload.song.id || 'mate-song',
+      title: payload.song.title || 'Unknown',
+      artist: payload.song.artist || 'Unknown',
+      cover_url: payload.song.cover_url,
+      audio_url: payload.song.audio_url,
+      duration: payload.song.duration,
+    };
+
+    const sameSong = currentSong?.id === remoteSong.id && currentSong?.audio_url === remoteSong.audio_url;
+    const remotePosition = Number(payload.playbackPosition) || 0;
+    const localPosition = audioElement?.currentTime ?? progress;
+
+    isApplyingRemoteStateRef.current = true;
+
+    try {
+      if (!sameSong) {
+        playSong(remoteSong, null, [remoteSong]);
+        window.setTimeout(() => {
+          if (remotePosition > 0) seek(remotePosition);
+          if (payload.isPlaying) play();
+          else pause();
+        }, 250);
+        return;
+      }
+
+      if (Math.abs(localPosition - remotePosition) > 1.2) {
+        seek(remotePosition);
+      }
+
+      if (payload.isPlaying) play();
+      else pause();
+    } finally {
+      window.setTimeout(() => {
+        isApplyingRemoteStateRef.current = false;
+      }, 300);
+    }
+  }, [audioElement, currentSong?.audio_url, currentSong?.id, pause, play, playSong, progress, seek]);
+
+  const persistSessionState = useCallback(async (sid: string) => {
+    const state = getPlaybackState();
+
+    await supabase
+      .from('listening_sessions')
+      .update({
+        current_song_data: state.song ?? {},
+        is_playing: state.isPlaying,
+        playback_position: state.playbackPosition,
+      })
+      .eq('id', sid);
+  }, [getPlaybackState]);
+
+  const broadcastPlaybackState = useCallback(async () => {
+    if (!channelRef.current) return;
+
+    const state = getPlaybackState();
+    if (!state.song) return;
+
+    await channelRef.current.send({
+      type: 'broadcast',
+      event: 'playback-state',
+      payload: state,
+    });
+  }, [getPlaybackState]);
+
+  useEffect(() => {
+    if (mode !== 'host' || !sessionId || !isConnected || isApplyingRemoteStateRef.current) return;
+
+    const syncTimer = window.setTimeout(() => {
+      broadcastPlaybackState();
+      persistSessionState(sessionId);
+    }, 120);
+
+    return () => window.clearTimeout(syncTimer);
+  }, [broadcastPlaybackState, currentSong?.audio_url, currentSong?.id, isConnected, isPlaying, mode, persistSessionState, sessionId]);
+
+  useEffect(() => {
+    if (mode !== 'host' || !sessionId || !isConnected) return;
+
+    broadcastIntervalRef.current = window.setInterval(() => {
+      broadcastPlaybackState();
+    }, 900);
+
+    persistIntervalRef.current = window.setInterval(() => {
+      persistSessionState(sessionId);
+    }, 2500);
+
+    return () => {
+      if (broadcastIntervalRef.current) {
+        window.clearInterval(broadcastIntervalRef.current);
+        broadcastIntervalRef.current = null;
+      }
+
+      if (persistIntervalRef.current) {
+        window.clearInterval(persistIntervalRef.current);
+        persistIntervalRef.current = null;
+      }
+    };
+  }, [broadcastPlaybackState, isConnected, mode, persistSessionState, sessionId]);
+
+  useEffect(() => {
+    return () => {
+      clearSessionSync();
+    };
+  }, [clearSessionSync]);
+
   const subscribeToSession = useCallback((sid: string, isHost: boolean) => {
+    clearSessionSync();
+
     const channel = supabase
       .channel(`session-${sid}`)
+      .on('broadcast', {
+        event: 'playback-state',
+      }, ({ payload }) => {
+        if (!isHost) {
+          applyRemoteState(payload as PlaybackStatePayload);
+        }
+      })
       .on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'listening_sessions',
         filter: `id=eq.${sid}`,
       }, (payload) => {
         const updated = payload.new as any;
-        if (!isHost) {
-          const songData = updated.current_song_data as any;
-          if (songData?.audio_url) {
-            const song: Song = {
-              id: songData.id || 'mate-song', title: songData.title || 'Unknown',
-              artist: songData.artist || 'Unknown', cover_url: songData.cover_url,
-              audio_url: songData.audio_url, duration: songData.duration,
-            };
-            playSong(song);
-            if (updated.playback_position > 0) setTimeout(() => seek(Number(updated.playback_position)), 300);
-          }
+        if (!updated.is_active && !isHost) {
+          toast.info('Session ended');
+          clearSessionSync();
+          setIsConnected(false);
+          setSessionId(null);
+          setSessionCode('');
+          setMode('choose');
+          return;
         }
-      }).subscribe();
+
+        if (!isHost) {
+          applyRemoteState({
+            song: (updated.current_song_data as SessionSongPayload) || null,
+            isPlaying: Boolean(updated.is_playing),
+            playbackPosition: Number(updated.playback_position) || 0,
+            syncedAt: Date.now(),
+          });
+        }
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' && isHost) {
+          broadcastPlaybackState();
+        }
+      });
+
     channelRef.current = channel;
-  }, [playSong, seek]);
+  }, [applyRemoteState, broadcastPlaybackState, clearSessionSync]);
 
   const createSession = async () => {
     if (!user) return;
@@ -96,6 +263,7 @@ const PlayWithMate = () => {
       await supabase.from('listening_session_members').insert({ session_id: data.id, user_id: user.id });
       setSessionCode(code); setSessionId(data.id); setIsConnected(true); setMode('host');
       subscribeToSession(data.id, true);
+      persistSessionState(data.id);
       toast.success('Session created! Share the code'); triggerHaptic('success');
     } catch { toast.error('Failed to create session'); }
     setLoading(false);
@@ -110,12 +278,12 @@ const PlayWithMate = () => {
       if (error || !session) { toast.error('Invalid or expired code'); setLoading(false); return; }
       await supabase.from('listening_session_members').insert({ session_id: session.id, user_id: user.id });
       setSessionId(session.id); setSessionCode(session.session_code); setIsConnected(true); setMode('join');
-      const songData = session.current_song_data as any;
-      if (songData?.audio_url) {
-        playSong({ id: songData.id || 'mate', title: songData.title || 'Unknown', artist: songData.artist || 'Unknown',
-          cover_url: songData.cover_url, audio_url: songData.audio_url, duration: songData.duration });
-        if (Number(session.playback_position) > 0) setTimeout(() => seek(Number(session.playback_position)), 500);
-      }
+      await applyRemoteState({
+        song: (session.current_song_data as SessionSongPayload) || null,
+        isPlaying: Boolean(session.is_playing),
+        playbackPosition: Number(session.playback_position) || 0,
+        syncedAt: Date.now(),
+      });
       subscribeToSession(session.id, false);
       toast.success('Connected! Listening together ❤️'); triggerHaptic('success');
     } catch { toast.error('Failed to join'); }
@@ -127,8 +295,8 @@ const PlayWithMate = () => {
       await supabase.from('listening_session_members').delete().eq('session_id', sessionId).eq('user_id', user.id);
       if (mode === 'host') await supabase.from('listening_sessions').update({ is_active: false }).eq('id', sessionId);
     }
-    if (channelRef.current) supabase.removeChannel(channelRef.current);
-    setIsConnected(false); setSessionId(null); setMode('choose'); triggerHaptic('impactMedium');
+    clearSessionSync();
+    setIsConnected(false); setSessionId(null); setSessionCode(''); setJoinCode(''); setMode('choose'); triggerHaptic('impactMedium');
   };
 
   const copyCode = () => { navigator.clipboard.writeText(sessionCode); toast.success('Code copied!'); triggerHaptic('impactLight'); };
