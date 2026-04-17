@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlayer, type Song } from '@/contexts/PlayerContext';
@@ -102,7 +102,7 @@ const writeStoredRoom = (room: ActiveRoom | null) => {
   window.sessionStorage.removeItem(STORAGE_KEY);
 };
 
-export const PlayWithMateProvider = ({ children }: { children: React.ReactNode }) => {
+export const PlayWithMateProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const { currentSong, isPlaying, progress, audioElement, playSong, play, pause, seek } = usePlayer();
 
