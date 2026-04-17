@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { User, Sparkles, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { getFeaturedIndexedArtists } from '@/lib/indexedArtists';
 
 interface Artist {
   id: string;
@@ -87,11 +88,32 @@ const FeaturedArtistsSection = () => {
 
         if (error) throw error;
 
-        if (data) {
+        if (data && data.length > 0) {
           setArtists(data.map(a => ({ ...a, song_count: 0 })));
+        } else {
+          const indexedArtists = await getFeaturedIndexedArtists(12);
+          setArtists(indexedArtists.map((artist) => ({
+            id: artist.id,
+            name: artist.name,
+            photo_url: artist.image_url || null,
+            genre: 'Live',
+            song_count: artist.listeners || 0,
+          })));
         }
       } catch (err) {
         console.error('Failed to fetch artists:', err);
+        try {
+          const indexedArtists = await getFeaturedIndexedArtists(12);
+          setArtists(indexedArtists.map((artist) => ({
+            id: artist.id,
+            name: artist.name,
+            photo_url: artist.image_url || null,
+            genre: 'Live',
+            song_count: artist.listeners || 0,
+          })));
+        } catch (fallbackErr) {
+          console.error('Failed to fetch live artists:', fallbackErr);
+        }
       }
       setLoading(false);
     };

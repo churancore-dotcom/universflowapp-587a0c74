@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Heart, Users, Copy, Share2, Crown, Music, Loader2, LogOut } from 'lucide-react';
+import { ChevronLeft, Heart, Users, Copy, Share2, Crown, Music, Loader2, LogOut, Radio, Disc3, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import PageTransition from '@/components/PageTransition';
 import BottomNav from '@/components/BottomNav';
@@ -115,6 +115,22 @@ const PlayWithMate = () => {
               </motion.div>
             ) : (
               <motion.div key="room" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                <div className="rounded-3xl border border-border bg-card/70 p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center">
+                      <Radio className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-base font-bold">How this room works</p>
+                      <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2"><Disc3 className="w-3.5 h-3.5 text-primary" /><span>The host can play songs from Home, Search, Library, or Artist pages.</span></div>
+                        <div className="flex items-center gap-2"><Users className="w-3.5 h-3.5 text-primary" /><span>Everyone in the room hears the same song and sees who joined live.</span></div>
+                        <div className="flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-primary" /><span>You can leave this screen and the room stays active until the host ends it.</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="rounded-3xl border border-border bg-card/70 p-5">
                   <div className="flex items-center justify-between gap-3">
                     <div>

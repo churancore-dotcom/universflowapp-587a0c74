@@ -5,6 +5,7 @@ import { ArrowLeft, User, Music, Loader2, Radio } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { searchIndexedTracks, resolveIndexedTrack, type IndexedTrack } from '@/lib/musicIndexer';
+import { getFeaturedIndexedArtists } from '@/lib/indexedArtists';
 import BottomNav from '@/components/BottomNav';
 import MiniPlayer from '@/components/MiniPlayer';
 import FullscreenPlayer from '@/components/FullscreenPlayer';
@@ -93,6 +94,7 @@ const AllArtists = () => {
   const navigate = useNavigate();
   const { playSong, currentSong, isPlaying } = usePlayer();
   const [catalogArtists, setCatalogArtists] = useState<CatalogArtist[]>([]);
+  const [liveArtists, setLiveArtists] = useState<StreamArtist[]>([]);
   const [artistSongs, setArtistSongs] = useState<IndexedTrack[]>([]);
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,8 +119,27 @@ const AllArtists = () => {
             .sort((a, b) => b.song_count - a.song_count);
           setCatalogArtists(sorted);
         }
+
+        const indexedArtists = await getFeaturedIndexedArtists(20);
+        setLiveArtists(indexedArtists.map((artist) => ({
+          name: artist.name,
+          listeners: artist.listeners || 0,
+          image_url: artist.image_url,
+          source: 'lastfm',
+        })));
       } catch (e) {
         console.error('Failed to load artists:', e);
+        try {
+          const indexedArtists = await getFeaturedIndexedArtists(20);
+          setLiveArtists(indexedArtists.map((artist) => ({
+            name: artist.name,
+            listeners: artist.listeners || 0,
+            image_url: artist.image_url,
+            source: 'lastfm',
+          })));
+        } catch (fallbackErr) {
+          console.error('Failed to load live artists:', fallbackErr);
+        }
       }
       setLoading(false);
     };
@@ -155,7 +176,7 @@ const AllArtists = () => {
       };
       playSong(song, undefined, artistSongs.map(t => ({
         id: t.id, title: t.title, artist: t.artist, album: t.album,
-        cover_url: t.cover_url, audio_url: '', source: 'indexed' as const,
+        cover_url: t.cover_url, audio_url: t.id === track.id ? resolved.streamUrl! : 'resolving', source: 'indexed' as const,
       })));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Playback failed');
@@ -249,14 +270,16 @@ const AllArtists = () => {
               </div>
             )}
 
-            <div>
-              <h2 className="text-sm font-bold mb-3 flex items-center gap-1.5">
-                <Radio className="w-4 h-4 text-primary" /> Explore Any Artist
-              </h2>
-              <p className="text-xs text-muted-foreground mb-3">
-                Tap any artist above to see their catalog, or use Search to find any artist worldwide and stream their songs instantly.
-              </p>
-            </div>
+            {liveArtists.length > 0 && (
+              <div>
+                <h2 className="text-sm font-bold mb-3 flex items-center gap-1.5">
+                  <Radio className="w-4 h-4 text-primary" /> Live Artists · {liveArtists.length}
+                </h2>
+                <div className="space-y-1.5">
+                  {liveArtists.map((artist) => <StreamArtistCard key={artist.name} artist={artist} onPlay={handleStreamArtistPlay} />)}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
