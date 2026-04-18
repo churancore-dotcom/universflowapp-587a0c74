@@ -130,6 +130,58 @@ const isEqProcessingEnabled = () => {
   }
 };
 
+const isYouTubeFallbackUrl = (url?: string | null) => Boolean(url?.startsWith('yt-video:'));
+
+const getYouTubeFallbackVideoId = (url?: string | null) => {
+  if (!isYouTubeFallbackUrl(url)) return null;
+  return url?.replace('yt-video:', '').trim() || null;
+};
+
+let youtubeIframeApiPromise: Promise<typeof window.YT> | null = null;
+
+const loadYouTubeIframeApi = (): Promise<typeof window.YT> => {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('Window is not available'));
+  }
+
+  if (window.YT?.Player) {
+    return Promise.resolve(window.YT);
+  }
+
+  if (youtubeIframeApiPromise) {
+    return youtubeIframeApiPromise;
+  }
+
+  youtubeIframeApiPromise = new Promise((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>('script[data-youtube-iframe-api="true"]');
+
+    const handleReady = () => {
+      if (window.YT?.Player) {
+        resolve(window.YT);
+      } else {
+        reject(new Error('YouTube player API did not initialize'));
+      }
+    };
+
+    const previousReady = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      previousReady?.();
+      handleReady();
+    };
+
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.src = 'https://www.youtube.com/iframe_api';
+      script.async = true;
+      script.dataset.youtubeIframeApi = 'true';
+      script.onerror = () => reject(new Error('Failed to load YouTube player API'));
+      document.head.appendChild(script);
+    }
+  });
+
+  return youtubeIframeApiPromise;
+};
+
 export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
