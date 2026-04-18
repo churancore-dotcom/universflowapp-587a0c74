@@ -599,8 +599,10 @@ async function resolveStream(artist: string, title: string): Promise<ResolveResu
     return { success: false, error: 'Could not find a playable stream for this track', fallback: true };
   }
 
+  let firstVideoId: string | null = null;
   for (const candidate of candidates.slice(0, 6)) {
     const videoId = String(candidate.videoId);
+    if (!firstVideoId) firstVideoId = videoId;
     console.log(`[resolve] trying videoId: ${videoId}`);
     const resolved = await resolveVideoId(videoId);
     if (resolved) {
@@ -615,6 +617,20 @@ async function resolveStream(artist: string, title: string): Promise<ResolveResu
       setCached(ck, result, 45 * 60 * 1000); // cache resolved streams for 45 min
       return result;
     }
+  }
+
+  // YouTube IFrame fallback — guaranteed playback even when no audio host is reachable
+  if (firstVideoId) {
+    const fallback: ResolveResult = {
+      success: true,
+      streamUrl: `yt-video:${firstVideoId}`,
+      videoId: firstVideoId,
+      title, artist,
+      cover_url: await resolveArtwork(artist, title),
+      fallback: true,
+    };
+    setCached(ck, fallback, 30 * 60 * 1000);
+    return fallback;
   }
 
   return { success: false, error: 'All stream sources are currently unavailable', fallback: true };

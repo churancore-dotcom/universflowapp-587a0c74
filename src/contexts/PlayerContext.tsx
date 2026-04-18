@@ -238,6 +238,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const isCrossfading = useRef(false);
   const animationFrameRef = useRef<number | null>(null);
 
+  // YouTube IFrame fallback
+  const youtubePlayerRef = useRef<YouTubePlayer | null>(null);
+  const youtubeProgressRef = useRef<number | null>(null);
+  const youtubeActiveRef = useRef(false);
+  const youtubeEndCallbackRef = useRef<(() => void) | null>(null);
+
   // Check premium status on mount
   useEffect(() => {
     const checkStatus = async () => {
@@ -436,6 +442,120 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return null;
   }, [isPlayableUrl]);
 
+  // ── YouTube IFrame fallback helpers ──
+  const stopYouTubeProgressLoop = useCallback(() => {
+    if (youtubeProgressRef.current) {
+      window.clearInterval(youtubeProgressRef.current);
+      youtubeProgressRef.current = null;
+    }
+  }, []);
+
+  const startYouTubeProgressLoop = useCallback(() => {
+    stopYouTubeProgressLoop();
+    youtubeProgressRef.current = window.setInterval(() => {
+      const player = youtubePlayerRef.current;
+      if (!player || !youtubeActiveRef.current) return;
+      try {
+        setProgress(player.getCurrentTime() || 0);
+        const dur = player.getDuration?.();
+        if (dur && Number.isFinite(dur) && dur > 0) setDuration(dur);
+      } catch { /* ignore */ }
+    }, 500);
+  }, [stopYouTubeProgressLoop]);
+
+  const teardownYouTubePlayback = useCallback(() => {
+    stopYouTubeProgressLoop();
+    youtubeActiveRef.current = false;
+    youtubeEndCallbackRef.current = null;
+    try { youtubePlayerRef.current?.pauseVideo?.(); } catch { /* ignore */ }
+  }, [stopYouTubeProgressLoop]);
+
+  const ensureYouTubeContainer = useCallback(() => {
+    let host = document.getElementById('uf-yt-fallback-host');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'uf-yt-fallback-host';
+      host.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;';
+      document.body.appendChild(host);
+    }
+    let mount = document.getElementById('uf-yt-fallback-mount');
+    if (!mount) {
+      mount = document.createElement('div');
+      mount.id = 'uf-yt-fallback-mount';
+      host.appendChild(mount);
+    }
+    return mount;
+  }, []);
+
+  const playYouTubeFallback = useCallback(async (videoId: string, onEnded: () => void) => {
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.removeAttribute('src');
+        audioRef.current.load();
+      }
+
+      const YT = await loadYouTubeIframeApi();
+      if (!YT) throw new Error('YouTube API unavailable');
+
+      youtubeActiveRef.current = true;
+      youtubeEndCallbackRef.current = onEnded;
+
+      if (youtubePlayerRef.current) {
+        try {
+          youtubePlayerRef.current.loadVideoById(videoId);
+          youtubePlayerRef.current.setVolume?.(Math.round(volume * 100));
+          startYouTubeProgressLoop();
+          setIsPlaying(true);
+          return;
+        } catch { /* recreate below */ }
+      }
+
+      const mount = ensureYouTubeContainer();
+      mount.innerHTML = '';
+      const playerEl = document.createElement('div');
+      playerEl.id = `uf-yt-player-${Date.now()}`;
+      mount.appendChild(playerEl);
+
+      youtubePlayerRef.current = new YT.Player(playerEl.id, {
+        height: '1',
+        width: '1',
+        videoId,
+        playerVars: { autoplay: 1, controls: 0, modestbranding: 1, playsinline: 1, rel: 0 },
+        events: {
+          onReady: (e: { target: YouTubePlayer }) => {
+            try {
+              e.target.setVolume?.(Math.round(volume * 100));
+              e.target.playVideo();
+              const dur = e.target.getDuration?.();
+              if (dur && Number.isFinite(dur)) setDuration(dur);
+            } catch { /* ignore */ }
+            startYouTubeProgressLoop();
+            setIsPlaying(true);
+          },
+          onStateChange: (e: { data: number }) => {
+            const states = YT.PlayerState;
+            if (e.data === states.PLAYING) setIsPlaying(true);
+            else if (e.data === states.PAUSED) setIsPlaying(false);
+            else if (e.data === states.ENDED) {
+              setIsPlaying(false);
+              youtubeEndCallbackRef.current?.();
+            }
+          },
+          onError: () => {
+            toast.error('Video source unavailable — skipping');
+            youtubeEndCallbackRef.current?.();
+          },
+        },
+      } as Record<string, unknown>);
+    } catch (err) {
+      console.warn('YouTube fallback failed:', err);
+      youtubeActiveRef.current = false;
+      setIsPlaying(false);
+      toast.error('Could not load this track from any source.');
+    }
+  }, [ensureYouTubeContainer, startYouTubeProgressLoop, volume]);
+
   // Play a song at specific index - with lazy URL resolution
   const playSongAtIndex = useCallback(async (index: number, songQueue: Song[]) => {
     const song = songQueue[index];
@@ -498,7 +618,26 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return;
       }
     }
-    
+
+    // ── YouTube IFrame fallback path ──
+    if (isYouTubeFallbackUrl(audioUrl)) {
+      const videoId = getYouTubeFallbackVideoId(audioUrl);
+      if (!videoId) {
+        setIsPlaying(false);
+        toast.error('This song could not be played.');
+        return;
+      }
+      await playYouTubeFallback(videoId, () => {
+        // Trigger normal "ended" pipeline
+        const evt = new Event('ended');
+        try { audioRef.current?.dispatchEvent(evt); } catch { /* ignore */ }
+      });
+      return;
+    }
+
+    // Standard HTMLAudio path — make sure YT is torn down
+    teardownYouTubePlayback();
+
     // Set source and play immediately
     configureAudioElementSource(audioRef.current, buildStreamProxyUrl(audioUrl));
     audioRef.current.volume = volume;
@@ -517,13 +656,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const nextIdx = (index + 1) % songQueue.length;
     if (nextIdx !== index && nextAudioRef.current) {
       const nextSong = songQueue[nextIdx];
-      if (nextSong && isPlayableUrl(nextSong.audio_url)) {
+      if (nextSong && isPlayableUrl(nextSong.audio_url) && !isYouTubeFallbackUrl(nextSong.audio_url)) {
         configureAudioElementSource(nextAudioRef.current, buildStreamProxyUrl(nextSong.audio_url));
         nextAudioRef.current.preload = 'auto';
         nextAudioRef.current.load();
       }
     }
-  }, [volume, isPlayableUrl, resolveAudioUrl]);
+  }, [volume, isPlayableUrl, resolveAudioUrl, playYouTubeFallback, teardownYouTubePlayback]);
 
   // Handle song end and crossfade
   useEffect(() => {
@@ -713,21 +852,36 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       queuedSong.id === song.id ? { ...queuedSong, audio_url: playbackSource } : queuedSong,
     );
 
-    // Set audio source - use offline URL if available
-    const playbackUrl = offlineUrl || buildStreamProxyUrl(playbackSource);
-    configureAudioElementSource(audioRef.current, playbackUrl);
-    audioRef.current.volume = volume;
-    audioRef.current.currentTime = 0;
-
-    // Load and play immediately
-    audioRef.current.load();
-    const playPromise = audioRef.current.play();
-    if (playPromise) {
-      playPromise.catch(err => {
-        console.warn('Playback failed:', err?.message);
+    // ── YouTube IFrame fallback path ──
+    if (!offlineUrl && isYouTubeFallbackUrl(playbackSource)) {
+      const videoId = getYouTubeFallbackVideoId(playbackSource);
+      if (videoId) {
+        await playYouTubeFallback(videoId, () => {
+          try { audioRef.current?.dispatchEvent(new Event('ended')); } catch { /* ignore */ }
+        });
+      } else {
         setIsPlaying(false);
-        toast.error('This song could not start — trying another source helps while the stream refreshes.');
-      });
+        toast.error('This song could not start right now.');
+      }
+    } else {
+      teardownYouTubePlayback();
+
+      // Set audio source - use offline URL if available
+      const playbackUrl = offlineUrl || buildStreamProxyUrl(playbackSource);
+      configureAudioElementSource(audioRef.current, playbackUrl);
+      audioRef.current.volume = volume;
+      audioRef.current.currentTime = 0;
+
+      // Load and play immediately
+      audioRef.current.load();
+      const playPromise = audioRef.current.play();
+      if (playPromise) {
+        playPromise.catch(err => {
+          console.warn('Playback failed:', err?.message);
+          setIsPlaying(false);
+          toast.error('This song could not start — trying another source helps while the stream refreshes.');
+        });
+      }
     }
 
     // If a queue is provided, use it
@@ -755,7 +909,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }).then(() => {});
       }
     }).catch(() => {});
-  }, [isPlayableUrl, queue, resolveAudioUrl, volume]);
+  }, [isPlayableUrl, queue, resolveAudioUrl, volume, playYouTubeFallback, teardownYouTubePlayback]);
 
   // Check premium status from database
   const checkPremiumStatus = useCallback(async () => {
@@ -816,21 +970,31 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [pendingSong, playActualSong]);
 
   const togglePlay = useCallback(() => {
-    if (!audioRef.current || !currentSong) return;
+    if (!currentSong) return;
 
+    if (youtubeActiveRef.current && youtubePlayerRef.current) {
+      try {
+        if (isPlaying) { youtubePlayerRef.current.pauseVideo(); setIsPlaying(false); }
+        else { youtubePlayerRef.current.playVideo(); setIsPlaying(true); }
+      } catch { /* ignore */ }
+      return;
+    }
+
+    if (!audioRef.current) return;
     if (audioRef.current.paused) {
-      audioRef.current.play().then(() => {
-        setIsPlaying(true);
-      }).catch(err => {
-        console.warn('Play failed:', err.message);
-      });
+      audioRef.current.play().then(() => setIsPlaying(true)).catch(err => console.warn('Play failed:', err.message));
     } else {
       audioRef.current.pause();
       setIsPlaying(false);
     }
-  }, [currentSong]);
+  }, [currentSong, isPlaying]);
 
   const pause = useCallback(() => {
+    if (youtubeActiveRef.current && youtubePlayerRef.current) {
+      try { youtubePlayerRef.current.pauseVideo(); } catch { /* ignore */ }
+      setIsPlaying(false);
+      return;
+    }
     if (audioRef.current) {
       audioRef.current.pause();
       setIsPlaying(false);
@@ -838,10 +1002,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const play = useCallback(() => {
-    if (audioRef.current && currentSong) {
-      audioRef.current.play().then(() => {
-        setIsPlaying(true);
-      }).catch(console.warn);
+    if (!currentSong) return;
+    if (youtubeActiveRef.current && youtubePlayerRef.current) {
+      try { youtubePlayerRef.current.playVideo(); } catch { /* ignore */ }
+      setIsPlaying(true);
+      return;
+    }
+    if (audioRef.current) {
+      audioRef.current.play().then(() => setIsPlaying(true)).catch(console.warn);
     }
   }, [currentSong]);
 
@@ -851,6 +1019,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       crossfadeIntervalRef.current = null;
     }
     isCrossfading.current = false;
+
+    teardownYouTubePlayback();
 
     if (audioRef.current) {
       audioRef.current.pause();
@@ -869,7 +1039,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setQueueState([]);
     setCurrentIndex(0);
     setExpanded(false);
-  }, []);
+  }, [teardownYouTubePlayback]);
 
   const nextSong = useCallback(() => {
     if (queue.length === 0) return;
@@ -922,11 +1092,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [queue, currentIndex, playSongAtIndex]);
 
   const seek = useCallback((time: number) => {
+    if (youtubeActiveRef.current && youtubePlayerRef.current) {
+      try { youtubePlayerRef.current.seekTo(time, true); } catch { /* ignore */ }
+      setProgress(time);
+      return;
+    }
     if (audioRef.current) {
       audioRef.current.currentTime = time;
       setProgress(time);
     }
   }, []);
+
+  // Sync volume to YT player when it changes
+  useEffect(() => {
+    if (youtubeActiveRef.current && youtubePlayerRef.current) {
+      try { youtubePlayerRef.current.setVolume?.(Math.round(volume * 100)); } catch { /* ignore */ }
+    }
+  }, [volume]);
 
   const setVolume = useCallback((vol: number) => {
     setVolumeState(vol);

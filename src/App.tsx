@@ -11,6 +11,7 @@ import { PlayWithMateProvider } from "./contexts/PlayWithMateContext";
 import SplashScreen from "./components/SplashScreen";
 import Onboarding from "./components/Onboarding";
 import MobileShell from "./components/MobileShell";
+import MateHeartButton from "./components/MateHeartButton";
 import { NavDirectionProvider } from "./components/PageTransition";
 import SEOHead from "./components/SEOHead";
 import Auth from "./pages/Auth";
@@ -216,6 +217,7 @@ const AppContent = () => {
         )}
       </AnimatePresence>
       <PrerollAdWrapper />
+      <MateHeartButton />
       <Suspense fallback={null}>
         <DownloadQueuePanel />
         <PWAInstallBanner />
