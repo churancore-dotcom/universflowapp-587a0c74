@@ -315,6 +315,22 @@ export const PlayWithMateProvider = ({ children }: { children: ReactNode }) => {
             void applyRemoteState(payload as PlaybackStatePayload);
           }
         })
+        .on('broadcast', { event: 'reaction' }, ({ payload }) => {
+          const r = payload as MateReaction;
+          if (!r?.emoji) return;
+          setReactions((prev) => [...prev.slice(-19), r]);
+          window.setTimeout(() => {
+            setReactions((prev) => prev.filter((x) => x.id !== r.id));
+          }, 3500);
+        })
+        .on('broadcast', { event: 'kick' }, ({ payload }) => {
+          const targetId = (payload as { userId?: string })?.userId;
+          if (targetId && targetId === user.id && nextRoom.role === 'guest') {
+            toast.info('You were removed from the room');
+            clearRealtime();
+            clearRoomState();
+          }
+        })
         .on(
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'listening_sessions', filter: `id=eq.${nextRoom.sessionId}` },
