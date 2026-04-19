@@ -647,6 +647,71 @@ export const PlayWithMateProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [room, user?.id]);
 
+  const suggestTrack = useCallback(
+    async (track: { title: string; artist: string; cover_url?: string; audio_url?: string; source?: string }) => {
+      if (!channelRef.current || !user || !profile || !room) {
+        toast.error('Join a room first');
+        return;
+      }
+      if (room.role === 'host') {
+        toast.info('You are the host — just play it!');
+        return;
+      }
+      if (!track.title || !track.artist) {
+        toast.error('Pick a song first');
+        return;
+      }
+      const suggestion: MateSuggestion = {
+        id: `${user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        userId: user.id,
+        username: profile.username,
+        title: track.title,
+        artist: track.artist,
+        cover_url: track.cover_url,
+        audio_url: track.audio_url,
+        source: track.source,
+        createdAt: Date.now(),
+      };
+      try {
+        await channelRef.current.send({ type: 'broadcast', event: 'suggestion', payload: suggestion });
+        toast.success('Sent to host ✨');
+        triggerHaptic('success');
+      } catch {
+        toast.error('Could not send suggestion');
+      }
+    },
+    [profile, room, user],
+  );
+
+  const acceptSuggestion = useCallback(
+    async (suggestionId: string) => {
+      if (room?.role !== 'host') return;
+      const s = suggestions.find((x) => x.id === suggestionId);
+      if (!s) return;
+      const song: Song = {
+        id: s.audio_url ? `mate-sug-${suggestionId}` : `lfm-${s.artist}-${s.title}`.toLowerCase().replace(/\s+/g, '-'),
+        title: s.title,
+        artist: s.artist,
+        cover_url: s.cover_url,
+        audio_url: s.audio_url || '',
+        source: (s.source as Song['source']) || 'indexed',
+      };
+      try {
+        playSong(song, undefined, [song]);
+        setSuggestions((prev) => prev.filter((x) => x.id !== suggestionId));
+        toast.success(`Now playing ${s.username}'s pick`);
+        triggerHaptic('success');
+      } catch {
+        toast.error('Could not play that suggestion');
+      }
+    },
+    [playSong, room?.role, suggestions],
+  );
+
+  const dismissSuggestion = useCallback((suggestionId: string) => {
+    setSuggestions((prev) => prev.filter((x) => x.id !== suggestionId));
+  }, []);
+
   const setMinimized = useCallback((minimized: boolean) => setIsMinimized(minimized), []);
 
   // Quick-join deep link: ?join=CODE
@@ -683,15 +748,21 @@ export const PlayWithMateProvider = ({ children }: { children: ReactNode }) => {
       room,
       participants,
       reactions,
+      suggestions,
       isMinimized,
       setMinimized,
       createSession,
       joinSession,
       leaveSession,
       sendReaction,
+      suggestTrack,
+      acceptSuggestion,
+      dismissSuggestion,
       kickParticipant,
       inviteUrl,
     }),
+    [acceptSuggestion, createSession, dismissSuggestion, inviteUrl, isMinimized, joinSession, kickParticipant, leaveSession, loading, participants, reactions, room, sendReaction, setMinimized, suggestTrack, suggestions],
+  );
     [createSession, inviteUrl, isMinimized, joinSession, kickParticipant, leaveSession, loading, participants, reactions, room, sendReaction, setMinimized],
   );
 
