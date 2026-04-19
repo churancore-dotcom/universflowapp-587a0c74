@@ -763,8 +763,7 @@ export const PlayWithMateProvider = ({ children }: { children: ReactNode }) => {
     }),
     [acceptSuggestion, createSession, dismissSuggestion, inviteUrl, isMinimized, joinSession, kickParticipant, leaveSession, loading, participants, reactions, room, sendReaction, setMinimized, suggestTrack, suggestions],
   );
-    [createSession, inviteUrl, isMinimized, joinSession, kickParticipant, leaveSession, loading, participants, reactions, room, sendReaction, setMinimized],
-  );
+
 
   return <PlayWithMateContext.Provider value={value}>{children}</PlayWithMateContext.Provider>;
 };
