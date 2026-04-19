@@ -328,20 +328,54 @@ async function searchLastFm(query: string, limit = 24) {
   return results;
 }
 
-async function getTopTracks(limit = 20) {
-  const ck = `top:${limit}`;
+// Rotating discovery tags so Top 30 keeps refreshing
+const DISCOVERY_TAGS = [
+  'pop', 'hip-hop', 'rock', 'electronic', 'r&b', 'indie',
+  'dance', 'k-pop', 'latin', 'edm', 'rap', 'house', 'alternative', 'trap',
+];
+
+async function getTopTracks(limit = 30) {
+  // Rotation key changes every ~5 minutes so the chart visibly refreshes
+  const rotation = Math.floor(Date.now() / (5 * 60 * 1000));
+  const ck = `top-rotated:${limit}:${rotation}`;
   const c = getCached<IndexedTrack[]>(ck);
   if (c) return c;
-  const d = await fetchJson(buildLastFmUrl('chart.gettoptracks', { limit: String(limit) }));
-  const raw = d?.tracks?.track;
-  const tracks: LastFmTrack[] = Array.isArray(raw) ? raw : [];
-  const enriched = await Promise.all(tracks.slice(0, limit).map(async (t) => {
+
+  // Pick 2 random tags + global chart for the freshest blend
+  const shuffled = [...DISCOVERY_TAGS].sort(() => Math.random() - 0.5);
+  const picks = shuffled.slice(0, 2);
+  const perBucket = Math.ceil(limit / 2) + 5;
+
+  const fetches: Promise<LastFmTrack[]>[] = [
+    fetchJson(buildLastFmUrl('chart.gettoptracks', { limit: String(perBucket), page: String((rotation % 3) + 1) }))
+      .then((d) => (Array.isArray(d?.tracks?.track) ? d.tracks.track : []))
+      .catch(() => []),
+    ...picks.map((tag) =>
+      fetchJson(buildLastFmUrl('tag.gettoptracks', { tag, limit: String(perBucket), page: String((rotation % 4) + 1) }))
+        .then((d) => (Array.isArray(d?.tracks?.track) ? d.tracks.track : []))
+        .catch(() => []),
+    ),
+  ];
+
+  const buckets = await Promise.all(fetches);
+  const merged: LastFmTrack[] = [];
+  // Interleave so chart top + tag picks mix nicely
+  const maxLen = Math.max(...buckets.map((b) => b.length));
+  for (let i = 0; i < maxLen; i += 1) {
+    for (const bucket of buckets) {
+      if (bucket[i]) merged.push(bucket[i]);
+    }
+  }
+
+  const enriched = await Promise.all(merged.slice(0, limit + 4).map(async (t) => {
     const info = t.name ? await getTrackInfo(getArtistName(t.artist), t.name) : null;
     const mapped = mapTrack(t, info);
     return mapped ? hydrateTrackArtwork(mapped) : null;
   }));
-  const results = uniqueTracks(enriched).slice(0, limit);
-  setCached(ck, results, 15 * 60 * 1000);
+  // Re-shuffle slightly so order doesn't feel mechanical
+  const unique = uniqueTracks(enriched).sort(() => Math.random() - 0.35);
+  const results = unique.slice(0, limit).map((t, i) => ({ ...t, rank: i + 1 }));
+  setCached(ck, results, 5 * 60 * 1000);
   return results;
 }
 
