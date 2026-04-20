@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Settings, LogOut, Shield, Music, Heart, Clock, ChevronRight, BarChart3, Crown, Edit2, Check, X } from 'lucide-react';
+import { User, Mail, Settings, LogOut, Shield, Music, Heart, Clock, ChevronRight, BarChart3, Crown, Edit2, Check, X, Star, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +10,8 @@ import MiniPlayer from '@/components/MiniPlayer';
 import FullscreenPlayer from '@/components/FullscreenPlayer';
 import ListeningStats from '@/components/ListeningStats';
 import RedeemCodeModal from '@/components/RedeemCodeModal';
+import ReviewModal from '@/components/ReviewModal';
+import ReviewsSheet from '@/components/ReviewsSheet';
 import { TabTransition } from '@/components/PageTransition';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -26,6 +28,9 @@ const Profile = () => {
   const [stats, setStats] = useState({ likedSongs: 0, recentPlays: 0, playlists: 0 });
   const [showStats, setShowStats] = useState(false);
   const [showRedeemCode, setShowRedeemCode] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  const [showReviewsList, setShowReviewsList] = useState(false);
+  const [hasReviewed, setHasReviewed] = useState<boolean>(() => Boolean(localStorage.getItem('uf_reviewed')));
   const [profileData, setProfileData] = useState<ProfileData>({ username: null, username_changed: false });
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
