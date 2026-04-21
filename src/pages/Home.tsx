@@ -7,6 +7,7 @@ import SongCard from '@/components/SongCard';
 import HorizontalSection from '@/components/HorizontalSection';
 import AllSongsSection from '@/components/AllSongsSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
+import MadeForYouSection from '@/components/MadeForYouSection';
 import GlobalTopTracksSection from '@/components/GlobalTopTracksSection';
 import SleepTimerModal from '@/components/SleepTimerModal';
 import QueueDrawer from '@/components/QueueDrawer';
@@ -293,8 +294,11 @@ const Home = () => {
                 </motion.div>
               )}
 
-              {/* Featured Artists */}
+              {/* Featured / Your Artists */}
               <FeaturedArtistsSection />
+
+              {/* Made For You — personalized from picked artists */}
+              <MadeForYouSection />
 
               {/* Global Top Tracks */}
               <GlobalTopTracksSection />

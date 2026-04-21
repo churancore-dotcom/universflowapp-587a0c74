@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback, memo } from 'react';
+import { useState, useEffect, useCallback, memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Music, Loader2, Radio } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, User, Music, Loader2, Radio, Heart, Search as SearchIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { searchIndexedTracks, resolveIndexedTrack, type IndexedTrack } from '@/lib/musicIndexer';
 import { getFeaturedIndexedArtists } from '@/lib/indexedArtists';
+import { followArtist, unfollowArtist, getUserArtistPrefs } from '@/lib/userArtistPrefs';
 import BottomNav from '@/components/BottomNav';
 import MiniPlayer from '@/components/MiniPlayer';
 import FullscreenPlayer from '@/components/FullscreenPlayer';

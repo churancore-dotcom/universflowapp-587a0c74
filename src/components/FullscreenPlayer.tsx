@@ -9,7 +9,6 @@ import DownloadButton from './DownloadButton';
 import SocialShareModal from './SocialShareModal';
 import AddToPlaylistModal from './AddToPlaylistModal';
 import CreatePlaylistModal from './CreatePlaylistModal';
-import SongReactions from './SongReactions';
 import EqualizerModal from './EqualizerModal';
 import { supabase } from '@/integrations/supabase/client';
 import type { Song } from '@/contexts/PlayerContext';
@@ -376,8 +375,6 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 </button>
               </div>
 
-              {/* Song Reactions */}
-              <SongReactions songId={currentSong.id} songTitle={currentSong.title} />
             </div>
           </div>
         </motion.div>

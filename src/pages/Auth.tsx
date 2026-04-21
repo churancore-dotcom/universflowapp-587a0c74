@@ -42,6 +42,8 @@ const Auth = () => {
         if (error) {
           toast.error(error.message);
         } else {
+          // Mark this session as fresh signup so the artist picker triggers
+          localStorage.setItem('uf_just_signed_up', '1');
           toast.success('Account created successfully!');
           navigate('/home');
         }

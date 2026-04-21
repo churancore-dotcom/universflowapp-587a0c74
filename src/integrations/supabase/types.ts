@@ -539,29 +539,37 @@ export type Database = {
         }
         Relationships: []
       }
-      song_comments: {
+      review_reactions: {
         Row: {
-          content: string
           created_at: string
           id: string
-          song_id: string
+          reaction: string
+          review_id: string
           user_id: string
         }
         Insert: {
-          content: string
           created_at?: string
           id?: string
-          song_id: string
+          reaction: string
+          review_id: string
           user_id: string
         }
         Update: {
-          content?: string
           created_at?: string
           id?: string
-          song_id?: string
+          reaction?: string
+          review_id?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "review_reactions_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "app_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       song_dedications: {
         Row: {
@@ -590,30 +598,6 @@ export type Database = {
           recipient_id?: string
           sender_id?: string
           song_id?: string
-        }
-        Relationships: []
-      }
-      song_reactions: {
-        Row: {
-          created_at: string
-          emoji: string
-          id: string
-          song_id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          emoji: string
-          id?: string
-          song_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          emoji?: string
-          id?: string
-          song_id?: string
-          user_id?: string
         }
         Relationships: []
       }

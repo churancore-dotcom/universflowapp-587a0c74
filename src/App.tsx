@@ -190,27 +190,40 @@ const PostAuthGate = () => {
   const [showPicker, setShowPicker] = useState(false);
   const [showReview, setShowReview] = useState(false);
 
-  // Open artist picker once per new user
+  // Open artist picker ONLY immediately after signup (not on every login)
   useEffect(() => {
     if (!user) return;
+    const justSignedUp = localStorage.getItem('uf_just_signed_up');
+    if (!justSignedUp) return;
+
     const key = `uf_artists_picked_${user.id}`;
-    if (localStorage.getItem(key)) return;
-    // Check DB in case picked on another device
+    if (localStorage.getItem(key)) {
+      localStorage.removeItem('uf_just_signed_up');
+      return;
+    }
+
+    // Double-check DB to avoid showing twice across devices
     supabase.from('user_artist_preferences').select('id').eq('user_id', user.id).limit(1)
       .then(({ data }) => {
         if (data && data.length > 0) {
           localStorage.setItem(key, '1');
+          localStorage.removeItem('uf_just_signed_up');
         } else {
-          setTimeout(() => setShowPicker(true), 800);
+          setTimeout(() => setShowPicker(true), 600);
         }
       });
   }, [user]);
+
+  const handlePickerComplete = () => {
+    localStorage.removeItem('uf_just_signed_up');
+    setShowPicker(false);
+  };
 
   if (!user) return null;
   return (
     <>
       <AnimatePresence>
-        {showPicker && <ArtistPicker key="picker" onComplete={() => setShowPicker(false)} />}
+        {showPicker && <ArtistPicker key="picker" onComplete={handlePickerComplete} />}
       </AnimatePresence>
       {!showPicker && <RateUsPopup onOpenReview={() => setShowReview(true)} />}
       <ReviewModal isOpen={showReview} onClose={() => setShowReview(false)} />
