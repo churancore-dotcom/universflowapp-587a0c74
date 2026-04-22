@@ -1203,6 +1203,47 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     progress,
   });
 
+  // Native Android music controls (lockscreen + notification on APK).
+  // No-op on web — useMediaSession handles browser/PWA controls.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { setNativeMusicHandlers, showNativeMusicControls, destroyNativeMusicControls } =
+        await import('@/lib/nativeMusicControls');
+      if (cancelled) return;
+
+      setNativeMusicHandlers({
+        onPlay: () => mediaSessionCallbacks.onPlay(),
+        onPause: () => mediaSessionCallbacks.onPause(),
+        onNext: () => mediaSessionCallbacks.onNext(),
+        onPrev: () => mediaSessionCallbacks.onPrev(),
+        onStop: () => mediaSessionCallbacks.onPause(),
+      });
+
+      if (currentSong) {
+        await showNativeMusicControls(
+          {
+            title: currentSong.title,
+            artist: currentSong.artist,
+            cover: currentSong.cover_url,
+            album: currentSong.album,
+            duration: duration || currentSong.duration,
+          },
+          isPlaying,
+        );
+      } else {
+        await destroyNativeMusicControls();
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentSong?.id, isPlaying, duration, mediaSessionCallbacks]);
+
+  // Track each played song into local song-history (Spotify-style search history)
+  useEffect(() => {
+    if (!currentSong) return;
+    import('@/lib/songHistory').then(({ addSongToHistory }) => addSongToHistory(currentSong));
+  }, [currentSong?.id]);
+
   return (
     <PlayerContext.Provider value={{
       currentSong,

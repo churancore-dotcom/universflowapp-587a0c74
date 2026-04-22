@@ -14,6 +14,14 @@ import { TabTransition } from '@/components/PageTransition';
 import { Input } from '@/components/ui/input';
 import { SearchSkeleton } from '@/components/PageSkeletons';
 import { prefetchIndexedTrack, resolveIndexedTrack, searchIndexedTracks, type IndexedTrack } from '@/lib/musicIndexer';
+import {
+  getSongHistory,
+  removeSongFromHistory,
+  clearSongHistory,
+  MOOD_QUERIES,
+  GENRE_QUERIES,
+  type SongHistoryEntry,
+} from '@/lib/songHistory';
 import { toast } from 'sonner';
 
 const genres = [
@@ -30,26 +38,32 @@ const moods = [
   { name: 'Energetic', color: 'from-orange-400 to-red-500', icon: '⚡' },
   { name: 'Romantic', color: 'from-pink-400 to-rose-500', icon: '💕' },
   { name: 'Focus', color: 'from-violet-500 to-purple-600', icon: '🎯' },
+  { name: 'Sad', color: 'from-slate-500 to-slate-700', icon: '😢' },
+  { name: 'Happy', color: 'from-yellow-400 to-amber-500', icon: '😊' },
+  { name: 'Party', color: 'from-fuchsia-500 to-pink-500', icon: '🎉' },
 ];
 
 type SearchSource = 'all' | 'library' | 'indexer';
 
-// ── Search history ──
-const SEARCH_HISTORY_KEY = 'uf_search_history';
-const MAX_HISTORY = 15;
-
-function getSearchHistory(): string[] {
-  try { return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || '[]'); } catch { return []; }
-}
-function addToSearchHistory(term: string) {
-  const t = term.trim();
-  if (t.length < 2) return;
-  const history = getSearchHistory().filter(h => h.toLowerCase() !== t.toLowerCase());
-  history.unshift(t);
-  localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
-}
-function clearSearchHistory() {
-  localStorage.removeItem(SEARCH_HISTORY_KEY);
+// Helper: dedupe + interleave indexed tracks across multiple queries
+async function searchMultiQuery(queries: string[], perQuery = 15): Promise<IndexedTrack[]> {
+  const results = await Promise.all(
+    queries.map(q => searchIndexedTracks(q, perQuery).catch(() => [] as IndexedTrack[]))
+  );
+  const seen = new Set<string>();
+  const out: IndexedTrack[] = [];
+  // Round-robin interleave so first results from each query appear early
+  const max = Math.max(...results.map(r => r.length), 0);
+  for (let i = 0; i < max; i++) {
+    for (const list of results) {
+      const t = list[i];
+      if (t && !seen.has(t.id)) {
+        seen.add(t.id);
+        out.push(t);
+      }
+    }
+  }
+  return out;
 }
 
 const mapSongRow = (s: any): Song => ({
@@ -74,7 +88,7 @@ const Search = () => {
   const [activeFilter, setActiveFilter] = useState<{ type: 'genre' | 'mood'; value: string } | null>(null);
   const [source, setSource] = useState<SearchSource>('all');
   const [resolvingId, setResolvingId] = useState<string | null>(null);
-  const [searchHistory, setSearchHistory] = useState<string[]>(getSearchHistory());
+  const [searchHistory, setSearchHistory] = useState<SongHistoryEntry[]>(() => getSongHistory());
   const { playSong, currentSong, isPlaying } = usePlayer();
   const { getDownloadedUrl } = useDownloads();
 
@@ -92,6 +106,11 @@ const Search = () => {
     }
   }, [searchParams]);
 
+  // Refresh history snapshot whenever the currently playing song changes
+  useEffect(() => {
+    if (currentSong) setSearchHistory(getSongHistory());
+  }, [currentSong?.id]);
+
   useEffect(() => {
     const trimmedQuery = query.trim();
 
@@ -108,10 +127,6 @@ const Search = () => {
       setSearching(true);
       setActiveFilter(null);
 
-      // Save to search history
-      addToSearchHistory(trimmedQuery);
-      setSearchHistory(getSearchHistory());
-
       const [libraryResponse, indexedResponse] = await Promise.allSettled([
         searchSongs(trimmedQuery),
         searchIndexedTracks(trimmedQuery, 50),
@@ -122,6 +137,8 @@ const Search = () => {
       setResults(libraryResponse.status === 'fulfilled' ? libraryResponse.value : []);
       setIndexedResults(indexedResponse.status === 'fulfilled' ? indexedResponse.value : []);
       setSearching(false);
+      // Refresh history snapshot (current play might have been added)
+      setSearchHistory(getSongHistory());
     }, 300);
 
     return () => {
@@ -182,21 +199,32 @@ const Search = () => {
 
   const searchByGenre = async (genre: string) => {
     setQuery(''); setActiveFilter({ type: 'genre', value: genre }); setSearching(true); setIndexedResults([]);
-    const { data } = await supabase.from('songs').select('*, artists(id, name, photo_url)')
-      .eq('is_visible', true).ilike('genre', `%${genre}%`).limit(20);
-    if (data) {
-      setResults(data.map(mapSongRow));
+    // Catalog + Streaming in parallel
+    const queries = GENRE_QUERIES[genre] || [genre];
+    const [catalogRes, streamRes] = await Promise.allSettled([
+      supabase.from('songs').select('*, artists(id, name, photo_url)')
+        .eq('is_visible', true).ilike('genre', `%${genre}%`).limit(30),
+      searchMultiQuery(queries, 12),
+    ]);
+    if (catalogRes.status === 'fulfilled' && catalogRes.value.data) {
+      setResults(catalogRes.value.data.map(mapSongRow));
     }
+    if (streamRes.status === 'fulfilled') setIndexedResults(streamRes.value);
     setSearching(false);
   };
 
   const searchByMood = async (mood: string) => {
     setQuery(''); setActiveFilter({ type: 'mood', value: mood }); setSearching(true); setIndexedResults([]);
-    const { data } = await supabase.from('songs').select('*, artists(id, name, photo_url)')
-      .eq('is_visible', true).ilike('mood', `%${mood}%`).limit(20);
-    if (data) {
-      setResults(data.map(mapSongRow));
+    const queries = MOOD_QUERIES[mood] || [mood];
+    const [catalogRes, streamRes] = await Promise.allSettled([
+      supabase.from('songs').select('*, artists(id, name, photo_url)')
+        .eq('is_visible', true).ilike('mood', `%${mood}%`).limit(30),
+      searchMultiQuery(queries, 12),
+    ]);
+    if (catalogRes.status === 'fulfilled' && catalogRes.value.data) {
+      setResults(catalogRes.value.data.map(mapSongRow));
     }
+    if (streamRes.status === 'fulfilled') setIndexedResults(streamRes.value);
     setSearching(false);
   };
 
@@ -301,34 +329,97 @@ const Search = () => {
               <motion.div key="browse" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
 
-                {/* Search History */}
+                {/* Recently Played (song-based history, Spotify-style) */}
                 {searchHistory.length > 0 && (
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
                       <h2 className="text-sm font-bold flex items-center gap-1.5">
-                        <Clock className="w-4 h-4 text-muted-foreground" /> Recent Searches
+                        <Clock className="w-4 h-4 text-muted-foreground" /> Recently Played
                       </h2>
                       <button
-                        onClick={() => { clearSearchHistory(); setSearchHistory([]); }}
+                        onClick={() => { clearSongHistory(); setSearchHistory([]); }}
                         className="text-[11px] text-muted-foreground flex items-center gap-1"
                       >
                         <Trash2 className="w-3 h-3" /> Clear
                       </button>
                     </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {searchHistory.map((term) => (
-                        <button
-                          key={term}
-                          onClick={() => setQuery(term)}
-                          className="px-3 py-1.5 rounded-full text-xs font-medium"
-                          style={{
-                            background: 'rgba(255,255,255,0.06)',
-                            border: '0.5px solid rgba(255,255,255,0.08)',
-                          }}
-                        >
-                          {term}
-                        </button>
-                      ))}
+                    <div className="space-y-1">
+                      {searchHistory.slice(0, 8).map((entry) => {
+                        const isActive = currentSong?.id === entry.id;
+                        return (
+                          <motion.div
+                            key={entry.id}
+                            initial={{ opacity: 0, y: 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className={`flex items-center gap-3 px-2 py-2 rounded-2xl active:scale-[0.98] transition-all ${isActive ? 'bg-primary/10' : 'active:bg-white/5'}`}
+                          >
+                            <button
+                              className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                              onClick={async () => {
+                                // Re-resolve indexed songs (audio_url may have expired)
+                                if (entry.source === 'indexed' || entry.source === 'audius') {
+                                  setResolvingId(entry.id);
+                                  try {
+                                    const r = await resolveIndexedTrack(entry.artist, entry.title);
+                                    if (!r.streamUrl) throw new Error('Could not resolve');
+                                    playSong({
+                                      id: entry.id,
+                                      title: r.title || entry.title,
+                                      artist: r.artist || entry.artist,
+                                      album: entry.album,
+                                      cover_url: r.cover_url || entry.cover_url,
+                                      audio_url: r.streamUrl,
+                                      duration: r.duration || entry.duration,
+                                      source: 'indexed',
+                                    });
+                                  } catch (err) {
+                                    toast.error('Could not play this song');
+                                  } finally {
+                                    setResolvingId(null);
+                                  }
+                                } else if (entry.audio_url) {
+                                  playSong({
+                                    id: entry.id,
+                                    title: entry.title,
+                                    artist: entry.artist,
+                                    album: entry.album,
+                                    cover_url: entry.cover_url,
+                                    audio_url: entry.audio_url,
+                                    duration: entry.duration,
+                                    source: entry.source || 'library',
+                                  });
+                                }
+                              }}
+                            >
+                              <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 bg-muted">
+                                {entry.cover_url ? (
+                                  <img src={entry.cover_url} alt="" className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                                    <Music className="w-4 h-4 text-foreground/40" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`font-semibold text-[13px] truncate ${isActive ? 'text-primary' : ''}`}>
+                                  {resolvingId === entry.id ? 'Loading…' : entry.title}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">{entry.artist}</p>
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => {
+                                removeSongFromHistory(entry.id);
+                                setSearchHistory(getSongHistory());
+                              }}
+                              className="w-7 h-7 flex items-center justify-center rounded-full text-muted-foreground active:bg-white/10"
+                              aria-label="Remove from history"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
