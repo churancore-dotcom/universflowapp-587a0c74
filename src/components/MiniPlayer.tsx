@@ -1,5 +1,7 @@
 import { memo, useCallback, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+// NOTE: This component is now mounted ONCE at App level via GlobalPlayerLayer
+// to prevent flicker on route changes. Do not re-mount it inside individual pages.
 import { Play, Pause, SkipForward, X } from 'lucide-react';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
