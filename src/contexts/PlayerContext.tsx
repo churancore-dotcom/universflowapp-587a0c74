@@ -688,6 +688,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         configureAudioElementSource(nextAudioRef.current, buildStreamProxyUrl(nextSong.audio_url));
         nextAudioRef.current.preload = 'auto';
         nextAudioRef.current.load();
+      } else if (nextSong && (nextSong.source === 'indexed' || nextSong.audio_url === 'resolving')) {
+        // Warm the stream cache for the next track so when user hits "next"
+        // it resolves instantly from cache instead of waiting for the edge function.
+        prefetchIndexedTrack(nextSong.artist, nextSong.title);
       }
     }
   }, [volume, isPlayableUrl, resolveAudioUrl, playYouTubeFallback, teardownYouTubePlayback]);
