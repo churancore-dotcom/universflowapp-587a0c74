@@ -74,14 +74,31 @@ async function writeDbCachedStream(artist: string, title: string, payload: { str
   }
 }
 
-const AUDIO_PROXY_ALLOWED_HOST_SNIPPETS = [
-  'private.coffee',
-  'googlevideo.com',
-  'youtube.com',
+// Exact-suffix allowlist to prevent attacker-registered hostnames like piped.attacker.com
+const AUDIO_PROXY_ALLOWED_HOST_SUFFIXES = [
+  '.googlevideo.com',
+  '.youtube.com',
   'youtu.be',
-  'invidious',
-  'piped',
+  '.private.coffee',
+  '.piped.video',
+  '.piped.privacydev.net',
+  '.piped.kavin.rocks',
+  '.piped.tokhmi.xyz',
+  '.piped.adminforge.de',
+  '.invidious.io',
+  '.invidious.privacydev.net',
+  '.invidious.fdn.fr',
+  '.invidious.projectsegfau.lt',
+  '.yewtu.be',
 ];
+
+function hostnameMatchesAllowedSuffix(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return AUDIO_PROXY_ALLOWED_HOST_SUFFIXES.some((suffix) => {
+    const bare = suffix.startsWith('.') ? suffix.slice(1) : suffix;
+    return host === bare || host.endsWith(suffix);
+  });
+}
 
 const LASTFM_API_KEY = Deno.env.get('LASTFM_API_KEY') || '';
 const YOUTUBE_API_KEY = Deno.env.get('YOUTUBE_API_KEY') || '';
@@ -769,7 +786,7 @@ function isAllowedAudioProxyUrl(value: string) {
   try {
     const parsed = new URL(value);
     if (!['http:', 'https:'].includes(parsed.protocol)) return false;
-    return AUDIO_PROXY_ALLOWED_HOST_SNIPPETS.some((snippet) => parsed.hostname.includes(snippet));
+    return hostnameMatchesAllowedSuffix(parsed.hostname);
   } catch {
     return false;
   }
