@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, X, MessageSquare, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Star, X, MessageSquare, Loader2, ThumbsUp, ThumbsDown, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
@@ -204,6 +204,20 @@ const ReviewsSheet = ({ isOpen, onClose }: Props) => {
 
                       {/* Reaction bar */}
                       <div className="flex items-center gap-2 pt-1.5 border-t border-border/30">
+                        {user?.id === r.user_id && (
+                          <button
+                            onClick={async () => {
+                              if (!confirm('Delete your review?')) return;
+                              const { error } = await supabase.from('app_reviews').delete().eq('id', r.id).eq('user_id', user.id);
+                              if (error) toast.error('Could not delete'); else { toast.success('Review deleted'); localStorage.removeItem('uf_reviewed'); }
+                            }}
+                            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-destructive/15 text-destructive active:bg-destructive/25"
+                            aria-label="Delete my review"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
+                          </button>
+                        )}
                         <button
                           onClick={() => handleReact(r.id, 'like')}
                           disabled={busy === r.id}
@@ -229,6 +243,7 @@ const ReviewsSheet = ({ isOpen, onClose }: Props) => {
                           <span>{rx.dislikes}</span>
                         </button>
                       </div>
+                      {/* keep delete button positioning consistent: rendered inside reaction bar above when own */}
                     </motion.div>
                   );
                 })
