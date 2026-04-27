@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, Send, Users, Clock, Target, BarChart3, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { Bell, Send, Users, Clock, Target, BarChart3, Plus, Trash2, RefreshCw, Smartphone, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 type Audience = 'all' | 'premium' | 'free';
 type NotifType = 'info' | 'success' | 'warning';
+type Channel = 'in_app' | 'push' | 'both';
 
 interface Announcement {
   id: string;
@@ -22,6 +24,18 @@ interface Announcement {
   created_at: string;
 }
 
+interface PushHistoryItem {
+  id: string;
+  title: string;
+  body: string;
+  deep_link: string | null;
+  target_audience: string;
+  sent_count: number;
+  success_count: number;
+  failure_count: number;
+  created_at: string;
+}
+
 const audienceLabels: Record<Audience, string> = {
   all: 'All Users',
   premium: 'Premium Only',
@@ -32,13 +46,20 @@ interface KPI { delivered: number; opened: number; clicked: number; }
 
 const PushNotifications = () => {
   const [items, setItems] = useState<Announcement[]>([]);
+  const [pushHistory, setPushHistory] = useState<PushHistoryItem[]>([]);
+  const [deviceCount, setDeviceCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const [reach, setReach] = useState({ all: 0, premium: 0, free: 0 });
   const [kpi, setKpi] = useState<Record<string, KPI>>({});
   const [draft, setDraft] = useState({
-    title: '', message: '', target_audience: 'all' as Audience, type: 'info' as NotifType,
+    title: '',
+    message: '',
+    target_audience: 'all' as Audience,
+    type: 'info' as NotifType,
+    channel: 'both' as Channel,
+    deep_link: '/home',
   });
 
   const fetchKPIs = useCallback(async () => {
@@ -55,14 +76,18 @@ const PushNotifications = () => {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [annRes, profilesRes, premiumRes] = await Promise.all([
+    const [annRes, profilesRes, premiumRes, devicesRes, pushRes] = await Promise.all([
       supabase.from('announcements').select('*').order('created_at', { ascending: false }),
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
       supabase.from('user_subscriptions').select('user_id, status, subscription_type, expires_at')
         .neq('subscription_type', 'free').eq('status', 'active'),
+      supabase.from('device_tokens').select('id', { count: 'exact', head: true }),
+      supabase.from('push_history').select('*').order('created_at', { ascending: false }).limit(20),
     ]);
     if (annRes.error) toast.error('Failed to load notifications');
     setItems((annRes.data ?? []) as Announcement[]);
+    setPushHistory((pushRes.data ?? []) as PushHistoryItem[]);
+    setDeviceCount(devicesRes.count ?? 0);
 
     const totalUsers = profilesRes.count ?? 0;
     const premiumActive = (premiumRes.data ?? []).filter(s =>
@@ -80,6 +105,7 @@ const PushNotifications = () => {
     fetchAll();
     const ch = supabase.channel('announcements_admin')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, fetchAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'push_history' }, fetchAll)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcement_events' }, fetchKPIs)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -91,21 +117,57 @@ const PushNotifications = () => {
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from('announcements').insert({
-      title: draft.title.trim(),
-      message: draft.message.trim(),
-      type: draft.type,
-      target_audience: draft.target_audience,
-      is_active: true,
-    });
-    setSaving(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+
+    let inAppOk = true;
+    let pushOk = true;
+
+    // 1) In-app banner
+    if (draft.channel === 'in_app' || draft.channel === 'both') {
+      const { error } = await supabase.from('announcements').insert({
+        title: draft.title.trim(),
+        message: draft.message.trim(),
+        type: draft.type,
+        target_audience: draft.target_audience,
+        is_active: true,
+      });
+      if (error) {
+        inAppOk = false;
+        toast.error(`In-app: ${error.message}`);
+      }
     }
-    toast.success(`Sent to ${reach[draft.target_audience].toLocaleString()} users`);
-    setDraft({ title: '', message: '', target_audience: 'all', type: 'info' });
-    setShowCompose(false);
+
+    // 2) Real push via FCM
+    if (draft.channel === 'push' || draft.channel === 'both') {
+      const { data, error } = await supabase.functions.invoke('send-push', {
+        body: {
+          title: draft.title.trim(),
+          body: draft.message.trim(),
+          deep_link: draft.deep_link.trim() || '/home',
+          target_audience: draft.target_audience,
+        },
+      });
+      if (error) {
+        pushOk = false;
+        toast.error(`Push: ${error.message}`);
+      } else if (data?.success) {
+        toast.success(
+          `Push sent → ${data.success_count}/${data.sent} devices` +
+          (data.invalid_removed ? ` · cleaned ${data.invalid_removed} stale` : ''),
+        );
+      }
+    }
+
+    setSaving(false);
+    if (inAppOk && pushOk) {
+      if (draft.channel === 'in_app') {
+        toast.success(`Banner sent to ${reach[draft.target_audience].toLocaleString()} users`);
+      }
+      setDraft({
+        title: '', message: '', target_audience: 'all', type: 'info',
+        channel: 'both', deep_link: '/home',
+      });
+      setShowCompose(false);
+    }
   };
 
   const toggleActive = async (n: Announcement) => {
@@ -125,9 +187,9 @@ const PushNotifications = () => {
     .reduce((sum, n) => sum + (reach[n.target_audience] ?? 0), 0);
 
   const stats = [
-    { label: 'Total Notifications', value: items.length.toLocaleString(), icon: Send },
-    { label: 'Active Now', value: items.filter(n => n.is_active).length.toLocaleString(), icon: Target },
-    { label: 'Cumulative Reach', value: totalReach.toLocaleString(), icon: BarChart3 },
+    { label: 'In-App Banners', value: items.length.toLocaleString(), icon: Send },
+    { label: 'Push Sent (recent)', value: pushHistory.length.toLocaleString(), icon: Bell },
+    { label: 'Registered Devices', value: deviceCount.toLocaleString(), icon: Smartphone },
     { label: 'Total Users', value: reach.all.toLocaleString(), icon: Users },
   ];
 
@@ -141,7 +203,7 @@ const PushNotifications = () => {
               Notifications
             </h1>
             <p className="text-muted-foreground mt-1">
-              In-app announcements delivered to targeted users in real time.
+              Send in-app banners, real Android push, or both — with deep links.
             </p>
           </div>
           <div className="flex gap-2">
@@ -184,6 +246,46 @@ const PushNotifications = () => {
                 <Textarea placeholder="Notification message" rows={3} value={draft.message}
                   onChange={(e) => setDraft(p => ({ ...p, message: e.target.value }))} />
               </div>
+
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Channel</label>
+                <div className="flex gap-2 flex-wrap">
+                  {([
+                    { key: 'in_app' as Channel, label: 'In-App Banner' },
+                    { key: 'push' as Channel, label: 'Push Notification' },
+                    { key: 'both' as Channel, label: 'Both' },
+                  ]).map(c => (
+                    <button key={c.key} onClick={() => setDraft(p => ({ ...p, channel: c.key }))}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        draft.channel === c.key ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'
+                      }`}>
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+                {(draft.channel === 'push' || draft.channel === 'both') && deviceCount === 0 && (
+                  <p className="text-xs text-amber-400 mt-2">
+                    ⚠ No devices registered yet. Push will be logged but no one will receive it.
+                  </p>
+                )}
+              </div>
+
+              {(draft.channel === 'push' || draft.channel === 'both') && (
+                <div>
+                  <label className="text-sm font-medium mb-1.5 flex items-center gap-2">
+                    <LinkIcon className="w-4 h-4" /> Deep link (where the tap opens)
+                  </label>
+                  <Input
+                    placeholder="/home, /song/abc, /playlist/xyz, /artist/name"
+                    value={draft.deep_link}
+                    onChange={(e) => setDraft(p => ({ ...p, deep_link: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Use a path like <code>/song/abc123</code> or a full URL.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Audience</label>
                 <div className="flex gap-2 flex-wrap">
@@ -198,7 +300,7 @@ const PushNotifications = () => {
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Style</label>
+                <label className="text-sm font-medium mb-1.5 block">Style (in-app banner)</label>
                 <div className="flex gap-2 flex-wrap">
                   {(['info', 'success', 'warning'] as NotifType[]).map(t => (
                     <button key={t} onClick={() => setDraft(p => ({ ...p, type: t }))}
@@ -221,13 +323,51 @@ const PushNotifications = () => {
         )}
       </AnimatePresence>
 
+      {pushHistory.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Smartphone className="w-5 h-5 text-primary" /> Push History
+          </h2>
+          <div className="space-y-3">
+            {pushHistory.map((p) => (
+              <div key={p.id} className="glass rounded-xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold">{p.title}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{p.body}</p>
+                    {p.deep_link && (
+                      <p className="text-xs text-primary mt-1 flex items-center gap-1">
+                        <LinkIcon className="w-3 h-3" /> {p.deep_link}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(p.created_at).toLocaleString()}
+                    </p>
+                    <p className="text-sm font-semibold mt-1">
+                      <span className="text-emerald-400">{p.success_count}</span>
+                      <span className="text-muted-foreground"> / {p.sent_count}</span>
+                      {p.failure_count > 0 && (
+                        <span className="text-destructive"> · {p.failure_count} failed</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground capitalize">{p.target_audience}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
-        <h2 className="text-xl font-bold mb-4">History</h2>
+        <h2 className="text-xl font-bold mb-4">In-App Banners</h2>
         <div className="space-y-4">
           {loading ? (
             <p className="text-center text-muted-foreground py-12">Loading…</p>
           ) : items.length === 0 ? (
-            <p className="text-center text-muted-foreground py-12">No notifications yet.</p>
+            <p className="text-center text-muted-foreground py-12">No banners yet.</p>
           ) : items.map((n, index) => (
             <motion.div key={n.id} className="glass rounded-2xl p-5"
               initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
@@ -262,7 +402,6 @@ const PushNotifications = () => {
                   <Clock className="w-3.5 h-3.5" /> {new Date(n.created_at).toLocaleString()}
                 </span>
               </div>
-              {/* Live KPIs */}
               <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-border/40">
                 {(['delivered','opened','clicked'] as const).map(k => {
                   const v = kpi[n.id]?.[k] ?? 0;

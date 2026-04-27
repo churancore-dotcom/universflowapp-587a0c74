@@ -21,6 +21,7 @@ import GlobalPlayerLayer from "./components/GlobalPlayerLayer";
 import SEOHead from "./components/SEOHead";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import { usePushRegistration } from "./hooks/usePushRegistration";
 
 // Eager load main tabs for INSTANT navigation (Spotify-like feel).
 // Admin and rarely-visited pages stay lazy below.
@@ -244,6 +245,7 @@ const PostAuthGate = () => {
 const AppContent = () => {
   const [showSplash, setShowSplash] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  usePushRegistration();
 
   const handleSplashComplete = () => {
     const hasSeenOnboarding = localStorage.getItem('uf_onboarding_done');

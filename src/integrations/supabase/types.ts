@@ -351,6 +351,36 @@ export type Database = {
         }
         Relationships: []
       }
+      device_tokens: {
+        Row: {
+          created_at: string
+          device_info: Json | null
+          id: string
+          platform: string
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          platform?: string
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          platform?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       donations: {
         Row: {
           amount: number
@@ -705,6 +735,48 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           max_uses?: number | null
+        }
+        Relationships: []
+      }
+      push_history: {
+        Row: {
+          body: string
+          created_at: string
+          deep_link: string | null
+          failure_count: number
+          id: string
+          sent_by: string | null
+          sent_count: number
+          success_count: number
+          target_audience: string
+          target_user_ids: string[] | null
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          deep_link?: string | null
+          failure_count?: number
+          id?: string
+          sent_by?: string | null
+          sent_count?: number
+          success_count?: number
+          target_audience?: string
+          target_user_ids?: string[] | null
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          deep_link?: string | null
+          failure_count?: number
+          id?: string
+          sent_by?: string | null
+          sent_count?: number
+          success_count?: number
+          target_audience?: string
+          target_user_ids?: string[] | null
+          title?: string
         }
         Relationships: []
       }
