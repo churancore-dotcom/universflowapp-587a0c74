@@ -40,6 +40,7 @@ const Support = lazy(() => import("./pages/Support"));
 const Offline = lazy(() => import("./pages/Offline"));
 const PlayWithMate = lazy(() => import("./pages/PlayWithMate"));
 const AllArtists = lazy(() => import("./pages/AllArtists"));
+const ManageSubscription = lazy(() => import("./pages/ManageSubscription"));
 
 const DownloadQueuePanel = lazy(() => import("./components/DownloadQueuePanel"));
 const PrerollAd = lazy(() => import("./components/ads/PrerollAd"));
