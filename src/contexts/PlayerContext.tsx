@@ -473,6 +473,39 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return null;
   }, [isPlayableUrl]);
 
+  // ── Preload NEXT queued track for zero-gap transitions ──
+  // Whenever queue / current index changes, warm `nextAudioRef` with the upcoming
+  // song so crossfade & "next" feel instantaneous.
+  useEffect(() => {
+    if (!nextAudioRef.current || queue.length <= 1) {
+      preloadedNextIdRef.current = null;
+      return;
+    }
+    if (isCrossfading.current) return;
+
+    const nextIdx = getNextIndex(currentIndex, queue.length, shuffle, repeat);
+    if (nextIdx === null) {
+      preloadedNextIdRef.current = null;
+      return;
+    }
+    const upcoming = queue[nextIdx];
+    if (!upcoming) return;
+    if (preloadedNextIdRef.current === upcoming.id) return;
+
+    if (isPlayableUrl(upcoming.audio_url) && !isYouTubeFallbackUrl(upcoming.audio_url)) {
+      try {
+        configureAudioElementSource(nextAudioRef.current, buildStreamProxyUrl(upcoming.audio_url));
+        nextAudioRef.current.preload = 'auto';
+        nextAudioRef.current.volume = 0;
+        nextAudioRef.current.load();
+        preloadedNextIdRef.current = upcoming.id;
+      } catch { /* ignore preload errors */ }
+    } else if (upcoming.source === 'indexed' || upcoming.audio_url === 'resolving') {
+      prefetchIndexedTrack(upcoming.artist, upcoming.title);
+      preloadedNextIdRef.current = upcoming.id;
+    }
+  }, [queue, currentIndex, shuffle, repeat, getNextIndex, isPlayableUrl]);
+
   // ── YouTube IFrame fallback helpers ──
   const stopYouTubeProgressLoop = useCallback(() => {
     if (youtubeProgressRef.current) {
