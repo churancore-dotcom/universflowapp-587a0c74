@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { Slider } from '@/components/ui/slider';
+import { setLockscreenOpen } from '@/lib/lockscreenState';
 import { 
   Play, Pause, SkipBack, SkipForward, Music, Volume2, VolumeX,
   Shuffle, Repeat, Repeat1, Lock
@@ -70,6 +71,12 @@ const LockScreenPlayer = ({ isOpen, onClose }: LockScreenPlayerProps) => {
 
   // Keep screen awake
   useWakeLock(isOpen);
+
+  // Hide MiniPlayer / mini overlays while lockscreen is visible
+  useEffect(() => {
+    setLockscreenOpen(isOpen);
+    return () => setLockscreenOpen(false);
+  }, [isOpen]);
 
   // Live clock
   useEffect(() => {

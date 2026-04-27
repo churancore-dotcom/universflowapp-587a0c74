@@ -5,6 +5,7 @@ import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { Play, Pause, SkipForward, X } from 'lucide-react';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { isLockscreenOpen, subscribeLockscreen } from '@/lib/lockscreenState';
 
 // Swipe thresholds
 const SWIPE_UP_THRESHOLD = -50;
@@ -39,7 +40,11 @@ const MiniPlayer = memo(function MiniPlayer() {
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isNavVisible, setIsNavVisible] = useState(true);
+  const [lockscreenVisible, setLockscreenVisible] = useState(isLockscreenOpen());
   const lastScrollY = useRef(0);
+
+  // Hide whenever the in-app lockscreen overlay is showing
+  useEffect(() => subscribeLockscreen(setLockscreenVisible), []);
 
   // Sync visibility with bottom nav scroll behavior
   useEffect(() => {
@@ -115,7 +120,7 @@ const MiniPlayer = memo(function MiniPlayer() {
     setTimeout(() => setIsDragging(false), 100);
   }, [setExpanded, handleNextSong, handlePrevSong]);
 
-  if (!currentSong) return null;
+  if (!currentSong || lockscreenVisible) return null;
 
   const progressPercent = duration > 0 && isFinite(progress) && isFinite(duration) 
     ? (progress / duration) * 100 

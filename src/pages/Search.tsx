@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search as SearchIcon, Music, X, Tag, Sparkles, Globe, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
+import { Search as SearchIcon, Music, X, Globe, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
@@ -16,53 +15,11 @@ import {
   getSongHistory,
   removeSongFromHistory,
   clearSongHistory,
-  MOOD_QUERIES,
-  GENRE_QUERIES,
   type SongHistoryEntry,
 } from '@/lib/songHistory';
 import { toast } from 'sonner';
 
-const genres = [
-  { name: 'Pop', color: 'from-pink-500 to-rose-500', icon: '🎤' },
-  { name: 'Rock', color: 'from-red-500 to-orange-500', icon: '🎸' },
-  { name: 'Hip Hop', color: 'from-yellow-500 to-amber-500', icon: '🎧' },
-  { name: 'R&B', color: 'from-purple-500 to-violet-500', icon: '💜' },
-  { name: 'Electronic', color: 'from-cyan-500 to-blue-500', icon: '🎹' },
-  { name: 'Jazz', color: 'from-amber-600 to-yellow-600', icon: '🎷' },
-];
-
-const moods = [
-  { name: 'Chill', color: 'from-sky-400 to-cyan-500', icon: '😌' },
-  { name: 'Energetic', color: 'from-orange-400 to-red-500', icon: '⚡' },
-  { name: 'Romantic', color: 'from-pink-400 to-rose-500', icon: '💕' },
-  { name: 'Focus', color: 'from-violet-500 to-purple-600', icon: '🎯' },
-  { name: 'Sad', color: 'from-slate-500 to-slate-700', icon: '😢' },
-  { name: 'Happy', color: 'from-yellow-400 to-amber-500', icon: '😊' },
-  { name: 'Party', color: 'from-fuchsia-500 to-pink-500', icon: '🎉' },
-];
-
 type SearchSource = 'all' | 'library' | 'indexer';
-
-// Helper: dedupe + interleave indexed tracks across multiple queries
-async function searchMultiQuery(queries: string[], perQuery = 15): Promise<IndexedTrack[]> {
-  const results = await Promise.all(
-    queries.map(q => searchIndexedTracks(q, perQuery).catch(() => [] as IndexedTrack[]))
-  );
-  const seen = new Set<string>();
-  const out: IndexedTrack[] = [];
-  // Round-robin interleave so first results from each query appear early
-  const max = Math.max(...results.map(r => r.length), 0);
-  for (let i = 0; i < max; i++) {
-    for (const list of results) {
-      const t = list[i];
-      if (t && !seen.has(t.id)) {
-        seen.add(t.id);
-        out.push(t);
-      }
-    }
-  }
-  return out;
-}
 
 const mapSongRow = (s: any): Song => ({
   id: s.id,
@@ -77,32 +34,16 @@ const mapSongRow = (s: any): Song => ({
 });
 
 const Search = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Song[]>([]);
   const [indexedResults, setIndexedResults] = useState<IndexedTrack[]>([]);
   const [searching, setSearching] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<{ type: 'genre' | 'mood'; value: string } | null>(null);
   const [source, setSource] = useState<SearchSource>('all');
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [searchHistory, setSearchHistory] = useState<SongHistoryEntry[]>(() => getSongHistory());
   const { playSong, currentSong, isPlaying } = usePlayer();
   const { getDownloadedUrl } = useDownloads();
-
-  useEffect(() => {
-    const genre = searchParams.get('genre');
-    const mood = searchParams.get('mood');
-    if (genre) {
-      setActiveFilter({ type: 'genre', value: genre });
-      searchByGenre(genre);
-      setSearchParams({});
-    } else if (mood) {
-      setActiveFilter({ type: 'mood', value: mood });
-      searchByMood(mood);
-      setSearchParams({});
-    }
-  }, [searchParams]);
 
   // Refresh history snapshot whenever the currently playing song changes
   useEffect(() => {
@@ -113,17 +54,14 @@ const Search = () => {
     const trimmedQuery = query.trim();
 
     if (trimmedQuery.length < 2) {
-      if (!activeFilter) {
-        setResults([]);
-        setIndexedResults([]);
-      }
+      setResults([]);
+      setIndexedResults([]);
       return;
     }
 
     let cancelled = false;
     const timer = setTimeout(async () => {
       setSearching(true);
-      setActiveFilter(null);
 
       const [libraryResponse, indexedResponse] = await Promise.allSettled([
         searchSongs(trimmedQuery),
@@ -135,7 +73,6 @@ const Search = () => {
       setResults(libraryResponse.status === 'fulfilled' ? libraryResponse.value : []);
       setIndexedResults(indexedResponse.status === 'fulfilled' ? indexedResponse.value : []);
       setSearching(false);
-      // Refresh history snapshot (current play might have been added)
       setSearchHistory(getSongHistory());
     }, 300);
 
@@ -143,7 +80,7 @@ const Search = () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query, activeFilter]);
+  }, [query]);
 
   useEffect(() => {
     indexedResults.slice(0, 6).forEach((track) => {
@@ -195,47 +132,11 @@ const Search = () => {
     }
   }, [playSong]);
 
-  const searchByGenre = async (genre: string) => {
-    setQuery(''); setActiveFilter({ type: 'genre', value: genre }); setSearching(true); setIndexedResults([]);
-    // Catalog + Streaming in parallel
-    const queries = GENRE_QUERIES[genre] || [genre];
-    const [catalogRes, streamRes] = await Promise.allSettled([
-      supabase.from('songs').select('*, artists(id, name, photo_url)')
-        .eq('is_visible', true).ilike('genre', `%${genre}%`).limit(30),
-      searchMultiQuery(queries, 12),
-    ]);
-    if (catalogRes.status === 'fulfilled' && catalogRes.value.data) {
-      setResults(catalogRes.value.data.map(mapSongRow));
-    }
-    if (streamRes.status === 'fulfilled') setIndexedResults(streamRes.value);
-    setSearching(false);
-  };
-
-  const searchByMood = async (mood: string) => {
-    setQuery(''); setActiveFilter({ type: 'mood', value: mood }); setSearching(true); setIndexedResults([]);
-    const queries = MOOD_QUERIES[mood] || [mood];
-    const [catalogRes, streamRes] = await Promise.allSettled([
-      supabase.from('songs').select('*, artists(id, name, photo_url)')
-        .eq('is_visible', true).ilike('mood', `%${mood}%`).limit(30),
-      searchMultiQuery(queries, 12),
-    ]);
-    if (catalogRes.status === 'fulfilled' && catalogRes.value.data) {
-      setResults(catalogRes.value.data.map(mapSongRow));
-    }
-    if (streamRes.status === 'fulfilled') setIndexedResults(streamRes.value);
-    setSearching(false);
-  };
-
-  const clearFilter = () => {
-    setActiveFilter(null); setQuery('');
-    setResults([]); setIndexedResults([]);
-  };
-
   const libraryResults: Song[] = source === 'indexer' ? [] : results;
 
   const visibleIndexedResults = source === 'all' || source === 'indexer' ? indexedResults : [];
 
-  const hasQuery = query.length > 1 || activeFilter;
+  const hasQuery = query.length > 1;
 
   return (
     <TabTransition>
@@ -304,26 +205,12 @@ const Search = () => {
             </div>
           )}
 
-          {activeFilter && (
-            <motion.div className="mt-2.5 flex items-center gap-2"
-              initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-                style={{
-                  background: activeFilter.type === 'genre' ? 'hsl(var(--primary) / 0.15)' : 'hsl(var(--accent) / 0.15)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                }}>
-                {activeFilter.type === 'genre' ? <Tag className="w-3 h-3 text-primary" /> : <Sparkles className="w-3 h-3 text-accent" />}
-                <span className="font-medium text-xs">{activeFilter.value}</span>
-                <button onClick={clearFilter} className="ml-1 p-0.5"><X className="w-3 h-3" /></button>
-              </div>
-            </motion.div>
-          )}
         </header>
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto px-4 pt-4 pb-32 relative z-10" style={{ WebkitOverflowScrolling: 'touch' }}>
           <AnimatePresence mode="wait">
-            {!query && !activeFilter && (
+            {!query && (
               <motion.div key="browse" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
 
@@ -421,41 +308,6 @@ const Search = () => {
                     </div>
                   </div>
                 )}
-                <h2 className="text-sm font-bold mb-2.5 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-accent" /> Moods
-                </h2>
-                <div className="flex gap-2.5 overflow-x-auto pb-4 -mx-4 px-4 hide-scrollbar">
-                  {moods.map((mood, i) => (
-                    <motion.button key={mood.name}
-                      className={`flex-shrink-0 w-[85px] h-16 rounded-2xl overflow-hidden relative bg-gradient-to-br ${mood.color}`}
-                      onClick={() => searchByMood(mood.name)}
-                      initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.05 }} whileTap={{ scale: 0.93 }}
-                      style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-xl mb-0.5">{mood.icon}</span>
-                        <span className="text-[10px] font-bold text-primary-foreground">{mood.name}</span>
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
-
-                <h2 className="text-sm font-bold mb-2.5 mt-1 flex items-center gap-1.5">
-                  <Tag className="w-4 h-4 text-primary" /> Genres
-                </h2>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {genres.map((genre, i) => (
-                    <motion.button key={genre.name}
-                      className={`relative h-20 rounded-2xl overflow-hidden bg-gradient-to-br ${genre.color}`}
-                      onClick={() => searchByGenre(genre.name)}
-                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 + 0.1 }} whileTap={{ scale: 0.95 }}
-                      style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
-                      <span className="absolute top-2.5 right-2.5 text-xl">{genre.icon}</span>
-                      <span className="absolute bottom-2.5 left-3 text-sm font-bold text-primary-foreground">{genre.name}</span>
-                    </motion.button>
-                  ))}
-                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -571,7 +423,7 @@ const Search = () => {
               )}
 
               {/* No results */}
-              {(query.length > 1 || activeFilter) && !searching && libraryResults.length === 0 && visibleIndexedResults.length === 0 && (
+              {query.length > 1 && !searching && libraryResults.length === 0 && visibleIndexedResults.length === 0 && (
                 <div className="text-center py-8">
                   <div className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center"
                     style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.06)' }}>

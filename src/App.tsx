@@ -38,7 +38,6 @@ const Support = lazy(() => import("./pages/Support"));
 const Offline = lazy(() => import("./pages/Offline"));
 const PlayWithMate = lazy(() => import("./pages/PlayWithMate"));
 const AllArtists = lazy(() => import("./pages/AllArtists"));
-const Notifications = lazy(() => import("./pages/Notifications"));
 
 const DownloadQueuePanel = lazy(() => import("./components/DownloadQueuePanel"));
 const PrerollAd = lazy(() => import("./components/ads/PrerollAd"));
@@ -139,7 +138,6 @@ const AnimatedRoutes = () => {
           <Route path="/offline" element={<ProtectedRoute><Offline /></ProtectedRoute>} />
           <Route path="/listen-together" element={<ProtectedRoute><PlayWithMate /></ProtectedRoute>} />
           <Route path="/artists" element={<ProtectedRoute><AllArtists /></ProtectedRoute>} />
-          <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
           
           <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
             <Route index element={<AdminDashboard />} />
