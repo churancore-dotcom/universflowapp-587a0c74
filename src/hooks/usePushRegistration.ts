@@ -1,5 +1,18 @@
 // Registers the device with FCM (Capacitor Push Notifications) and
 // stores the token in `device_tokens`. Also wires deep-link tap handling.
+//
+// IMPORTANT: PushNotifications.register() calls native Firebase code.
+// If google-services.json / Firebase Gradle plugin are NOT in the Android
+// build, register() throws a NATIVE exception that JS try/catch CANNOT
+// catch, and the app process dies right after the user taps "Allow".
+//
+// To avoid bricking the app for users on a build without Firebase wired up,
+// we:
+//   1. Skip permanently if a previous attempt crashed (sticky flag).
+//   2. Set a "pending" flag BEFORE calling register(); clear it on success.
+//      If we see the flag still set on next launch, we know the previous
+//      register() killed the process and we never try again.
+//   3. Wrap everything in try/catch as a JS-side safety net.
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -7,16 +20,34 @@ const isNative = () =>
   typeof (window as any).Capacitor !== 'undefined' &&
   (window as any).Capacitor.isNativePlatform?.() === true;
 
+const PUSH_DISABLED_KEY = 'push_disabled_after_crash';
+const PUSH_PENDING_KEY = 'push_register_pending';
+
 export function usePushRegistration() {
   useEffect(() => {
     if (!isNative()) return;
+
+    // If a previous register() killed the app, never try again on this device.
+    try {
+      if (localStorage.getItem(PUSH_DISABLED_KEY) === '1') {
+        console.warn('[Push] Disabled — previous register() crashed the app.');
+        return;
+      }
+      // If the pending flag is still set, the last attempt crashed natively.
+      // Mark push as permanently disabled and bail out.
+      if (localStorage.getItem(PUSH_PENDING_KEY) === '1') {
+        localStorage.setItem(PUSH_DISABLED_KEY, '1');
+        localStorage.removeItem(PUSH_PENDING_KEY);
+        console.warn('[Push] Detected prior native crash — disabling push.');
+        return;
+      }
+    } catch {}
 
     let cancelled = false;
     let removeListeners: Array<() => void> = [];
 
     (async () => {
       try {
-        // Dynamic import so web build doesn't break
         const { PushNotifications } = await import('@capacitor/push-notifications');
 
         // 1) Permission
@@ -26,12 +57,11 @@ export function usePushRegistration() {
         }
         if (perm.receive !== 'granted') return;
 
-        // 2) Register
-        await PushNotifications.register();
-
-        // 3) On token, persist to backend
+        // 2) Register listeners FIRST so we catch registrationError
         const tokenListener = await PushNotifications.addListener('registration', async (t) => {
           if (cancelled) return;
+          // Success — clear pending flag
+          try { localStorage.removeItem(PUSH_PENDING_KEY); } catch {}
           const { data } = await supabase.auth.getUser();
           const uid = data?.user?.id;
           if (!uid) return;
@@ -48,18 +78,17 @@ export function usePushRegistration() {
         removeListeners.push(() => tokenListener.remove());
 
         const errListener = await PushNotifications.addListener('registrationError', (e) => {
-          console.warn('Push registration error', e);
+          console.warn('[Push] registrationError', e);
+          try { localStorage.removeItem(PUSH_PENDING_KEY); } catch {}
         });
         removeListeners.push(() => errListener.remove());
 
-        // 4) Foreground notification — silently received; nothing to do
         const recvListener = await PushNotifications.addListener(
           'pushNotificationReceived',
           () => {},
         );
         removeListeners.push(() => recvListener.remove());
 
-        // 5) Tap handling — deep link
         const actionListener = await PushNotifications.addListener(
           'pushNotificationActionPerformed',
           (action) => {
@@ -69,7 +98,6 @@ export function usePushRegistration() {
                 if (dl.startsWith('http')) {
                   window.location.href = dl;
                 } else {
-                  window.location.hash = ''; // no hash routing
                   window.history.pushState({}, '', dl);
                   window.dispatchEvent(new PopStateEvent('popstate'));
                 }
@@ -80,8 +108,17 @@ export function usePushRegistration() {
           },
         );
         removeListeners.push(() => actionListener.remove());
+
+        // 3) Set crash-tripwire flag, then call native register().
+        // If register() crashes the process natively, the flag survives
+        // and we'll permanently disable push on next launch.
+        try { localStorage.setItem(PUSH_PENDING_KEY, '1'); } catch {}
+        await PushNotifications.register();
+        // If we got here, register() didn't crash synchronously. The flag
+        // gets cleared in the 'registration' or 'registrationError' callback.
       } catch (e) {
-        console.warn('Push setup skipped:', e);
+        try { localStorage.removeItem(PUSH_PENDING_KEY); } catch {}
+        console.warn('[Push] setup skipped:', e);
       }
     })();
 
