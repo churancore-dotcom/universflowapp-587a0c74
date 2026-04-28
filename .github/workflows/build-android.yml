@@ -47,6 +47,37 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
+      - name: Install google-services.json (Firebase / FCM)
+        run: |
+          cp android-config/google-services.json android/app/google-services.json
+          echo "google-services.json installed:"
+          ls -la android/app/google-services.json
+
+      - name: Wire Firebase Gradle plugin
+        run: |
+          # 1) Add google-services classpath to project-level build.gradle
+          PROJECT_GRADLE="android/build.gradle"
+          if ! grep -q "com.google.gms:google-services" "$PROJECT_GRADLE"; then
+            sed -i "s|classpath 'com.android.tools.build:gradle.*|&\n        classpath 'com.google.gms:google-services:4.4.2'|" "$PROJECT_GRADLE"
+          fi
+
+          # 2) Apply google-services plugin at the BOTTOM of app-level build.gradle
+          APP_GRADLE="android/app/build.gradle"
+          if ! grep -q "com.google.gms.google-services" "$APP_GRADLE"; then
+            echo "" >> "$APP_GRADLE"
+            echo "apply plugin: 'com.google.gms.google-services'" >> "$APP_GRADLE"
+          fi
+
+          # 3) Add Firebase Messaging dependency
+          if ! grep -q "firebase-messaging" "$APP_GRADLE"; then
+            sed -i "s|dependencies {|dependencies {\n    implementation platform('com.google.firebase:firebase-bom:33.5.1')\n    implementation 'com.google.firebase:firebase-messaging'|" "$APP_GRADLE"
+          fi
+
+          echo "=== project build.gradle ==="
+          grep -n "google-services\|firebase" "$PROJECT_GRADLE" || true
+          echo "=== app build.gradle ==="
+          grep -n "google-services\|firebase" "$APP_GRADLE" || true
+
       - name: Integrate Android widgets
         run: |
           # Create widget package directory
