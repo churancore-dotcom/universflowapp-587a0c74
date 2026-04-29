@@ -179,7 +179,54 @@ jobs:
           sed -i "s|import com.getcapacitor.BridgeActivity;|import com.getcapacitor.BridgeActivity;\\nimport ${PKG}.widgets.WidgetBridgePlugin;|" "$MAIN_ACTIVITY"
 
           # Override onCreate to register the plugin
-          sed -i 's/public class MainActivity extends BridgeActivity {/public class MainActivity extends BridgeActivity {\n\n    @Override\n    public void onCreate(android.os.Bundle savedInstanceState) {\n        registerPlugin(WidgetBridgePlugin.class);\n        super.onCreate(savedInstanceState);\n    }\n/' "$MAIN_ACTIVITY"
+          sed -i 's/public class MainActivity extends BridgeActivity {/public class MainActivity extends BridgeActivity {\n\n    @Override\n    public void onCreate(android.os.Bundle savedInstanceState) {\n        registerPlugin(WidgetBridgePlugin.class);\n        registerPlugin(MediaNotificationPlugin.class);\n        super.onCreate(savedInstanceState);\n    }\n/' "$MAIN_ACTIVITY"
+
+          # Also import MediaNotificationPlugin
+          sed -i "s|import ${PKG}.widgets.WidgetBridgePlugin;|import ${PKG}.widgets.WidgetBridgePlugin;\\nimport ${PKG}.media.MediaNotificationPlugin;|" "$MAIN_ACTIVITY"
+
+      - name: Integrate MediaNotification plugin (lockscreen + notification controls)
+        run: |
+          PKG="app.lovable.id5acaae55bbc847a7bd32f3924d8ef986"
+          PKG_PATH="app/lovable/id5acaae55bbc847a7bd32f3924d8ef986"
+
+          # Copy plugin sources, rewriting the placeholder package to the real one
+          mkdir -p "android/app/src/main/java/${PKG_PATH}/media"
+          for f in android-native/java/*.java; do
+            base=$(basename "$f")
+            sed "s|PACKAGE_PLACEHOLDER|${PKG}|g" "$f" \
+              > "android/app/src/main/java/${PKG_PATH}/media/${base}"
+          done
+
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+
+          # Add required permissions (idempotent)
+          add_perm() {
+            local PERM="$1"
+            if ! grep -q "android.permission.${PERM}" "$MANIFEST"; then
+              sed -i "s|<application|<uses-permission android:name=\"android.permission.${PERM}\" />\n    <application|" "$MANIFEST"
+            fi
+          }
+          add_perm "POST_NOTIFICATIONS"
+          add_perm "FOREGROUND_SERVICE"
+          add_perm "FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+          add_perm "WAKE_LOCK"
+          add_perm "MEDIA_CONTENT_CONTROL"
+
+          # Register the foreground service before </application>
+          if ! grep -q "MediaNotificationService" "$MANIFEST"; then
+            sed -i 's|</application>|    <service android:name=".media.MediaNotificationService" android:exported="false" android:foregroundServiceType="mediaPlayback" />\n        <receiver android:name="androidx.media.session.MediaButtonReceiver" android:exported="true">\n            <intent-filter>\n                <action android:name="android.intent.action.MEDIA_BUTTON" />\n            </intent-filter>\n        </receiver>\n    </application>|' "$MANIFEST"
+          fi
+
+          # Add androidx.media dependency to app build.gradle
+          APP_GRADLE="android/app/build.gradle"
+          if ! grep -q "androidx.media:media" "$APP_GRADLE"; then
+            sed -i "s|dependencies {|dependencies {\n    implementation 'androidx.media:media:1.7.0'|" "$APP_GRADLE"
+          fi
+
+          echo "=== Manifest perms / service ==="
+          grep -nE "POST_NOTIFICATIONS|FOREGROUND_SERVICE|MediaNotificationService|MediaButtonReceiver" "$MANIFEST" || true
+          echo "=== Plugin files ==="
+          ls -la "android/app/src/main/java/${PKG_PATH}/media/"
 
       - name: Sync Capacitor
         run: npx cap sync android
