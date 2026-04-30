@@ -589,6 +589,54 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_requests: {
+        Row: {
+          amount_paise: number
+          created_at: string
+          id: string
+          notes: string | null
+          payer_name: string | null
+          payer_upi: string | null
+          plan: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          utr_number: string
+        }
+        Insert: {
+          amount_paise: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payer_name?: string | null
+          payer_upi?: string | null
+          plan?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          utr_number: string
+        }
+        Update: {
+          amount_paise?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payer_name?: string | null
+          payer_upi?: string | null
+          plan?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          utr_number?: string
+        }
+        Relationships: []
+      }
       playlist_songs: {
         Row: {
           added_at: string

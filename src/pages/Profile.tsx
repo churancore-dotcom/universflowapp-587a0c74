@@ -336,7 +336,7 @@ const Profile = () => {
           {/* Premium Section */}
           {!isPremium && (
             <button
-              onClick={() => setShowRedeemCode(true)}
+              onClick={() => navigate('/premium')}
               className="w-full mt-4 rounded-xl p-4 text-left"
               style={{ background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(168, 85, 247, 0.1))', border: '1px solid rgba(139, 92, 246, 0.2)' }}
             >

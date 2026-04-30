@@ -6,6 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { iosSpring, iosBounce } from '@/lib/animations';
 import { useAudioSettings } from '@/hooks/useAudioSettings';
+import { usePremium } from '@/hooks/usePremium';
+import PremiumLockOverlay from './PremiumLockOverlay';
 
 interface AdvancedAudioSettingsProps {
   isOpen: boolean;
@@ -33,6 +35,7 @@ const AdvancedAudioSettings = memo(function AdvancedAudioSettings({
   onClose 
 }: AdvancedAudioSettingsProps) {
   const { settings, updateSetting } = useAudioSettings();
+  const { isPremium, isLoading: premiumLoading } = usePremium();
   
   const selectedPreset = settings.selectedPreset;
   const selectedQuality = settings.selectedQuality;
@@ -61,6 +64,19 @@ const AdvancedAudioSettings = memo(function AdvancedAudioSettings({
   };
 
   const bandLabels = ['60Hz', '230Hz', '910Hz', '4kHz', '14kHz'];
+
+  // Premium gate
+  if (isOpen && !premiumLoading && !isPremium) {
+    return (
+      <AnimatePresence>
+        <PremiumLockOverlay
+          title="Advanced Audio Lab"
+          description="Custom EQ presets, lossless quality, dynamic normalization and spatial audio. Available on Premium."
+          onClose={onClose}
+        />
+      </AnimatePresence>
+    );
+  }
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>

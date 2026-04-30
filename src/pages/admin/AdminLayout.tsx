@@ -48,6 +48,7 @@ const navItems = [
   { icon: Crown, label: 'Subscriptions', path: '/admin/subscriptions' },
   { icon: Heart, label: 'Donations', path: '/admin/donations' },
   { icon: Gift, label: 'Promo Codes', path: '/admin/promo-codes' },
+  { icon: Crown, label: 'Payment Requests', path: '/admin/payments' },
   { icon: DollarSign, label: 'Revenue', path: '/admin/revenue' },
   { icon: Zap, label: 'Engagement', path: '/admin/engagement' },
   { icon: Bell, label: 'Push Notifications', path: '/admin/notifications' },

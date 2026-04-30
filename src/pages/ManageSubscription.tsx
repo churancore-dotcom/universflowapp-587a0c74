@@ -95,7 +95,7 @@ const ManageSubscription = () => {
             <h2 className="text-2xl font-bold mb-2">No active subscription</h2>
             <p className="text-muted-foreground mb-6">Unlock the full Universflow experience.</p>
             <button
-              onClick={() => navigate('/profile')}
+              onClick={() => navigate('/premium')}
               className="px-6 py-3 rounded-2xl font-semibold bg-primary text-primary-foreground"
             >
               Upgrade to Premium

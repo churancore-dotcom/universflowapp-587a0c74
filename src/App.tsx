@@ -74,6 +74,7 @@ const SystemHealth = lazy(() => import("./pages/admin/SystemHealth"));
 const ContentScheduler = lazy(() => import("./pages/admin/ContentScheduler"));
 const BackupExport = lazy(() => import("./pages/admin/BackupExport"));
 const PromoCodes = lazy(() => import("./pages/admin/PromoCodes"));
+const PaymentRequests = lazy(() => import("./pages/admin/PaymentRequests"));
 const APIManagement = lazy(() => import("./pages/admin/APIManagement"));
 const PushNotifications = lazy(() => import("./pages/admin/PushNotifications"));
 const RevenueAnalytics = lazy(() => import("./pages/admin/RevenueAnalytics"));
@@ -171,6 +172,7 @@ const AnimatedRoutes = () => {
             <Route path="scheduler" element={<ContentScheduler />} />
             <Route path="backup" element={<BackupExport />} />
             <Route path="promo-codes" element={<PromoCodes />} />
+            <Route path="payments" element={<PaymentRequests />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="api" element={<APIManagement />} />
             <Route path="notifications" element={<PushNotifications />} />

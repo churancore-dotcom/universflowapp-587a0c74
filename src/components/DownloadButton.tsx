@@ -1,51 +1,49 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, Check, Trash2, Loader2, CloudOff, AlertCircle, ListPlus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { Song } from '@/contexts/PlayerContext';
 import { iosBounce } from '@/lib/animations';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { usePremium } from '@/hooks/usePremium';
+import { toast } from '@/hooks/use-toast';
 
 interface DownloadButtonProps {
   song: Song;
   size?: 'sm' | 'md' | 'lg';
   showLabel?: boolean;
-  queueMode?: boolean; // If true, adds to queue instead of immediate download
+  queueMode?: boolean;
 }
 
 const DownloadButton = ({ song, size = 'md', showLabel = false, queueMode = false }: DownloadButtonProps) => {
   const { downloadSong, addToQueue, removeSong, isDownloaded, isInQueue, downloadProgress } = useDownloads();
-  
+  const { isPremium } = usePremium();
+  const navigate = useNavigate();
+
   const downloaded = isDownloaded(song.id);
   const inQueue = isInQueue(song.id);
   const progress = downloadProgress[song.id];
   const isDownloading = progress?.status === 'downloading' || progress?.status === 'pending';
   const hasError = progress?.status === 'error';
 
-  const sizeClasses = {
-    sm: 'w-8 h-8',
-    md: 'w-10 h-10',
-    lg: 'w-12 h-12',
-  };
-
-  const iconSizes = {
-    sm: 'w-4 h-4',
-    md: 'w-5 h-5',
-    lg: 'w-6 h-6',
-  };
+  const sizeClasses = { sm: 'w-8 h-8', md: 'w-10 h-10', lg: 'w-12 h-12' };
+  const iconSizes = { sm: 'w-4 h-4', md: 'w-5 h-5', lg: 'w-6 h-6' };
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isDownloading || inQueue) return;
-    
+
     triggerHaptic('impactMedium');
-    
-    if (downloaded) {
-      removeSong(song.id);
-    } else if (queueMode) {
-      addToQueue([song]);
-    } else {
-      downloadSong(song);
+
+    if (!isPremium && !downloaded) {
+      toast({ title: 'Premium feature', description: 'Unlimited downloads are part of Premium.' });
+      navigate('/premium');
+      return;
     }
+
+    if (downloaded) removeSong(song.id);
+    else if (queueMode) addToQueue([song]);
+    else downloadSong(song);
   };
 
   return (
