@@ -84,6 +84,45 @@ function tryBase64Decode(value: string): string | null {
   }
 }
 
+function normalizeFirebaseServiceAccount(value: unknown, depth = 0): FirebaseServiceAccount | null {
+  if (depth > 4) return null;
+
+  if (typeof value === "string") {
+    const parsed = tryJsonParse(value.trim()) ?? tryJsonParse(escapeNewlinesInsideJsonStrings(value.trim()));
+    return parsed ? normalizeFirebaseServiceAccount(parsed, depth + 1) : null;
+  }
+
+  if (!isRecord(value)) return null;
+
+  const projectId = value.project_id ?? value.projectId;
+  const clientEmail = value.client_email ?? value.clientEmail;
+  const privateKey = value.private_key ?? value.privateKey;
+
+  if (typeof projectId === "string" && typeof clientEmail === "string" && typeof privateKey === "string") {
+    return {
+      project_id: projectId.trim(),
+      client_email: clientEmail.trim(),
+      private_key: privateKey.replace(/\\n/g, "\n").trim(),
+    };
+  }
+
+  for (const nested of Object.values(value)) {
+    const normalized = normalizeFirebaseServiceAccount(nested, depth + 1);
+    if (normalized) return normalized;
+  }
+
+  return null;
+}
+
+function looksLikeFirebaseAppConfig(value: unknown): boolean {
+  return isRecord(value) && (
+    isRecord(value.project_info) ||
+    typeof value.apiKey === "string" ||
+    typeof value.measurementId === "string" ||
+    Array.isArray(value.client)
+  );
+}
+
 function parseFirebaseServiceAccount(raw: string): FirebaseServiceAccount {
   const trimmed = raw.trim().replace(/^\uFEFF/, "");
   const candidates = [
@@ -109,19 +148,20 @@ function parseFirebaseServiceAccount(raw: string): FirebaseServiceAccount {
     throw new Error("Firebase credentials are misformatted. Paste the complete service account JSON object, not a shortened value.");
   }
 
-  const projectId = parsed.project_id;
-  const clientEmail = parsed.client_email;
-  const privateKey = parsed.private_key;
+  const serviceAccount = normalizeFirebaseServiceAccount(parsed);
 
-  if (typeof projectId !== "string" || typeof clientEmail !== "string" || typeof privateKey !== "string") {
+  if (!serviceAccount) {
+    if (looksLikeFirebaseAppConfig(parsed)) {
+      throw new Error("Firebase app config was provided, but push notifications need the service account private key JSON from Firebase Console → Project Settings → Service Accounts → Generate new private key.");
+    }
     throw new Error("Firebase credentials are missing project_id, client_email, or private_key.");
   }
 
-  return {
-    project_id: projectId,
-    client_email: clientEmail,
-    private_key: privateKey.replace(/\\n/g, "\n").trim(),
-  };
+  if (!serviceAccount.private_key.includes("BEGIN PRIVATE KEY") || !serviceAccount.client_email.includes("@")) {
+    throw new Error("Firebase service account JSON is incomplete. Use the full private key JSON file, including project_id, client_email, and private_key.");
+  }
+
+  return serviceAccount;
 }
 
 // ---- JWT signing for Google OAuth2 (service account) ----
