@@ -78,7 +78,7 @@ const PlayWithMate = () => {
               </div>
               <h2 className="text-xl font-bold mb-2">Premium Feature</h2>
               <p className="text-sm text-muted-foreground mb-6">Upgrade to host synced rooms and listen together anywhere.</p>
-              <Button onClick={() => navigate('/profile')} className="rounded-xl">Upgrade to Premium</Button>
+              <Button onClick={() => navigate('/premium')} className="rounded-xl">Upgrade to Premium</Button>
             </div>
           </main>
           <BottomNav />
