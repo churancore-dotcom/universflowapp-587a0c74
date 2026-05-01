@@ -308,6 +308,20 @@ const AllArtists = () => {
     setLoadingSongs(false);
   }, [navigate]);
 
+  // Auto-open artist from ?focus= query (from Home featured / Library artist click)
+  useEffect(() => {
+    const focusName = searchParams.get('focus');
+    if (!focusName || loading || focusHandledRef.current === focusName) return;
+    const match = allArtists.find(a => a.name.toLowerCase() === focusName.toLowerCase());
+    if (match) {
+      focusHandledRef.current = focusName;
+      handleOpenArtist(match);
+      const next = new URLSearchParams(searchParams);
+      next.delete('focus');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, allArtists, loading, handleOpenArtist, setSearchParams]);
+
   const handlePlayTrack = useCallback(async (track: IndexedTrack) => {
     setResolvingId(track.id);
     try {
