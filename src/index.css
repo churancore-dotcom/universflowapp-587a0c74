@@ -598,3 +598,85 @@
   60% { transform: scale(1.02); opacity: 1; }
   100% { transform: scale(1) translateY(0); opacity: 1; }
 }
+
+/* ==========================================================
+   PEARL (light) theme overrides
+   Many components use hardcoded rgba(255,255,255,X) / rgba(18,18,18,X)
+   strings tuned for the dark theme. Without these overrides those
+   surfaces look broken (dark blocks, invisible borders) in light mode.
+   These selectors only activate when html.light is set by themeBoot.
+   ========================================================== */
+html.light body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+/* Frosted blurred surfaces (headers, mini-player, fullscreen player chrome) */
+html.light [style*="rgba(0, 0, 0, 0.7)"],
+html.light [style*="rgba(0,0,0,0.7)"],
+html.light [style*="rgba(0, 0, 0, 0.85)"],
+html.light [style*="rgba(0,0,0,0.85)"],
+html.light [style*="rgba(18, 18, 18, 0.75)"],
+html.light [style*="rgba(18,18,18,0.75)"],
+html.light [style*="rgba(18, 18, 18, 0.85)"],
+html.light [style*="rgba(18,18,18,0.85)"],
+html.light [style*="rgba(18, 18, 18, 0.9)"],
+html.light [style*="rgba(18,18,18,0.9)"],
+html.light [style*="rgba(28, 28, 30, 0.6)"],
+html.light [style*="rgba(28, 28, 30, 0.8)"],
+html.light [style*="rgba(28, 28, 30, 0.85)"],
+html.light [style*="rgba(38, 38, 40, 0.85)"],
+html.light [style*="rgba(38, 38, 40, 0.9)"] {
+  background: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Subtle white tint surfaces (cards, chips, buttons) — flip to neutral */
+html.light [style*="rgba(255,255,255,0.03)"],
+html.light [style*="rgba(255, 255, 255, 0.03)"],
+html.light [style*="rgba(255,255,255,0.04)"],
+html.light [style*="rgba(255, 255, 255, 0.04)"],
+html.light [style*="rgba(255,255,255,0.05)"],
+html.light [style*="rgba(255, 255, 255, 0.05)"],
+html.light [style*="rgba(255,255,255,0.06)"],
+html.light [style*="rgba(255, 255, 255, 0.06)"],
+html.light [style*="rgba(255,255,255,0.08)"],
+html.light [style*="rgba(255, 255, 255, 0.08)"] {
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* White-ish borders → soft neutral border */
+html.light [style*="rgba(255,255,255,0.06)"][style*="border"],
+html.light [style*="rgba(255, 255, 255, 0.06)"][style*="border"],
+html.light [style*="rgba(255,255,255,0.08)"][style*="border"],
+html.light [style*="rgba(255, 255, 255, 0.08)"][style*="border"],
+html.light [style*="rgba(255,255,255,0.10)"][style*="border"],
+html.light [style*="rgba(255, 255, 255, 0.10)"][style*="border"],
+html.light [style*="rgba(255,255,255,0.12)"][style*="border"],
+html.light [style*="rgba(255, 255, 255, 0.12)"][style*="border"] {
+  border-color: rgba(0, 0, 0, 0.10) !important;
+}
+
+/* Generic glass / frosted helper classes used in app */
+html.light .glass,
+html.light .glass-strong,
+html.light .glass-subtle,
+html.light .player-card,
+html.light .nav-glass {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Scrollbars */
+html.light ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18) !important;
+}
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.28) !important;
+}
+
+/* Shadows feel heavier on light bg — soften */
+html.light [style*="box-shadow: 0 6px 24px rgba(0,0,0,0.4)"],
+html.light [style*="boxShadow: 0 6px 24px rgba(0,0,0,0.4)"] {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.10) !important;
+}
