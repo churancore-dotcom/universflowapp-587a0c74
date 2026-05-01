@@ -766,8 +766,7 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
         )}
 
         {step === 'verifying' && (
-          <LiveVerification
-            stage={verifyStage}
+          <SubmittedConfirmation
             activated={activated}
             amount={amountFinal}
             utr={utr}
