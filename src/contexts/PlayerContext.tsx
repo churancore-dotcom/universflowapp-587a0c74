@@ -403,6 +403,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const preloadedNextIdRef = useRef<string | null>(null);
 
+  // Wire the global EQ/audio engine to the live audio element. Persists across modal open/close.
+  useGlobalAudioEngine(audioElement);
+
 
   // Progress update loop using requestAnimationFrame for smooth updates
   useEffect(() => {
