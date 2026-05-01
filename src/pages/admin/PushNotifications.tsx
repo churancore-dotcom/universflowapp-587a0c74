@@ -275,7 +275,23 @@ const PushNotifications = () => {
               Send in-app banners, real Android push, or both — with deep links.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                const t = toast.loading('Enabling auto messages…');
+                try {
+                  const { data, error } = await supabase.functions.invoke('bootstrap-system-push');
+                  if (error) throw error;
+                  toast.success('Auto premium messages enabled', { id: t, description: data?.message });
+                } catch (e) {
+                  toast.error('Failed to enable', { id: t, description: e instanceof Error ? e.message : String(e) });
+                }
+              }}
+            >
+              Enable Auto Messages
+            </Button>
             <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}>
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
