@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { User, Sparkles, ChevronRight, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
-import { getUserArtistPrefs, type UserArtistPref } from '@/lib/userArtistPrefs';
+import { getUserArtistPrefs, followArtist, type UserArtistPref } from '@/lib/userArtistPrefs';
 import { getFeaturedIndexedArtists } from '@/lib/indexedArtists';
 
 interface DisplayArtist {
@@ -146,6 +146,10 @@ const FeaturedArtistsSection = () => {
               index={i}
               onClick={() => {
                 triggerHaptic('selection');
+                // Auto-follow on first tap so the artist sticks in "Your Artists"
+                if (user) {
+                  void followArtist(user.id, artist.name, { image: artist.image, source: 'lastfm' });
+                }
                 navigate(`/artists?focus=${encodeURIComponent(artist.name)}`);
               }}
             />

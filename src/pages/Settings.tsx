@@ -167,7 +167,7 @@ const Settings = () => {
               <h2 className="text-xs font-semibold text-muted-foreground uppercase">Support</h2>
             </div>
             <div className="rounded-xl overflow-hidden bg-card border border-border/50">
-              <button onClick={() => navigate(isPremium ? '/subscription' : '/support')} className="w-full px-4 py-3 flex items-center justify-between border-b border-border/50 active:bg-muted/30">
+              <button onClick={() => navigate(isPremium ? '/subscription' : '/premium')} className="w-full px-4 py-3 flex items-center justify-between border-b border-border/50 active:bg-muted/30">
                 <div className="flex items-center gap-2">
                   {isPremium && <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-[10px] font-medium text-primary">Premium</span>}
                   <span className="text-sm">{isPremium ? 'Manage Subscription' : 'Upgrade to Premium'}</span>

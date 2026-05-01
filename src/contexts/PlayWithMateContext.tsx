@@ -554,10 +554,21 @@ export const PlayWithMateProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => () => clearRealtime(), [clearRealtime]);
 
   const createSession = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      toast.error('Sign in to start a room');
+      return;
+    }
 
     setLoading(true);
     try {
+      // Make sure we have a profile (subscribeToRoom needs it). If not loaded yet,
+      // build a minimal one from the auth user so the room can start immediately.
+      if (!profile) {
+        setProfile({
+          username: user.email?.split('@')[0] || 'Listener',
+        });
+      }
+
       const sessionCode = generateCode();
       const state = getPlaybackState();
 
@@ -587,15 +598,18 @@ export const PlayWithMateProvider = ({ children }: { children: ReactNode }) => {
 
       setRoom(nextRoom);
       writeStoredRoom(nextRoom);
-      subscribeToRoom(nextRoom);
+      // subscribe on next tick so the profile state has settled
+      window.setTimeout(() => subscribeToRoom(nextRoom), 50);
       toast.success('Room is live — browse the app and keep everyone synced');
       triggerHaptic('success');
-    } catch {
-      toast.error('Could not start the room');
+    } catch (e: any) {
+      console.error('[PlayWithMate] createSession failed:', e);
+      const msg = e?.message || e?.error_description || 'Could not start the room';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
-  }, [getPlaybackState, subscribeToRoom, user]);
+  }, [getPlaybackState, profile, subscribeToRoom, user]);
 
   const joinSession = useCallback(
     async (code: string) => {
@@ -639,8 +653,10 @@ export const PlayWithMateProvider = ({ children }: { children: ReactNode }) => {
         });
         toast.success('Joined the room — playback will stay synced automatically');
         triggerHaptic('success');
-      } catch {
-        toast.error('Could not join this room');
+      } catch (e: any) {
+        console.error('[PlayWithMate] joinSession failed:', e);
+        const msg = e?.message || 'Could not join this room';
+        toast.error(msg);
       } finally {
         setLoading(false);
       }
