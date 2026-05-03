@@ -973,8 +973,15 @@ serve(async (req) => {
     const audioTarget = requestUrl.searchParams.get('audio');
 
     // ── Auth check (must run BEFORE the audio proxy path) ──
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Allow JWT in either Authorization header OR `?token=` query param,
+    // because <audio src> tags cannot send custom headers.
+    const headerAuth = req.headers.get('authorization');
+    const queryToken = requestUrl.searchParams.get('token');
+    const bearer = headerAuth?.startsWith('Bearer ')
+      ? headerAuth.slice(7)
+      : (queryToken ?? null);
+
+    if (!bearer) {
       return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -982,10 +989,9 @@ serve(async (req) => {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
+      { global: { headers: { Authorization: `Bearer ${bearer}` } } }
     );
-    const token = authHeader.replace('Bearer ', '');
-    const { data: userData, error: authError } = await supabaseClient.auth.getUser(token);
+    const { data: userData, error: authError } = await supabaseClient.auth.getUser(bearer);
     if (authError || !userData?.user) {
       return new Response(JSON.stringify({ success: false, error: 'Invalid authentication' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
