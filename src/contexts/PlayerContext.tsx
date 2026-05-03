@@ -131,10 +131,21 @@ const shouldProxyStreamUrl = (sourceUrl: string) => {
   }
 };
 
+// Cache the current access token so we can append it to <audio src> proxy URLs.
+// (audio elements can't send custom Authorization headers.)
+let cachedAccessToken: string | null = null;
+supabase.auth.getSession().then(({ data }) => {
+  cachedAccessToken = data.session?.access_token ?? null;
+});
+supabase.auth.onAuthStateChange((_event, session) => {
+  cachedAccessToken = session?.access_token ?? null;
+});
+
 const buildStreamProxyUrl = (sourceUrl: string) => {
   const projectUrl = import.meta.env.VITE_SUPABASE_URL;
   if (!projectUrl || !shouldProxyStreamUrl(sourceUrl)) return sourceUrl;
-  return `${projectUrl}/functions/v1/music-indexer?audio=${encodeURIComponent(sourceUrl)}`;
+  const tokenParam = cachedAccessToken ? `&token=${encodeURIComponent(cachedAccessToken)}` : '';
+  return `${projectUrl}/functions/v1/music-indexer?audio=${encodeURIComponent(sourceUrl)}${tokenParam}`;
 };
 
 const isEqProcessingEnabled = () => {
