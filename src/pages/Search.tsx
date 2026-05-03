@@ -10,7 +10,7 @@ import DownloadButton from '@/components/DownloadButton';
 import { TabTransition } from '@/components/PageTransition';
 import { Input } from '@/components/ui/input';
 import { SearchSkeleton } from '@/components/PageSkeletons';
-import { prefetchIndexedTrack, resolveIndexedTrack, searchIndexedTracks, type IndexedTrack } from '@/lib/musicIndexer';
+import { prefetchIndexedTrack, searchIndexedTracks, type IndexedTrack } from '@/lib/musicIndexer';
 import {
   getSongHistory,
   removeSongFromHistory,
@@ -18,7 +18,6 @@ import {
   type SongHistoryEntry,
 } from '@/lib/songHistory';
 import { getCached, setCached } from '@/lib/searchCache';
-import { toast } from 'sonner';
 
 type SearchSource = 'all' | 'library' | 'indexer';
 
@@ -110,37 +109,27 @@ const Search = () => {
     return mapped;
   };
 
-  const handlePlayIndexed = useCallback(async (track: IndexedTrack) => {
-    setResolvingId(track.id);
-    try {
-      const resolved = await resolveIndexedTrack(track.artist, track.title);
-      if (!resolved.streamUrl) throw new Error('Could not resolve audio stream. Try another track.');
-
-      const song: Song = {
-        id: track.id,
-        title: resolved.title || track.title,
-        artist: resolved.artist || track.artist,
-        album: track.album,
-        cover_url: resolved.cover_url || track.cover_url,
-        audio_url: resolved.streamUrl,
-        duration: resolved.duration || track.duration,
-        source: 'indexed',
-      };
-      playSong(song, undefined, visibleIndexedResults.map((item) => ({
-        id: item.id,
-        title: item.title,
-        artist: item.artist,
-        album: item.album,
-        cover_url: item.cover_url,
-        audio_url: item.id === track.id ? resolved.streamUrl! : 'resolving',
-        duration: item.duration,
-        source: 'indexed' as const,
-      })));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Playback failed');
-    } finally {
-      setResolvingId(null);
-    }
+  const handlePlayIndexed = useCallback((track: IndexedTrack) => {
+    const song: Song = {
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      cover_url: track.cover_url,
+      audio_url: 'resolving',
+      duration: track.duration,
+      source: 'indexed',
+    };
+    playSong(song, undefined, visibleIndexedResults.map((item) => ({
+      id: item.id,
+      title: item.title,
+      artist: item.artist,
+      album: item.album,
+      cover_url: item.cover_url,
+      audio_url: 'resolving',
+      duration: item.duration,
+      source: 'indexed' as const,
+    })));
   }, [playSong]);
 
   const libraryResults: Song[] = source === 'indexer' ? [] : results;
