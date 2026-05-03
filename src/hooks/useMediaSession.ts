@@ -28,6 +28,13 @@ export const useMediaSession = ({
 }: UseMediaSessionOptions) => {
   const lastPositionUpdate = useRef(0);
   const updateInterval = useRef<number | null>(null);
+  const progressRef = useRef(progress);
+  const durationRef = useRef(duration);
+
+  useEffect(() => {
+    progressRef.current = progress;
+    durationRef.current = duration;
+  }, [progress, duration]);
 
   // Update metadata when song changes
   useEffect(() => {
@@ -149,13 +156,16 @@ export const useMediaSession = ({
       return;
     }
 
-    // Update position every second while playing
+    // Update position every second while playing without recreating the timer
+    // on every progress tick.
     updateInterval.current = window.setInterval(() => {
       try {
+        const currentDuration = durationRef.current || 0;
+        const currentProgress = progressRef.current || 0;
         navigator.mediaSession.setPositionState({
-          duration: duration || 0,
+          duration: currentDuration,
           playbackRate: 1,
-          position: Math.min(Math.max(0, progress), duration || 0),
+          position: Math.min(Math.max(0, currentProgress), currentDuration),
         });
       } catch {
         // Ignore errors
@@ -168,7 +178,7 @@ export const useMediaSession = ({
         updateInterval.current = null;
       }
     };
-  }, [isPlaying, song, duration, progress]);
+  }, [isPlaying, song?.id]);
 };
 
 export default useMediaSession;
