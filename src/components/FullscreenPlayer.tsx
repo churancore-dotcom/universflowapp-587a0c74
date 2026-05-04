@@ -2,6 +2,7 @@ import { useState, memo, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders } from 'lucide-react';
 import { usePlayer } from '@/contexts/PlayerContext';
+import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { useNavigate } from 'react-router-dom';
 import { Slider } from '@/components/ui/slider';
 import LikeButton from './LikeButton';
