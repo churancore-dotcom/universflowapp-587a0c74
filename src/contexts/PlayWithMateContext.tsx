@@ -137,7 +137,7 @@ const writeStoredRoom = (room: ActiveRoom | null) => {
 
 export const PlayWithMateProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
-  const { currentSong, isPlaying, progress, audioElement, playSong, play, pause, seek } = usePlayer();
+  const { currentSong, isPlaying, audioElement, playSong, play, pause, seek } = usePlayer();
 
   const [room, setRoom] = useState<ActiveRoom | null>(readStoredRoom());
   const [participants, setParticipants] = useState<MateParticipant[]>([]);
@@ -152,11 +152,7 @@ export const PlayWithMateProvider = ({ children }: { children: ReactNode }) => {
   const persistIntervalRef = useRef<number | null>(null);
   const restoringRef = useRef(false);
   const applyingRemoteStateRef = useRef(false);
-  const progressRef = useRef(progress);
-
-  useEffect(() => {
-    progressRef.current = progress;
-  }, [progress]);
+  const progressRef = { get current() { return playerProgressStore.getProgress(); } } as { current: number };
 
   const clearRealtime = useCallback(() => {
     if (broadcastIntervalRef.current) {
