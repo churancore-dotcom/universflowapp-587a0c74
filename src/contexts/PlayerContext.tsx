@@ -455,27 +455,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useGlobalAudioEngine(audioElement);
 
 
-  // Throttled progress loop. Updating React state every animation frame was
-  // making the whole app feel laggy while music played.
-  useEffect(() => {
-    const updateProgress = () => {
-      if (audioRef.current && !audioRef.current.paused && !isCrossfading.current) {
-        const next = audioRef.current.currentTime;
-        setProgress((prev) => (Math.abs(prev - next) > 0.2 ? next : prev));
-      }
-    };
-
-    if (isPlaying) {
-      updateProgress();
-      animationFrameRef.current = window.setInterval(updateProgress, 250);
-    }
-
-    return () => {
-      if (animationFrameRef.current) {
-        window.clearInterval(animationFrameRef.current);
-      }
-    };
-  }, [isPlaying]);
+  // Progress is pushed via the audio element's native `timeupdate` event
+  // (handled in the main audio listener below). No React state interval needed.
 
   // Get next song index - supports shuffle properly by tracking played songs
   const shuffleHistoryRef = useRef<Set<number>>(new Set());
