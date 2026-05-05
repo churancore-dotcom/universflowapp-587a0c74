@@ -256,7 +256,7 @@ const PrerollAd = memo(function PrerollAd({
                 Ad closes in {countdown} seconds
               </p>
               <p className="text-[10px] text-muted-foreground/60">
-                Crafted by SHASHANK YADAV
+                Universflow
               </p>
             </motion.div>
           </motion.div>

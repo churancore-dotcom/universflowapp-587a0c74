@@ -119,7 +119,7 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
         >
           <div className="w-1.5 h-1.5 rounded-full bg-primary" />
           <p className="text-[11px] text-white/40 tracking-wider">
-            Crafted by <span className="text-white/70 font-semibold">SHASHANK YADAV</span>
+            <span className="text-white/70 font-semibold">UNIVERSFLOW</span>
           </p>
         </motion.div>
 
