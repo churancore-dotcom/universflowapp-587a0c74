@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Search, Music, Check, Loader2, Plus } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { X, Search, Music, Check, Loader2, Plus, Radio } from 'lucide-react';
 import { Song } from '@/contexts/PlayerContext';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { iosSpring, iosBounce } from '@/lib/animations';
+import { searchIndexedTracks, type IndexedTrack } from '@/lib/musicIndexer';
 
 interface AddSongsToPlaylistModalProps {
   isOpen: boolean;
@@ -37,23 +37,17 @@ const AddSongsToPlaylistModal = ({
 
   const fetchSongs = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('songs')
-      .select('*')
-      .eq('is_visible', true)
-      .order('created_at', { ascending: false });
-
-    if (data) {
-      setSongs(data.map(s => ({
-        id: s.id,
-        title: s.title,
-        artist: s.artist,
-        album: s.album || undefined,
-        cover_url: s.cover_url || undefined,
-        audio_url: s.audio_url,
-        duration: s.duration || undefined,
-      })));
-    }
+    const data = await searchIndexedTracks(searchQuery.trim() || 'top songs', 40).catch(() => [] as IndexedTrack[]);
+    setSongs(data.map(s => ({
+      id: s.id,
+      title: s.title,
+      artist: s.artist,
+      album: s.album,
+      cover_url: s.cover_url,
+      audio_url: 'resolving',
+      duration: s.duration,
+      source: 'indexed' as const,
+    })));
     setLoading(false);
   };
 
