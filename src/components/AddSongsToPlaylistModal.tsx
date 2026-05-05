@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { iosSpring, iosBounce } from '@/lib/animations';
 import { searchIndexedTracks, type IndexedTrack } from '@/lib/musicIndexer';
+import { persistStreamSong } from '@/lib/streamSongs';
 
 interface AddSongsToPlaylistModalProps {
   isOpen: boolean;
@@ -35,6 +36,12 @@ const AddSongsToPlaylistModal = ({
       setSelectedSongs(new Set());
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const id = setTimeout(fetchSongs, 350);
+    return () => clearTimeout(id);
+  }, [isOpen, searchQuery]);
 
   const fetchSongs = async () => {
     setLoading(true);
@@ -79,10 +86,14 @@ const AddSongsToPlaylistModal = ({
 
     let nextPosition = existingSongs && existingSongs.length > 0 ? existingSongs[0].position + 1 : 0;
 
-    const songsToAdd = Array.from(selectedSongs).map((songId, index) => ({
+    const selected = songs.filter((song) => selectedSongs.has(song.id));
+    await Promise.all(selected.map((song) => persistStreamSong(song)));
+
+    const songsToAdd = selected.map((song, index) => ({
       playlist_id: playlistId,
-      song_id: songId,
+      song_id: song.id,
       position: nextPosition + index,
+      track_source: 'indexed',
     }));
 
     const { error } = await supabase
