@@ -292,10 +292,6 @@ const AllArtists = () => {
   }, [user, followed]);
 
   const handleOpenArtist = useCallback(async (artist: ArtistEntry) => {
-    if (artist.source === 'catalog' && artist.catalogId) {
-      navigate(`/artist/${artist.catalogId}`);
-      return;
-    }
     setSelectedArtist(artist);
     setLoadingSongs(true);
     setArtistSongs([]);

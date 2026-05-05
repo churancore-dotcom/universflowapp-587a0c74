@@ -233,7 +233,7 @@ const AllSongsSection = memo(({ songs }: AllSongsSectionProps) => {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-[16px] font-bold tracking-tight text-foreground">Made For You</h2>
+            <h2 className="text-[16px] font-bold tracking-tight text-foreground">All Songs</h2>
             <p className="text-[11px] text-muted-foreground/40 mt-0.5 font-medium tracking-wide">
               {songs.length} {songs.length === 1 ? 'track' : 'tracks'}
             </p>

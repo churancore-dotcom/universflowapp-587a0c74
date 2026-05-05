@@ -73,23 +73,18 @@ export const loadLibrarySongs = async (userId: string) => {
 
   if (error || !rows?.length) return [];
 
-  const catalogIds = rows.map((row) => row.song_id).filter(isCatalogSongId);
   const streamIds = rows.map((row) => row.song_id).filter((id) => !isCatalogSongId(id));
 
-  const [catalogRes, streamRes] = await Promise.all([
-    catalogIds.length
-      ? supabase.from('songs').select('*').in('id', catalogIds)
-      : Promise.resolve({ data: [] as any[] }),
+  const [streamRes] = await Promise.all([
     streamIds.length
       ? supabase.from('stream_songs').select('*').in('track_id', streamIds)
       : Promise.resolve({ data: [] as any[] }),
   ]);
 
-  const catalogMap = new Map((catalogRes.data || []).map((song: any) => [song.id, songFromCatalog(song)]));
   const streamMap = new Map((streamRes.data || []).map((song: any) => [song.track_id, songFromStream(song)]));
 
   return rows
-    .map((row) => catalogMap.get(row.song_id) || streamMap.get(row.song_id))
+    .map((row) => streamMap.get(row.song_id))
     .filter(Boolean) as Song[];
 };
 
@@ -102,24 +97,19 @@ export const loadPlaylistSongs = async (playlistId: string) => {
 
   if (error || !rows?.length) return [];
 
-  const catalogIds = rows.map((row) => row.song_id).filter(isCatalogSongId);
   const streamIds = rows.map((row) => row.song_id).filter((id) => !isCatalogSongId(id));
 
-  const [catalogRes, streamRes] = await Promise.all([
-    catalogIds.length
-      ? supabase.from('songs').select('*').in('id', catalogIds)
-      : Promise.resolve({ data: [] as any[] }),
+  const [streamRes] = await Promise.all([
     streamIds.length
       ? supabase.from('stream_songs').select('*').in('track_id', streamIds)
       : Promise.resolve({ data: [] as any[] }),
   ]);
 
-  const catalogMap = new Map((catalogRes.data || []).map((song: any) => [song.id, songFromCatalog(song)]));
   const streamMap = new Map((streamRes.data || []).map((song: any) => [song.track_id, songFromStream(song)]));
 
   return rows
     .map((row) => {
-      const song = catalogMap.get(row.song_id) || streamMap.get(row.song_id);
+      const song = streamMap.get(row.song_id);
       if (!song) return null;
       return { ...song, position: row.position, playlist_song_id: row.id };
     })

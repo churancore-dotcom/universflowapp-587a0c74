@@ -6,12 +6,11 @@ import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { useSongCache } from '@/hooks/useSongCache';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDownloads } from '@/contexts/DownloadContext';
-import SongCard from '@/components/SongCard';
 
 import AllSongsSection from '@/components/AllSongsSection';
 
 import GlobalTopTracksSection from '@/components/GlobalTopTracksSection';
-import FollowedArtistsFeed from '@/components/FollowedArtistsFeed';
+import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 import SleepTimerModal from '@/components/SleepTimerModal';
 import QueueDrawer from '@/components/QueueDrawer';
 import BottomNav from '@/components/BottomNav';
@@ -281,7 +280,7 @@ const Home = () => {
         >
         {loading ? (
             <HomeSkeleton />
-          ) : songs.length === 0 ? (
+          ) : isOffline && songs.length === 0 ? (
             <EmptyState />
           ) : (
             <div className="space-y-3">
@@ -357,16 +356,16 @@ const Home = () => {
               {/* Online-only discovery sections — hidden when offline */}
               {!isOffline && (
                 <>
-                  {/* Newest tracks from artists the user follows */}
-                  <FollowedArtistsFeed />
+                  {/* Artist discovery */}
+                  <FeaturedArtistsSection />
 
                   {/* Global Top Tracks */}
                   <GlobalTopTracksSection />
                 </>
               )}
 
-              {/* All Songs (offline → renders ONLY downloaded tracks) */}
-              {allSongs.length > 0 && (
+              {/* Saved songs only when offline — uploaded catalog is hidden from online Home */}
+              {isOffline && allSongs.length > 0 && (
                 <AllSongsSection songs={allSongs} />
               )}
 

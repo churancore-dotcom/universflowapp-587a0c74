@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search as SearchIcon, Music, X, Globe, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import BottomNav from '@/components/BottomNav';
@@ -11,69 +10,54 @@ import { TabTransition } from '@/components/PageTransition';
 import { Input } from '@/components/ui/input';
 import { SearchSkeleton } from '@/components/PageSkeletons';
 import { prefetchIndexedTrack, searchIndexedTracks, type IndexedTrack } from '@/lib/musicIndexer';
+import { isCatalogSongId } from '@/lib/songSupport';
 import {
   getSongHistory,
   removeSongFromHistory,
   clearSongHistory,
   type SongHistoryEntry,
 } from '@/lib/songHistory';
-import { getCached, setCached } from '@/lib/searchCache';
 
-type SearchSource = 'all' | 'library' | 'indexer';
-
-const mapSongRow = (s: any): Song => ({
-  id: s.id,
-  title: s.title,
-  artist: s.artist,
-  album: s.album || undefined,
-  cover_url: s.cover_url || undefined,
-  audio_url: s.audio_url,
-  artist_id: (s.artists as any)?.id || s.artist_id || undefined,
-  artist_photo_url: (s.artists as any)?.photo_url || undefined,
-  source: 'library',
-});
+type SearchSource = 'all' | 'indexer';
 
 const Search = () => {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Song[]>([]);
   const [indexedResults, setIndexedResults] = useState<IndexedTrack[]>([]);
   const [searching, setSearching] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [source, setSource] = useState<SearchSource>('all');
   const [resolvingId, setResolvingId] = useState<string | null>(null);
-  const [searchHistory, setSearchHistory] = useState<SongHistoryEntry[]>(() => getSongHistory());
+  const [searchHistory, setSearchHistory] = useState<SongHistoryEntry[]>(() => getSongHistory().filter(entry => !isCatalogSongId(entry.id)));
   const { playSong, currentSong, isPlaying } = usePlayer();
   const { getDownloadedUrl } = useDownloads();
 
   // Refresh history snapshot whenever the currently playing song changes
   useEffect(() => {
-    if (currentSong) setSearchHistory(getSongHistory());
+    if (currentSong) setSearchHistory(getSongHistory().filter(entry => !isCatalogSongId(entry.id)));
   }, [currentSong?.id]);
 
   useEffect(() => {
     const trimmedQuery = query.trim();
 
     if (trimmedQuery.length < 2) {
-      setResults([]);
       setIndexedResults([]);
+      setSearching(false);
       return;
     }
 
     let cancelled = false;
     const timer = setTimeout(async () => {
       setSearching(true);
-
-      const [libraryResponse, indexedResponse] = await Promise.allSettled([
-        searchSongs(trimmedQuery),
-        searchIndexedTracks(trimmedQuery, 50),
-      ]);
-
-      if (cancelled) return;
-
-      setResults(libraryResponse.status === 'fulfilled' ? libraryResponse.value : []);
-      setIndexedResults(indexedResponse.status === 'fulfilled' ? indexedResponse.value : []);
-      setSearching(false);
-      setSearchHistory(getSongHistory());
+      try {
+        const indexedResponse = await searchIndexedTracks(trimmedQuery, 50);
+        if (cancelled) return;
+        setIndexedResults(indexedResponse);
+        setSearchHistory(getSongHistory().filter(entry => !isCatalogSongId(entry.id)));
+      } catch {
+        if (!cancelled) setIndexedResults([]);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
     }, 300);
 
     return () => {
@@ -88,28 +72,7 @@ const Search = () => {
     });
   }, [indexedResults]);
 
-  const searchSongs = async (searchTerm: string): Promise<Song[]> => {
-    const safeSearchTerm = searchTerm.replace(/[%,]/g, ' ').trim();
-    if (!safeSearchTerm) return [];
-
-    // 1h cache — saves a round-trip on identical or repeated queries
-    const cached = getCached<Song[]>('library_search', safeSearchTerm);
-    if (cached) return cached;
-
-    const { data } = await supabase
-      .from('songs')
-      // Slim payload: only the fields the UI actually renders
-      .select('id, title, artist, album, cover_url, audio_url, artist_id, artists(id, name, photo_url)')
-      .eq('is_visible', true)
-      .or(`title.ilike.%${safeSearchTerm}%,artist.ilike.%${safeSearchTerm}%,album.ilike.%${safeSearchTerm}%`)
-      .limit(30);
-
-    const mapped = Array.isArray(data) ? data.map(mapSongRow) : [];
-    setCached('library_search', safeSearchTerm, mapped);
-    return mapped;
-  };
-
-  const libraryResults: Song[] = source === 'indexer' ? [] : results;
+  const libraryResults: Song[] = [];
 
   const visibleIndexedResults = source === 'all' || source === 'indexer' ? indexedResults : [];
 
@@ -186,7 +149,6 @@ const Search = () => {
               {([
                 { key: 'all' as SearchSource, label: 'All Songs', icon: Globe },
                 { key: 'indexer' as SearchSource, label: 'Worldwide', icon: Radio },
-                { key: 'library' as SearchSource, label: 'Your Library', icon: Music },
               ]).map(tab => (
                 <motion.button key={tab.key} onClick={() => setSource(tab.key)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0"
@@ -285,7 +247,7 @@ const Search = () => {
                             <button
                               onClick={() => {
                                 removeSongFromHistory(entry.id);
-                                setSearchHistory(getSongHistory());
+                                setSearchHistory(getSongHistory().filter(item => !isCatalogSongId(item.id)));
                               }}
                               className="w-7 h-7 flex items-center justify-center rounded-full text-muted-foreground active:bg-white/10"
                               aria-label="Remove from history"
@@ -305,58 +267,6 @@ const Search = () => {
           {/* Results */}
           {searching ? <SearchSkeleton /> : (
             <>
-              {/* Library results */}
-              {libraryResults.length > 0 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
-                  {source !== 'indexer' && (
-                    <h2 className="text-sm font-bold mb-3">
-                      {source === 'all' ? 'Library Songs' : 'Your Library'} · {libraryResults.length} results
-                    </h2>
-                  )}
-                  <div className="space-y-1">
-                    {libraryResults.map((song, i) => {
-                      const isActive = currentSong?.id === song.id;
-                      const offlineUrl = getDownloadedUrl(song.id);
-                      return (
-                        <motion.div key={song.id}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer active:scale-[0.98] transition-all ${isActive ? 'bg-primary/10' : 'active:bg-white/5'}`}
-                          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.025, duration: 0.25 }}
-                          onClick={() => playSong(song, offlineUrl, libraryResults)}>
-                          <div className={`relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 ${isActive ? 'shadow-lg shadow-primary/20' : 'shadow-md'}`}>
-                            {song.cover_url ? (
-                              <img src={song.cover_url} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                                <Music className="w-4 h-4 text-foreground/30" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`font-semibold text-[13px] truncate ${isActive ? 'text-primary' : 'text-foreground'}`}>{song.title}</p>
-                            <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">{song.artist}</p>
-                          </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            {isActive && isPlaying ? (
-                              <div className="flex items-end gap-[2px] h-4 mr-1">
-                                {[0, 1, 2].map((j) => (
-                                  <div key={j} className="w-[3px] bg-primary rounded-full animate-audio-wave" style={{ animationDelay: `${j * 0.12}s` }} />
-                                ))}
-                              </div>
-                            ) : (
-                              <>
-                                <LikeButton songId={song.id} size="sm" className="w-8 h-8" />
-                                <DownloadButton song={song} size="sm" />
-                              </>
-                            )}
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-
               {/* Indexed stream results */}
               {visibleIndexedResults.length > 0 && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={libraryResults.length > 0 ? 'mt-6' : ''}>
