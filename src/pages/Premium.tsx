@@ -27,12 +27,12 @@ interface UpiSettings {
 
 const FEATURES = [
   { icon: Zap,         title: 'Zero Ads',                desc: 'No pre-rolls, banners or interruptions. Ever.' },
-  { icon: Orbit,       title: 'Spatial 3D Audio',        desc: 'Cinema-grade surround that puts you inside the song.' },
+  { icon: Orbit,       title: 'Spatial 3D Audio',        desc: 'Cinema-grade surround that orbits the song around your head — only on Universflow.' },
+  { icon: Waves,       title: 'Adaptive Bass Engine',    desc: 'A reactive low-end that thickens drops and softens vocals in real time. Nothing else does this.' },
   { icon: Radio,       title: 'Endless Personal Radio',  desc: 'Infinite stations that learn every track you love.' },
-  { icon: Sliders,     title: '8-Band Equalizer',        desc: 'Studio-grade tuning with crafted presets.' },
-  { icon: Waves,       title: 'Adaptive Bass Engine',    desc: 'Dynamic low-end that reacts to every beat.' },
+  { icon: Sliders,     title: '8-Band Studio Equalizer', desc: 'Studio-grade tuning with crafted presets — works on every stream.' },
+  { icon: Users,       title: 'Play With Mate',          desc: 'Premium-only sync rooms — listen together in real time with friends.' },
   { icon: Download,    title: 'Unlimited Downloads',     desc: 'Save anything. Listen offline. Anywhere.' },
-  { icon: Users,       title: 'Listen Together',         desc: 'Sync rooms with friends in real time.' },
   { icon: Music2,      title: 'AI Playlist Generator',   desc: 'Mood-matched playlists, made instantly.' },
   { icon: InfinityIcon, title: 'Crossfade & Gapless',     desc: 'Seamless transitions, end to end.' },
   { icon: Sparkles,    title: 'Premium-Only Tracks',     desc: 'Early drops and exclusive releases.' },
@@ -260,7 +260,7 @@ const PremiumPage = memo(function PremiumPage() {
                 onSelect={() => { haptics.light(); setSelectedPlan('monthly'); }}
                 title="Monthly"
                 price={monthly}
-                perMonth="30 days · cancel anytime"
+                perMonth="30 days of premium"
                 tagline="Try it for a month"
               />
 

@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { usePremium } from '@/hooks/usePremium';
 import PremiumLockOverlay from './PremiumLockOverlay';
 import {
+  connectAudioElement,
   setBands as engineSetBands,
   setReverb as engineSetReverb,
   setSpatial as engineSetSpatial,
@@ -90,11 +91,20 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const [spatialAudio, setSpatialAudio] = useState(saved?.spatialAudio ?? false);
   const [activePreset, setActivePreset] = useState<string>(saved?.activePreset ?? 'flat');
 
+  // Ensure the engine is wired the moment the modal opens / song changes
+  useEffect(() => {
+    if (audioElement) {
+      engineResume();
+      connectAudioElement(audioElement);
+    }
+  }, [audioElement, currentSong?.id]);
+
   // Push EQ band changes to the engine (smoothed, never rebuilds graph)
   useEffect(() => {
     engineResume();
+    if (audioElement) connectAudioElement(audioElement);
     engineSetBands(bands.map(b => b.gain), bassBoost);
-  }, [bands, bassBoost]);
+  }, [bands, bassBoost, audioElement]);
 
   useEffect(() => {
     engineSetReverb(reverb);

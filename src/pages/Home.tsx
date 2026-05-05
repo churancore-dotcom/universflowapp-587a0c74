@@ -9,10 +9,9 @@ import { useDownloads } from '@/contexts/DownloadContext';
 import SongCard from '@/components/SongCard';
 
 import AllSongsSection from '@/components/AllSongsSection';
-import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 
 import GlobalTopTracksSection from '@/components/GlobalTopTracksSection';
-import MadeForYouSection from '@/components/MadeForYouSection';
+import FollowedArtistsFeed from '@/components/FollowedArtistsFeed';
 import SleepTimerModal from '@/components/SleepTimerModal';
 import QueueDrawer from '@/components/QueueDrawer';
 import BottomNav from '@/components/BottomNav';
@@ -358,14 +357,11 @@ const Home = () => {
               {/* Online-only discovery sections — hidden when offline */}
               {!isOffline && (
                 <>
-                  {/* Featured / Your Artists */}
-                  <FeaturedArtistsSection />
+                  {/* Newest tracks from artists the user follows */}
+                  <FollowedArtistsFeed />
 
                   {/* Global Top Tracks */}
                   <GlobalTopTracksSection />
-
-                  {/* Made For You — personalized from artists the user follows */}
-                  <MadeForYouSection />
                 </>
               )}
 

@@ -109,15 +109,11 @@ const configureAudioElementSource = (audio: HTMLAudioElement, sourceUrl: string)
   audio.src = sourceUrl;
 };
 
-// Hosts that already deliver proper CORS headers — safe to play & EQ-process directly
+// Hosts that already deliver proper CORS headers — safe to play & EQ-process directly.
+// Keep this list MINIMAL: anything not here gets proxied through our edge function
+// so the EQ / Web Audio graph can process it without tainting the audio.
 const DIRECT_PLAYABLE_HOST_SNIPPETS = [
   'supabase.co',
-  'private.coffee',
-  'piped.video',
-  'piped.privacydev.net',
-  'piped.kavin.rocks',
-  'piped.adminforge.de',
-  'tokhmi.xyz',
 ];
 
 const shouldProxyStreamUrl = (sourceUrl: string) => {
