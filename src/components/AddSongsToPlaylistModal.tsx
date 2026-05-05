@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Music, Check, Loader2, Plus, Radio } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { Song } from '@/contexts/PlayerContext';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
