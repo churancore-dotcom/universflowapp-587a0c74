@@ -47,14 +47,16 @@ const Search = () => {
     let cancelled = false;
     const timer = setTimeout(async () => {
       setSearching(true);
-
-      const indexedResponse = await Promise.resolve(searchIndexedTracks(trimmedQuery, 50));
-
-      if (cancelled) return;
-
-      setIndexedResults(indexedResponse);
-      setSearching(false);
-      setSearchHistory(getSongHistory().filter(entry => !isCatalogSongId(entry.id)));
+      try {
+        const indexedResponse = await searchIndexedTracks(trimmedQuery, 50);
+        if (cancelled) return;
+        setIndexedResults(indexedResponse);
+        setSearchHistory(getSongHistory().filter(entry => !isCatalogSongId(entry.id)));
+      } catch {
+        if (!cancelled) setIndexedResults([]);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
     }, 300);
 
     return () => {
