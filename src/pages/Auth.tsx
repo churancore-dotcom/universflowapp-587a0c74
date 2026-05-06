@@ -314,6 +314,8 @@ const Auth = () => {
             </p>
           </motion.form>
         </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Footer */}
         <motion.div
