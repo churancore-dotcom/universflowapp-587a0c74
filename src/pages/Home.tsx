@@ -12,6 +12,7 @@ import AllSongsSection from '@/components/AllSongsSection';
 import GlobalTopTracksSection from '@/components/GlobalTopTracksSection';
 import FollowedArtistSongsSection from '@/components/FollowedArtistSongsSection';
 import QuickPicksGrid from '@/components/QuickPicksGrid';
+import ArtistsRail from '@/components/home/ArtistsRail';
 import SleepTimerModal from '@/components/SleepTimerModal';
 import QueueDrawer from '@/components/QueueDrawer';
 import BottomNav from '@/components/BottomNav';
@@ -287,17 +288,16 @@ const Home = () => {
           ) : isOffline && songs.length === 0 ? (
             <EmptyState />
           ) : (
-            <div className="space-y-6">
-              {/* Online-only discovery sections — hidden when offline */}
+            <div className="space-y-7">
               {!isOffline && (
                 <>
+                  <ArtistsRail />
                   <QuickPicksGrid />
                   <FollowedArtistSongsSection songs={allSongs} />
                   <GlobalTopTracksSection />
                 </>
               )}
 
-              {/* Saved songs only when offline — uploaded catalog is hidden from online Home */}
               {isOffline && allSongs.length > 0 && (
                 <AllSongsSection songs={allSongs} />
               )}
