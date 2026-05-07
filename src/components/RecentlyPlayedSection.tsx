@@ -90,7 +90,7 @@ function RecentlyPlayedSectionComponent({ compact = false }: RecentlyPlayedSecti
         `)
         .eq('user_id', user.id)
         .order('played_at', { ascending: false })
-        .limit(10);
+        .limit(100);
 
       if (data) {
         const seen = new Set<string>();
@@ -98,7 +98,7 @@ function RecentlyPlayedSectionComponent({ compact = false }: RecentlyPlayedSecti
           if (!item.songs || seen.has(item.songs.id)) return false;
           seen.add(item.songs.id);
           return true;
-        }).slice(0, 5);
+        });
 
         setRecentSongs(unique.map((item: any) => {
           const s = item.songs;
@@ -137,7 +137,7 @@ function RecentlyPlayedSectionComponent({ compact = false }: RecentlyPlayedSecti
 
   if (loading || recentSongs.length === 0) return null;
 
-  const displaySongs = compact ? recentSongs.slice(0, 3) : recentSongs;
+  const displaySongs = compact ? recentSongs.slice(0, 5) : recentSongs;
 
   return (
     <section className={compact ? 'mb-0' : 'mb-8'}>
