@@ -78,16 +78,13 @@ const GlobalTopTracksSection = () => {
 
   if (loading) {
     return (
-      <section className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <Radio className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-bold text-foreground">{regionLabel}</h2>
-        </div>
-        <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1">
+      <section className="space-y-2">
+        <h2 className="text-[20px] font-extrabold tracking-tight px-1">{regionLabel}</h2>
+        <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1 -mx-3 px-3">
           {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="w-40 flex-shrink-0 rounded-3xl border border-border/50 bg-card/60 p-3 animate-pulse">
-              <div className="mb-3 aspect-square rounded-2xl bg-muted/60" />
-              <div className="h-3 rounded bg-muted/60 mb-2" />
+            <div key={index} className="w-36 flex-shrink-0 animate-pulse">
+              <div className="mb-2 aspect-square rounded-md bg-muted/60" />
+              <div className="h-3 rounded bg-muted/60 mb-1.5" />
               <div className="h-3 w-2/3 rounded bg-muted/40" />
             </div>
           ))}
@@ -99,16 +96,11 @@ const GlobalTopTracksSection = () => {
   if (tracks.length === 0) return null;
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <Radio className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-bold text-foreground">{regionLabel}</h2>
-        </div>
-      </div>
+    <section className="space-y-2">
+      <h2 className="text-[20px] font-extrabold tracking-tight px-1">{regionLabel}</h2>
 
-      <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1">
-        {tracks.map((track, index) => {
+      <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1 -mx-3 px-3 snap-x">
+        {tracks.map((track) => {
           const isActive = currentSong?.id === track.id;
           const isResolving = resolvingId === track.id;
 
@@ -117,9 +109,12 @@ const GlobalTopTracksSection = () => {
               key={track.id}
               type="button"
               onClick={() => !isResolving && handlePlay(track)}
-              className="w-40 flex-shrink-0 rounded-3xl border border-border/50 bg-card/70 p-3 text-left transition-transform active:scale-[0.98]"
+              className="group w-36 flex-shrink-0 snap-start text-left active:scale-[0.97] transition-transform"
             >
-              <div className="relative mb-3 aspect-square overflow-hidden rounded-2xl bg-muted/50">
+              <div
+                className="relative mb-2 aspect-square overflow-hidden rounded-md bg-muted/50"
+                style={{ boxShadow: '0 6px 18px rgba(0,0,0,0.45)' }}
+              >
                 {track.cover_url ? (
                   <img
                     src={track.cover_url}
@@ -135,21 +130,23 @@ const GlobalTopTracksSection = () => {
                   </div>
                 )}
 
-                {(isResolving || (isActive && isPlaying)) && (
-                  <div className="absolute bottom-2 right-2 rounded-full border border-border/60 bg-background/85 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                    {isResolving ? '...' : '▶'}
+                {(isResolving || isActive) && (
+                  <div className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-primary flex items-center justify-center shadow-xl">
+                    {isResolving ? (
+                      <Loader2 className="w-4 h-4 text-primary-foreground animate-spin" />
+                    ) : isPlaying ? (
+                      <span className="text-primary-foreground text-[11px] font-bold">II</span>
+                    ) : (
+                      <span className="text-primary-foreground text-[12px] font-bold ml-[1px]">▶</span>
+                    )}
                   </div>
                 )}
               </div>
 
-              <p className={`truncate text-[13px] font-semibold ${isActive ? 'text-primary' : 'text-foreground'}`}>
+              <p className={`truncate text-[14px] font-bold leading-tight ${isActive ? 'text-primary' : 'text-foreground'}`}>
                 {track.title}
               </p>
-              <p className="mt-1 truncate text-[11px] text-muted-foreground">{track.artist}</p>
-              <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground">
-                {isResolving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Radio className="w-3 h-3" />}
-                <span>{isResolving ? 'Loading…' : 'Tap to stream'}</span>
-              </div>
+              <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{track.artist}</p>
             </button>
           );
         })}
