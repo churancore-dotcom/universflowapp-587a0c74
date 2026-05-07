@@ -132,6 +132,11 @@ export const useLike = (songId: string, song?: Song | null) => {
         saveStreamLikes(streamLikes);
       }
 
+      // Bust both the persisted localStorage cache and the React Query cache
+      // so Library reflects the change instantly (no zombie liked songs).
+      try { localStorage.removeItem(`${LIBRARY_CACHE_KEY}:${user.id}`); } catch { /* ignore */ }
+      queryClient.invalidateQueries({ queryKey: ['library', user.id] });
+
       toast.success(newLiked ? 'Added to favorites ❤️' : 'Removed from favorites');
     } catch (error) {
       console.error('Error toggling like:', error);
@@ -141,7 +146,7 @@ export const useLike = (songId: string, song?: Song | null) => {
     } finally {
       if (mountedRef.current) setIsLoading(false);
     }
-  }, [user, songId, song, isLiked, isLoading]);
+  }, [user, songId, song, isLiked, isLoading, queryClient]);
 
   return { isLiked, isLoading, toggleLike };
 };
