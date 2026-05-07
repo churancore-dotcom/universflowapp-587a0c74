@@ -212,8 +212,9 @@ function persistTopTracksCache() {
 }
 
 export async function getTopIndexedTracks(limit = 30, country?: string): Promise<IndexedTrack[]> {
-  const cc = (country ?? detectCountry() ?? '').toUpperCase().slice(0, 2);
-  const key = `${limit}::${cc}`;
+  // Pass empty country by default → edge function detects from request IP (respects VPNs).
+  const cc = (country ?? '').toUpperCase().slice(0, 2);
+  const key = `${limit}::${cc || 'auto'}`;
   const cached = topTracksMemCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.data;
