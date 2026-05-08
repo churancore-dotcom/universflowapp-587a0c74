@@ -24,10 +24,7 @@ const Profile = () => {
   const [showRedeemCode, setShowRedeemCode] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showReviewsList, setShowReviewsList] = useState(false);
-  const [profileData, setProfileData] = useState<ProfileData>({ username: null, username_changed: false });
-  const [isEditingUsername, setIsEditingUsername] = useState(false);
-  const [newUsername, setNewUsername] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  const [profileData, setProfileData] = useState<ProfileData>({ username: null, country_code: null });
 
   useEffect(() => {
     if (user) {
@@ -40,16 +37,15 @@ const Profile = () => {
     if (!user) return;
     const { data } = await supabase
       .from('profiles')
-      .select('username, username_changed')
+      .select('username, country_code')
       .eq('user_id', user.id)
       .single();
-    
+
     if (data) {
       setProfileData({
         username: data.username,
-        username_changed: (data as any).username_changed || false,
+        country_code: (data as any).country_code || null,
       });
-      setNewUsername(data.username || '');
     }
   };
 
@@ -67,58 +63,12 @@ const Profile = () => {
     });
   };
 
-  const handleSaveUsername = async () => {
-    if (!user || !newUsername.trim()) return;
-
-    if (newUsername.trim().length < 3) {
-      toast.error('Username must be at least 3 characters');
-      return;
-    }
-
-    if (newUsername.trim().length > 20) {
-      toast.error('Username must be less than 20 characters');
-      return;
-    }
-
-    if (profileData.username_changed) {
-      toast.error('You can only change your username once');
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Set your username to "${newUsername.trim()}"?\n\nThis can only be done once and cannot be changed later.`
-    );
-    if (!confirmed) return;
-
-    setIsSaving(true);
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          username: newUsername.trim(),
-          username_changed: true,
-        })
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      setProfileData(prev => ({ ...prev, username: newUsername.trim(), username_changed: true }));
-      setIsEditingUsername(false);
-      toast.success('Username set! This cannot be changed again.');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update username');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleLogout = async () => {
     await signOut();
     navigate('/auth');
   };
 
   const displayName = profileData.username || user?.email?.split('@')[0] || 'User';
-  const canChangeUsername = !profileData.username_changed;
 
   return (
     <TabTransition>
