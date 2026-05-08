@@ -17,8 +17,8 @@ import EqualizerModal from '@/components/EqualizerModal';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
 import {
-  Music, Lock, ListMusic, Sliders, Search, Play, Pause, Sparkles, Flame,
-  Headphones, Radio, Heart, Compass, ArrowUpRight, Loader2,
+  Music, Lock, ListMusic, Sliders, Search, Play, Pause, Sparkles,
+  ArrowUpRight, Loader2,
 } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import appLogo from '@/assets/app-logo.png';
@@ -77,15 +77,6 @@ const colorFor = (key: string) => {
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
   return PALETTE[h % PALETTE.length];
 };
-
-const MOODS: Array<{ label: string; q: string; icon: React.ComponentType<any> }> = [
-  { label: 'Chill', q: 'chill', icon: Headphones },
-  { label: 'Workout', q: 'workout', icon: Flame },
-  { label: 'Focus', q: 'focus', icon: Compass },
-  { label: 'Romance', q: 'romance', icon: Heart },
-  { label: 'Party', q: 'party', icon: Sparkles },
-  { label: 'Lo-fi', q: 'lofi', icon: Radio },
-];
 
 const Home = () => {
   const navigate = useNavigate();
@@ -162,16 +153,12 @@ const Home = () => {
     return (meta.username || meta.full_name || (user?.email ? String(user.email).split('@')[0] : '')) || '';
   }, [user]);
 
-  const greeting = useMemo(() => {
-    const h = new Date().getHours();
-    if (h < 5) return 'Late night';
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    if (h < 21) return 'Good evening';
-    return 'Good night';
+  const today = useMemo(() => {
+    const d = new Date();
+    return d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
   }, []);
 
-  // User country (from profile, fallback to detected)
+  // User country
   const { data: userCountry = '' } = useQuery({
     queryKey: ['profile', 'country', user?.id || 'anon'],
     queryFn: async () => {
@@ -186,7 +173,7 @@ const Home = () => {
     staleTime: 60 * 60 * 1000,
   });
 
-  // Real viral trending — country scoped (3x10 = 30)
+  // Real viral trending — country scoped
   const {
     data: trending = [],
     isLoading: trendingLoading,
@@ -229,20 +216,30 @@ const Home = () => {
     }
   };
 
-  // Prefetch top 6 stream resolutions
+  // Prefetch top 8 stream resolutions
   useEffect(() => {
-    trending.slice(0, 6).forEach((t) => prefetchIndexedTrack(t.artist, t.title));
+    trending.slice(0, 8).forEach((t) => prefetchIndexedTrack(t.artist, t.title));
   }, [trending]);
 
-  // Spotlight = first new release with cover
-  const spotlight = useMemo(
-    () => songs.find((s) => s.cover_url) || songs[0] || null,
-    [songs]
-  );
-  // Fresh drops
-  const freshDrops = useMemo(() => songs.slice(0, 12), [songs]);
+  // Hero pick = #1 trending if available, else first catalog song with cover
+  const heroTrack: { type: 'trend'; t: IndexedTrack } | { type: 'song'; s: Song } | null = useMemo(() => {
+    if (trending && trending[0]) return { type: 'trend', t: trending[0] };
+    const s = songs.find((x) => x.cover_url) || songs[0];
+    return s ? { type: 'song', s } : null;
+  }, [trending, songs]);
+
+  // Spotify-style shortcut grid: blend liked/recent catalog songs
+  const shortcuts = useMemo(() => songs.filter((s) => s.cover_url).slice(0, 6), [songs]);
+
+  // Top 10 trending for vertical chart
+  const top10 = useMemo(() => trending.slice(0, 10), [trending]);
+  // Trending tail (11-30) shown as scroll cards
+  const trendingTail = useMemo(() => trending.slice(10, 30), [trending]);
+
   // Mixes
   const mixes = useMemo(() => buildMixes(songs), [songs]);
+  // Fresh drops
+  const freshDrops = useMemo(() => songs.slice(0, 12), [songs]);
 
   return (
     <TabTransition>
@@ -267,10 +264,10 @@ const Home = () => {
               </div>
               <div className="min-w-0 text-left">
                 <p className="text-[10px] uppercase tracking-[0.22em] text-white/50 font-bold truncate leading-none">
-                  {greeting}
+                  {today}
                 </p>
                 <p className="text-[15px] font-extrabold tracking-tight leading-tight truncate mt-1">
-                  {userName || 'Welcome back'}
+                  {userName ? `Hey, ${userName}` : 'Welcome back'}
                 </p>
               </div>
             </button>
@@ -304,99 +301,158 @@ const Home = () => {
             <div className="px-3 pt-4"><HomeSkeleton /></div>
           ) : (
             <>
-              {/* ───── HERO: Editorial spotlight ───── */}
-              <SpotlightHero
-                song={spotlight}
-                isCurrent={!!spotlight && currentSong?.id === spotlight.id}
-                isPlaying={isPlaying}
+              {/* ───── EDITORIAL HERO ───── */}
+              <EditorialHero
+                hero={heroTrack}
+                isPlayingHero={
+                  heroTrack?.type === 'trend'
+                    ? currentSong?.id === heroTrack.t.id && isPlaying
+                    : heroTrack?.type === 'song'
+                      ? currentSong?.id === heroTrack.s.id && isPlaying
+                      : false
+                }
                 onPlay={() => {
-                  if (!spotlight) { navigate('/search'); return; }
-                  if (currentSong?.id === spotlight.id) { togglePlay(); return; }
-                  playSong(spotlight, undefined, songs);
+                  if (!heroTrack) { navigate('/search'); return; }
+                  if (heroTrack.type === 'trend') {
+                    handlePlayTrending(heroTrack.t, trending);
+                  } else {
+                    if (currentSong?.id === heroTrack.s.id) togglePlay();
+                    else playSong(heroTrack.s, undefined, songs);
+                  }
                 }}
-                onOpen={() => {
-                  if (!spotlight) return;
-                  if (currentSong?.id !== spotlight.id) playSong(spotlight, undefined, songs);
-                  setExpanded(true);
-                }}
-                onSearch={() => navigate('/search')}
               />
 
-              {/* ───── Now playing dock (only if something is playing) ───── */}
-              {currentSong && (
-                <div className="px-3 pt-4">
-                  <NowPlayingDock
-                    song={currentSong}
-                    isPlaying={isPlaying}
-                    onToggle={() => { triggerHaptic('selection'); togglePlay(); }}
-                    onExpand={() => { triggerHaptic('selection'); setExpanded(true); }}
-                  />
-                </div>
+              {/* ───── QUICK SHORTCUTS (2-col grid) ───── */}
+              {shortcuts.length > 0 && (
+                <section className="px-3 pt-5">
+                  <div className="grid grid-cols-2 gap-2">
+                    {shortcuts.map((s) => {
+                      const active = currentSong?.id === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => {
+                            triggerHaptic('selection');
+                            if (active) togglePlay();
+                            else playSong(s, undefined, songs);
+                          }}
+                          className="flex items-center gap-2.5 rounded-xl bg-white/[0.06] active:bg-white/[0.1] overflow-hidden h-14 pr-2.5"
+                        >
+                          <div className="w-14 h-14 flex-shrink-0 bg-white/5">
+                            {s.cover_url ? (
+                              <img src={s.cover_url} alt="" className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center"><Music className="w-5 h-5 text-white/30" /></div>
+                            )}
+                          </div>
+                          <p className={`text-[12.5px] font-bold leading-tight line-clamp-2 text-left flex-1 min-w-0 ${active ? 'text-rose-400' : 'text-white'}`}>
+                            {s.title}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
               )}
 
-              {/* ───── Trending Now — country-scoped viral, 3 rows × 10 ───── */}
-              <section className="pt-6">
+              {/* ───── TOP 10 — Vertical chart with massive numbers ───── */}
+              <section className="pt-7">
                 <div className="px-3">
                   <SectionTitle
-                    eyebrow={userCountry ? `${flagFor(userCountry)} ${nameFor(userCountry)}` : 'Worldwide'}
-                    title="Trending now"
+                    eyebrow={userCountry ? `${flagFor(userCountry)} Top in ${nameFor(userCountry)}` : 'Worldwide'}
+                    title="Top 10 today"
                   />
                 </div>
-                <div
-                  className="mt-3 overflow-x-auto hide-scrollbar pb-1"
-                  style={{ WebkitOverflowScrolling: 'touch' }}
-                >
-                  <div className="grid grid-rows-3 grid-flow-col auto-cols-[78%] gap-x-3 gap-y-1.5 px-3">
-                    {trendingLoading && trending.length === 0
-                      ? Array.from({ length: 30 }).map((_, i) => (
-                          <div key={`sk-${i}`} className="w-full flex items-center gap-3 px-2 py-2 rounded-xl">
-                            <span className="w-6 h-4 rounded bg-white/[0.06] animate-pulse flex-shrink-0" />
-                            <div className="w-11 h-11 rounded-md bg-white/[0.06] animate-pulse flex-shrink-0" />
-                            <div className="min-w-0 flex-1 space-y-1.5">
-                              <div className="h-3 w-3/4 rounded bg-white/[0.06] animate-pulse" />
-                              <div className="h-2.5 w-1/2 rounded bg-white/[0.05] animate-pulse" />
-                            </div>
-                            <div className="w-8 h-8 rounded-full bg-white/[0.06] animate-pulse flex-shrink-0" />
+                <div className="mt-3 px-3 space-y-1">
+                  {trendingLoading && top10.length === 0
+                    ? Array.from({ length: 10 }).map((_, i) => (
+                        <div key={`sk-${i}`} className="flex items-center gap-3 py-2">
+                          <div className="w-10 h-8 rounded bg-white/[0.05] animate-pulse" />
+                          <div className="w-14 h-14 rounded-lg bg-white/[0.06] animate-pulse" />
+                          <div className="flex-1 space-y-1.5">
+                            <div className="h-3 w-3/4 rounded bg-white/[0.06] animate-pulse" />
+                            <div className="h-2.5 w-1/2 rounded bg-white/[0.05] animate-pulse" />
                           </div>
-                        ))
-                      : trending.map((s, i) => {
-                          const active = currentSong?.id === s.id;
-                          const isResolving = resolvingId === s.id;
-                          return (
-                            <button
-                              key={s.id}
-                              onClick={() => handlePlayTrending(s, trending)}
-                              className="w-full flex items-center gap-3 px-2 py-2 rounded-xl active:bg-white/[0.05]"
-                            >
-                              <span className="w-6 text-center text-[16px] font-black text-white/40 tabular-nums flex-shrink-0">
-                                {i + 1}
-                              </span>
-                              <div className="w-11 h-11 rounded-md overflow-hidden bg-white/5 flex-shrink-0">
-                                {s.cover_url ? (
-                                  <img src={s.cover_url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center"><Music className="w-5 h-5 text-white/30" /></div>
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1 text-left">
-                                <p className={`truncate text-[13px] font-bold leading-tight ${active ? 'text-rose-400' : 'text-white'}`}>{s.title}</p>
-                                <p className="truncate text-[11px] text-white/50 mt-0.5">{s.artist}</p>
-                              </div>
-                              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
-                                {isResolving
-                                  ? <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
-                                  : active && isPlaying
-                                    ? <Pause className="w-3.5 h-3.5 text-white" fill="currentColor" />
-                                    : <Play className="w-3.5 h-3.5 text-white ml-0.5" fill="currentColor" />}
-                              </div>
-                            </button>
-                          );
-                        })}
-                  </div>
+                        </div>
+                      ))
+                    : top10.map((s, i) => {
+                        const active = currentSong?.id === s.id;
+                        const isResolving = resolvingId === s.id;
+                        return (
+                          <button
+                            key={s.id}
+                            onClick={() => handlePlayTrending(s, trending)}
+                            className="w-full flex items-center gap-3 py-2 rounded-xl active:bg-white/[0.05] text-left"
+                          >
+                            <span className={`w-10 text-center font-black tabular-nums leading-none flex-shrink-0 ${
+                              i < 3 ? 'text-rose-500 text-[34px]' : 'text-white/25 text-[28px]'
+                            }`}>
+                              {i + 1}
+                            </span>
+                            <div className="w-14 h-14 rounded-lg overflow-hidden bg-white/5 flex-shrink-0">
+                              {s.cover_url ? (
+                                <img src={s.cover_url} alt="" className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center"><Music className="w-5 h-5 text-white/30" /></div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className={`truncate text-[14px] font-bold leading-tight ${active ? 'text-rose-400' : 'text-white'}`}>{s.title}</p>
+                              <p className="truncate text-[12px] text-white/50 mt-0.5">{s.artist}</p>
+                            </div>
+                            <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                              {isResolving
+                                ? <Loader2 className="w-4 h-4 text-white animate-spin" />
+                                : active && isPlaying
+                                  ? <Pause className="w-4 h-4 text-white" fill="currentColor" />
+                                  : <Play className="w-4 h-4 text-white ml-0.5" fill="currentColor" />}
+                            </div>
+                          </button>
+                        );
+                      })}
                 </div>
               </section>
 
-              {/* ───── Top Artists (moved below Trending) ───── */}
+              {/* ───── More trending (scroll cards) ───── */}
+              {trendingTail.length > 0 && (
+                <section className="pt-7">
+                  <div className="px-3">
+                    <SectionTitle eyebrow="Climbing fast" title="More to discover" />
+                  </div>
+                  <div
+                    className="flex gap-3 overflow-x-auto hide-scrollbar px-3 pb-1 mt-3 snap-x"
+                    style={{ WebkitOverflowScrolling: 'touch' }}
+                  >
+                    {trendingTail.map((t) => {
+                      const active = currentSong?.id === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => handlePlayTrending(t, trending)}
+                          className="flex-shrink-0 w-[140px] snap-start text-left active:scale-[0.97] transition-transform"
+                        >
+                          <div className="relative aspect-square mb-2 overflow-hidden rounded-xl bg-white/5" style={{ boxShadow: '0 8px 22px rgba(0,0,0,0.55)' }}>
+                            {t.cover_url ? (
+                              <img src={t.cover_url} alt={t.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center"><Music className="w-8 h-8 text-white/30" /></div>
+                            )}
+                            <div className="absolute bottom-1.5 right-1.5 w-9 h-9 rounded-full bg-rose-500 shadow-lg flex items-center justify-center">
+                              {resolvingId === t.id
+                                ? <Loader2 className="w-4 h-4 text-white animate-spin" />
+                                : <Play className="w-4 h-4 text-white ml-0.5" fill="currentColor" />}
+                            </div>
+                          </div>
+                          <p className={`truncate text-[13px] font-bold leading-tight ${active ? 'text-rose-400' : 'text-white'}`}>{t.title}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-white/50">{t.artist}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* ───── Top Artists ───── */}
               <div className="px-3 pt-7">
                 <ArtistsRail />
               </div>
@@ -423,8 +479,6 @@ const Home = () => {
                   </div>
                 </section>
               )}
-
-              {/* (Artists rail moved above, below Trending) */}
 
               {/* ───── Fresh Drops ───── */}
               {freshDrops.length > 0 && (
@@ -504,136 +558,87 @@ const SectionTitle = memo(({ eyebrow, title, onSeeAll }: {
 ));
 SectionTitle.displayName = 'SectionTitle';
 
-/* ───────────── Spotlight Hero (editorial) ───────────── */
-const SpotlightHero = memo(({ song, isCurrent, isPlaying, onPlay, onOpen, onSearch }: {
-  song: Song | null;
-  isCurrent: boolean;
-  isPlaying: boolean;
-  onPlay: () => void;
-  onOpen: () => void;
-  onSearch: () => void;
-}) => {
-  if (!song) return null;
+/* ───────────── Editorial Hero (full-bleed magazine card) ───────────── */
+type HeroPick =
+  | { type: 'trend'; t: IndexedTrack }
+  | { type: 'song'; s: Song }
+  | null;
 
-  const [a, b] = colorFor(song.id || song.title);
+const EditorialHero = memo(({ hero, isPlayingHero, onPlay }: {
+  hero: HeroPick;
+  isPlayingHero: boolean;
+  onPlay: () => void;
+}) => {
+  if (!hero) return null;
+  const title = hero.type === 'trend' ? hero.t.title : hero.s.title;
+  const artist = hero.type === 'trend' ? hero.t.artist : hero.s.artist;
+  const cover = hero.type === 'trend' ? hero.t.cover_url : hero.s.cover_url;
+  const id = hero.type === 'trend' ? hero.t.id : hero.s.id;
+  const [a, b] = colorFor(id || title);
 
   return (
-    <div className="relative w-full px-4 pt-5 pb-2">
+    <div className="relative w-full px-3 pt-4">
       <div
-        className="relative rounded-3xl overflow-hidden"
+        className="relative rounded-3xl overflow-hidden aspect-[4/5]"
         style={{
-          background: `linear-gradient(160deg, ${a} 0%, ${b} 75%, #000 100%)`,
-          boxShadow: '0 20px 50px -20px rgba(0,0,0,0.8)',
+          background: `linear-gradient(180deg, ${a} 0%, ${b} 60%, #000 100%)`,
+          boxShadow: '0 24px 60px -20px rgba(0,0,0,0.85)',
         }}
       >
-        {/* Backdrop blur of cover */}
-        {song.cover_url && (
+        {cover && (
           <img
-            src={song.cover_url}
+            src={cover}
             alt=""
             aria-hidden
-            className="absolute inset-0 w-full h-full object-cover opacity-30"
-            style={{ filter: 'blur(40px) saturate(1.4)' }}
+            className="absolute inset-0 w-full h-full object-cover"
+            referrerPolicy="no-referrer"
           />
         )}
-        <div className="relative p-5 pt-5">
-          <div className="flex items-center justify-between mb-4">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/15">
-              <Sparkles className="w-3 h-3 text-white" />
-              <span className="text-[10px] uppercase tracking-[0.22em] font-black text-white">
-                Editor's pick
-              </span>
+        {/* Gradient scrim */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.05) 35%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0.92) 100%)',
+          }}
+        />
+
+        {/* Eyebrow */}
+        <div className="absolute top-4 left-4">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/15">
+            <Sparkles className="w-3 h-3 text-white" />
+            <span className="text-[10px] uppercase tracking-[0.22em] font-black text-white">
+              Today's pick
             </span>
-          </div>
+          </span>
+        </div>
 
-          {/* Big tilted artwork */}
-          <div className="flex justify-center mb-5">
-            <button
-              type="button"
-              onClick={onOpen}
-              className="relative active:scale-[0.97] transition-transform"
+        {/* Content */}
+        <div className="absolute inset-x-0 bottom-0 p-5">
+          <h2 className="text-white text-[30px] font-black leading-[1.02] tracking-tight line-clamp-3">
+            {title}
+          </h2>
+          <p className="text-white/80 text-[14px] font-semibold mt-1.5 truncate">
+            {artist}
+          </p>
+
+          <div className="mt-4 flex items-center gap-2.5">
+            <motion.button
+              whileTap={{ scale: 0.92 }}
+              onClick={() => { triggerHaptic('selection'); onPlay(); }}
+              className="h-12 px-6 rounded-full bg-white text-black font-extrabold text-[14px] flex items-center gap-2 shadow-2xl"
             >
-              <div
-                className="w-[200px] h-[200px] rounded-2xl overflow-hidden ring-1 ring-white/20"
-                style={{
-                  boxShadow: '0 25px 50px -10px rgba(0,0,0,0.8)',
-                  transform: 'rotate(-3deg)',
-                }}
-              >
-                {song.cover_url ? (
-                  <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-white/10 flex items-center justify-center">
-                    <Music className="w-16 h-16 text-white/40" />
-                  </div>
-                )}
-              </div>
-            </button>
-          </div>
-
-          <div className="text-left">
-            <h2 className="text-white text-[26px] font-black leading-[1.05] tracking-tight line-clamp-2">
-              {song.title}
-            </h2>
-            <p className="text-white/75 text-[14px] font-semibold mt-1 truncate">
-              {song.artist}
-            </p>
-
-            <div className="mt-4 flex items-center gap-2.5">
-              <motion.button
-                whileTap={{ scale: 0.92 }}
-                onClick={() => { triggerHaptic('selection'); onPlay(); }}
-                className="h-12 px-5 rounded-full bg-white text-black font-extrabold text-[14px] flex items-center gap-2 shadow-xl"
-              >
-                {isCurrent && isPlaying
-                  ? <><Pause className="w-4 h-4" fill="currentColor" /> Pause</>
-                  : <><Play className="w-4 h-4 ml-0.5" fill="currentColor" /> Play now</>}
-              </motion.button>
-              <button
-                onClick={() => { triggerHaptic('selection'); onOpen(); }}
-                className="h-12 w-12 rounded-full border border-white/30 bg-white/5 flex items-center justify-center active:scale-95 transition-transform"
-              >
-                <ArrowUpRight className="w-5 h-5 text-white" />
-              </button>
-            </div>
+              {isPlayingHero
+                ? <><Pause className="w-4 h-4" fill="currentColor" /> Pause</>
+                : <><Play className="w-4 h-4 ml-0.5" fill="currentColor" /> Play</>}
+            </motion.button>
           </div>
         </div>
       </div>
     </div>
   );
 });
-SpotlightHero.displayName = 'SpotlightHero';
-
-/* ───────────── Now Playing dock ───────────── */
-const NowPlayingDock = memo(({ song, isPlaying, onToggle, onExpand }: {
-  song: Song; isPlaying: boolean; onToggle: () => void; onExpand: () => void;
-}) => (
-  <div
-    className="relative rounded-2xl overflow-hidden border border-white/10 flex items-center gap-3 p-2 pr-3"
-    style={{ background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(20px)' }}
-  >
-    <button onClick={onExpand} className="w-12 h-12 rounded-lg overflow-hidden bg-white/5 flex-shrink-0 active:scale-95 transition-transform">
-      {song.cover_url
-        ? <img src={song.cover_url} alt="" className="w-full h-full object-cover" />
-        : <div className="w-full h-full flex items-center justify-center"><Music className="w-5 h-5 text-white/40" /></div>}
-    </button>
-    <button onClick={onExpand} className="flex-1 min-w-0 text-left">
-      <p className="text-[10px] uppercase tracking-[0.22em] text-rose-400 font-black">Now playing</p>
-      <p className="text-[14px] font-bold text-white truncate leading-tight mt-0.5">{song.title}</p>
-      <p className="text-[11px] text-white/55 truncate mt-0.5">{song.artist}</p>
-    </button>
-    <motion.button
-      whileTap={{ scale: 0.88 }}
-      onClick={onToggle}
-      className="w-11 h-11 rounded-full bg-white flex items-center justify-center flex-shrink-0"
-    >
-      {isPlaying
-        ? <Pause className="w-5 h-5 text-black" fill="currentColor" />
-        : <Play className="w-5 h-5 text-black ml-0.5" fill="currentColor" />}
-    </motion.button>
-  </div>
-));
-NowPlayingDock.displayName = 'NowPlayingDock';
+EditorialHero.displayName = 'EditorialHero';
 
 /* ───────────── Drop Card ───────────── */
 const DropCard = memo(({ song, active, onPlay }: {
