@@ -438,31 +438,7 @@ const SpotlightHero = memo(({ song, isCurrent, isPlaying, onPlay, onOpen, onSear
   onOpen: () => void;
   onSearch: () => void;
 }) => {
-  if (!song) {
-    return (
-      <div className="relative w-full px-4 pt-6 pb-4">
-        <div
-          className="rounded-3xl overflow-hidden p-6 min-h-[260px] flex flex-col justify-between"
-          style={{ background: 'linear-gradient(135deg, #FF2D55 0%, #7A0A2A 100%)' }}
-        >
-          <p className="text-[10px] uppercase tracking-[0.32em] text-white/85 font-black">
-            Welcome to Universflow
-          </p>
-          <div>
-            <h1 className="text-white text-[34px] font-black leading-[0.95] tracking-tight">
-              Find the song<br/>that matches your mood.
-            </h1>
-            <button
-              onClick={onSearch}
-              className="mt-5 inline-flex items-center gap-2 h-12 px-5 rounded-full bg-white text-black font-extrabold text-[14px] active:scale-95 transition-transform"
-            >
-              <Search className="w-4 h-4" /> Start searching
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!song) return null;
 
   const [a, b] = colorFor(song.id || song.title);
 
