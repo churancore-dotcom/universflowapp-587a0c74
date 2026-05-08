@@ -9,6 +9,7 @@ import { usePlayer, type Song } from '@/contexts/PlayerContext';
 import { getCollectionBySlug } from '@/lib/collections';
 import { prefetchIndexedTrack, searchIndexedTracks, type IndexedTrack } from '@/lib/musicIndexer';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Collection() {
   const { slug } = useParams();
@@ -18,16 +19,35 @@ export default function Collection() {
   const [loading, setLoading] = useState(true);
   const { playSong, currentSong, isPlaying } = usePlayer();
 
+  const load = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
+    try {
+      const res = await searchIndexedTracks(collection.query, 50);
+      setTracks(res);
+    } finally {
+      setLoading(false);
+    }
+  }, [collection.query]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setLoading(true);
-      const res = await searchIndexedTracks(collection.query, 50);
-      if (!cancelled) setTracks(res);
-      setLoading(false);
+      if (cancelled) return;
+      await load(true);
     })().catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [collection.query]);
+  }, [load]);
+
+  // Realtime: refresh collection tracks instantly when viral chart updates
+  useEffect(() => {
+    const channel = supabase
+      .channel(`collection-refresh-${slug}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'viral_chart_refreshes' }, () => {
+        load(false);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [slug, load]);
 
   useEffect(() => {
     tracks.slice(0, 8).forEach((track) => prefetchIndexedTrack(track.artist, track.title));

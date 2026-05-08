@@ -299,10 +299,6 @@ const Home = () => {
                   <ViralByCountrySection />
                   <CuratedCollections />
                   <NewForYouBanner />
-                  <ArtistsRail />
-                  <QuickPicksGrid />
-                  <FollowedArtistSongsSection songs={allSongs} />
-                  <GlobalTopTracksSection />
                 </>
               )}
 
