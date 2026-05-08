@@ -2,14 +2,27 @@ import { useEffect, useState, useCallback, memo } from 'react';
 import { motion } from 'framer-motion';
 import { Flame, Play, Pause, Loader2 } from 'lucide-react';
 import { usePlayer, type Song } from '@/contexts/PlayerContext';
-import { getTopIndexedTracks, prefetchIndexedTrack, type IndexedTrack } from '@/lib/musicIndexer';
+import { getTopIndexedTracks, prefetchIndexedTrack, invalidateTopTracksCache, type IndexedTrack } from '@/lib/musicIndexer';
 import { getGeo, flagFor } from '@/lib/geoLocation';
+import { supabase } from '@/integrations/supabase/client';
 
 function ViralByCountrySectionComponent() {
   const [geo, setGeo] = useState<{ cc: string; name: string } | null>(null);
   const [tracks, setTracks] = useState<IndexedTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const { currentSong, isPlaying, playSong, togglePlay } = usePlayer();
+
+  const load = useCallback(async (cc: string, force = false) => {
+    try {
+      if (force) invalidateTopTracksCache();
+      const res = await getTopIndexedTracks(30, cc || undefined, force ? { force: true } : undefined);
+      setTracks(res);
+    } catch {
+      setTracks([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -19,17 +32,33 @@ function ViralByCountrySectionComponent() {
       const cc = g?.country_code || '';
       const name = g?.country_name || 'Worldwide';
       setGeo({ cc, name });
-      try {
-        const res = await getTopIndexedTracks(30, cc || undefined);
-        if (!cancelled) setTracks(res);
-      } catch {
-        if (!cancelled) setTracks([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      await load(cc);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [load]);
+
+  // Realtime: refresh whenever the viral chart for our scope updates
+  useEffect(() => {
+    if (!geo) return;
+    const channel = supabase
+      .channel('viral-country-refresh')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'viral_chart_refreshes' }, (payload) => {
+        const row = (payload.new || payload.old) as any;
+        if (!row) return;
+        if (row.scope === 'global' || (row.scope === 'country' && row.country_code === geo.cc)) {
+          load(geo.cc, true);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [geo, load]);
+
+  // Auto-refresh every 5 minutes to keep viral chart current
+  useEffect(() => {
+    if (!geo) return;
+    const id = setInterval(() => load(geo.cc, true), 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [geo, load]);
 
   useEffect(() => {
     tracks.slice(0, 6).forEach((t) => prefetchIndexedTrack(t.artist, t.title));
