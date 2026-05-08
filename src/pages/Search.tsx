@@ -44,6 +44,13 @@ const Search = () => {
     if (currentSong) setSearchHistory(getSongHistory().filter(entry => !isCatalogSongId(entry.id)));
   }, [currentSong?.id]);
 
+  // Sync incoming ?q= deep links (e.g. from Home mood chips)
+  useEffect(() => {
+    const incoming = searchParams.get('q') || '';
+    if (incoming && incoming !== query) setQuery(incoming);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   useEffect(() => {
     const trimmedQuery = query.trim();
 
