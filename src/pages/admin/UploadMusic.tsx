@@ -870,7 +870,7 @@ const UploadMusic = () => {
                 type="file"
                 accept="image/*"
                 onChange={handleCoverSelect}
-                className="absolute inset-0 opacity-0 cursor-pointer"
+                className="absolute inset-0 z-0 opacity-0 cursor-pointer"
               />
               {isCompressing ? (
                 <div className="flex flex-col items-center gap-2">
@@ -882,7 +882,7 @@ const UploadMusic = () => {
                   <img src={coverPreview} alt="Cover" className="w-20 h-20 rounded-xl object-cover mx-auto" />
                   <button
                     onClick={(e) => { e.stopPropagation(); setCoverFile(null); setCoverPreview(null); setCompressionSaved(null); }}
-                    className="absolute -top-2 -right-2 p-1 bg-destructive rounded-full"
+                    className="absolute -top-2 -right-2 z-10 p-1 bg-destructive rounded-full"
                   >
                     <X className="w-3 h-3" />
                   </button>
