@@ -12,6 +12,7 @@ import AllSongsSection from '@/components/AllSongsSection';
 import GlobalTopTracksSection from '@/components/GlobalTopTracksSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 import FollowedArtistSongsSection from '@/components/FollowedArtistSongsSection';
+import CountryViralSection from '@/components/CountryViralSection';
 import SleepTimerModal from '@/components/SleepTimerModal';
 import QueueDrawer from '@/components/QueueDrawer';
 import BottomNav from '@/components/BottomNav';
@@ -364,6 +365,9 @@ const Home = () => {
                   <FeaturedArtistsSection />
 
                   <FollowedArtistSongsSection songs={allSongs} />
+
+                  {/* Real per-country viral chart (Last.fm geo.getTopTracks) */}
+                  <CountryViralSection />
 
                   {/* Global Top Tracks */}
                   <GlobalTopTracksSection />

@@ -11,7 +11,7 @@ interface AuthContextType {
   isLoading: boolean;
   isOffline: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null; isAdmin?: boolean }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, username: string, countryCode?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -142,17 +142,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [checkAdminRole, ensureUserProfile]);
 
-  const signUp = useCallback(async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string, username: string, countryCode?: string) => {
     try {
+      const trimmedUsername = username.trim();
+      if (trimmedUsername.length < 3 || trimmedUsername.length > 20) {
+        return { error: new Error('Username must be 3-20 characters') };
+      }
+      if (!/^[a-zA-Z0-9_.]+$/.test(trimmedUsername)) {
+        return { error: new Error('Username can only contain letters, numbers, dots and underscores') };
+      }
+
+      // Pre-flight uniqueness check (case-insensitive). Race-safe because the DB has a unique index too.
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .ilike('username', trimmedUsername)
+        .maybeSingle();
+      if (existing) {
+        return { error: new Error('That username is already taken') };
+      }
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: window.location.origin,
+          data: {
+            username: trimmedUsername,
+            country_code: countryCode ? countryCode.toUpperCase().slice(0, 2) : undefined,
+          },
         },
       });
 
-      if (error) return { error: new Error(getAuthError(error)) };
+      if (error) {
+        // The unique-username DB index throws this if there was a race
+        if (/duplicate key|unique constraint|profiles_username_lower_unique/i.test(error.message)) {
+          return { error: new Error('That username is already taken') };
+        }
+        return { error: new Error(getAuthError(error)) };
+      }
       return { error: null };
     } catch (error) {
       return { error: new Error(getAuthError(error)) };

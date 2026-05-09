@@ -333,3 +333,48 @@ export async function enrichArtistImages(names: string[]): Promise<Record<string
     return {};
   }
 }
+
+// Country viral chart (Last.fm geo.getTopTracks). Returns real per-country trending tracks.
+export async function getGeoTopTracks(country: string, limit = 30): Promise<IndexedTrack[]> {
+  if (!country) return [];
+  try {
+    const data = await requestIndexer<IndexedTracksResponse & { country?: string }>({
+      action: 'geo-top',
+      country,
+      limit,
+    });
+    return Array.isArray(data.results) ? data.results : [];
+  } catch {
+    return [];
+  }
+}
+
+// Mood/genre tag chart (Last.fm tag.getTopTracks). e.g. "chill", "sad", "workout".
+export async function getTagTopTracks(tag: string, limit = 30): Promise<IndexedTrack[]> {
+  if (!tag) return [];
+  try {
+    const data = await requestIndexer<IndexedTracksResponse & { tag?: string }>({
+      action: 'tag-top',
+      tag,
+      limit,
+    });
+    return Array.isArray(data.results) ? data.results : [];
+  } catch {
+    return [];
+  }
+}
+
+// Top tracks for a single artist (used for non-catalog followed artists).
+export async function getArtistTopTracksByName(artist: string, limit = 12): Promise<IndexedTrack[]> {
+  if (!artist) return [];
+  try {
+    const data = await requestIndexer<IndexedTracksResponse>({
+      action: 'artist-top',
+      artist,
+      limit,
+    });
+    return Array.isArray(data.results) ? data.results : [];
+  } catch {
+    return [];
+  }
+}

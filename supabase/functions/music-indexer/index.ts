@@ -1126,6 +1126,108 @@ serve(async (req) => {
       }
     }
 
+    if (action === 'geo-top') {
+      // Real per-country viral chart (Last.fm geo.getTopTracks)
+      const country = (typeof body.country === 'string' ? body.country.trim() : '').slice(0, 60);
+      const limit = Math.max(1, Math.min(50, typeof body.limit === 'number' ? body.limit : 30));
+      if (!country) {
+        return new Response(JSON.stringify({ success: false, error: 'country is required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      try {
+        const ck = `geo:${country.toLowerCase()}:${limit}:${Math.floor(Date.now() / (10 * 60 * 1000))}`;
+        const cached = getCached<IndexedTrack[]>(ck);
+        if (cached) {
+          return new Response(JSON.stringify({ success: true, results: cached, country }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const d = await fetchJson(buildLastFmUrl('geo.getTopTracks', {
+          country, limit: String(Math.min(50, limit + 5)),
+        }));
+        const raw = d?.tracks?.track;
+        const matches: LastFmTrack[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
+        const enriched = await Promise.all(matches.slice(0, limit + 4).map(async (t) => {
+          const info = t.name ? await getTrackInfo(getArtistName(t.artist), t.name) : null;
+          const mapped = mapTrack(t, info);
+          return mapped ? hydrateTrackArtwork(mapped) : null;
+        }));
+        const results = uniqueTracks(enriched).slice(0, limit).map((t, i) => ({ ...t, rank: i + 1 }));
+        setCached(ck, results, 10 * 60 * 1000);
+        return new Response(JSON.stringify({ success: true, results, country }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        console.error('music-indexer geo-top error:', error);
+        return new Response(JSON.stringify({ success: true, results: [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    if (action === 'tag-top') {
+      // Mood/genre discovery (e.g. "chill", "sad", "workout") via Last.fm tag.getTopTracks
+      const tag = (typeof body.tag === 'string' ? body.tag.trim() : '').slice(0, 40);
+      const limit = Math.max(1, Math.min(50, typeof body.limit === 'number' ? body.limit : 30));
+      if (!tag) {
+        return new Response(JSON.stringify({ success: false, error: 'tag is required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      try {
+        const ck = `tag-top:${tag.toLowerCase()}:${limit}`;
+        const cached = getCached<IndexedTrack[]>(ck);
+        if (cached) {
+          return new Response(JSON.stringify({ success: true, results: cached, tag }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const d = await fetchJson(buildLastFmUrl('tag.getTopTracks', {
+          tag, limit: String(Math.min(50, limit + 5)),
+        }));
+        const raw = d?.tracks?.track;
+        const matches: LastFmTrack[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
+        const enriched = await Promise.all(matches.slice(0, limit + 4).map(async (t) => {
+          const info = t.name ? await getTrackInfo(getArtistName(t.artist), t.name) : null;
+          const mapped = mapTrack(t, info);
+          return mapped ? hydrateTrackArtwork(mapped) : null;
+        }));
+        const results = uniqueTracks(enriched).slice(0, limit);
+        setCached(ck, results, 30 * 60 * 1000);
+        return new Response(JSON.stringify({ success: true, results, tag }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        console.error('music-indexer tag-top error:', error);
+        return new Response(JSON.stringify({ success: true, results: [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    if (action === 'artist-top') {
+      // Top tracks for a specific artist (used by "From Your Artists" for non-catalog follows)
+      const artist = (typeof body.artist === 'string' ? body.artist.trim() : '').slice(0, 100);
+      const limit = Math.max(1, Math.min(30, typeof body.limit === 'number' ? body.limit : 12));
+      if (!artist) {
+        return new Response(JSON.stringify({ success: false, error: 'artist is required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      try {
+        const results = await getArtistTopTracks(artist, limit);
+        return new Response(JSON.stringify({ success: true, results }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        console.error('music-indexer artist-top error:', error);
+        return new Response(JSON.stringify({ success: true, results: [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     if (action === 'resolve') {
       const artist = typeof body.artist === 'string' ? body.artist.trim() : '';
       const title = typeof body.title === 'string' ? body.title.trim() : '';
