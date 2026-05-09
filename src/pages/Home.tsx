@@ -366,6 +366,9 @@ const Home = () => {
 
                   <FollowedArtistSongsSection songs={allSongs} />
 
+                  {/* Real per-country viral chart (Last.fm geo.getTopTracks) */}
+                  <CountryViralSection />
+
                   {/* Global Top Tracks */}
                   <GlobalTopTracksSection />
                 </>
