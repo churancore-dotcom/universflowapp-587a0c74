@@ -182,25 +182,32 @@ async function requestIndexer<T>(body: Record<string, unknown>): Promise<T> {
 // ── Public API ──
 
 export async function searchIndexedTracks(query: string, limit = 50): Promise<IndexedTrack[]> {
-  const data = await requestIndexer<IndexedTracksResponse>({
-    action: 'search',
-    query,
-    limit,
-  });
-  return Array.isArray(data.results) ? data.results : [];
-}
-
-export async function searchYouTubeMusicTracks(query: string, limit = 50): Promise<IndexedTrack[]> {
-  if (!query || query.trim().length < 2) return [];
-  try {
-    const data = await requestFunction<YoutubeSearchResponse>('yt-music-search', {
-      query: query.trim(),
+  const q = query.trim();
+  if (q.length < 2) return [];
+  return cachedSearch(searchKey('indexer', q, limit), async () => {
+    const data = await requestIndexer<IndexedTracksResponse>({
+      action: 'search',
+      query: q,
       limit,
     });
     return Array.isArray(data.results) ? data.results : [];
-  } catch {
-    return [];
-  }
+  });
+}
+
+export async function searchYouTubeMusicTracks(query: string, limit = 50): Promise<IndexedTrack[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  return cachedSearch(searchKey('youtube', q, limit), async () => {
+    try {
+      const data = await requestFunction<YoutubeSearchResponse>('yt-music-search', {
+        query: q,
+        limit,
+      });
+      return Array.isArray(data.results) ? data.results : [];
+    } catch {
+      return [];
+    }
+  });
 }
 
 // Session-level cache for Global Top tracks so they don't refetch every time
@@ -410,16 +417,18 @@ export async function getGeoTopTracks(country: string, limit = 30): Promise<Inde
 // Mood/genre tag chart (Last.fm tag.getTopTracks). e.g. "chill", "sad", "workout".
 export async function getTagTopTracks(tag: string, limit = 30): Promise<IndexedTrack[]> {
   if (!tag) return [];
-  try {
-    const data = await requestIndexer<IndexedTracksResponse & { tag?: string }>({
-      action: 'tag-top',
-      tag,
-      limit,
-    });
-    return Array.isArray(data.results) ? data.results : [];
-  } catch {
-    return [];
-  }
+  return cachedSearch(searchKey('tag', tag, limit), async () => {
+    try {
+      const data = await requestIndexer<IndexedTracksResponse & { tag?: string }>({
+        action: 'tag-top',
+        tag,
+        limit,
+      });
+      return Array.isArray(data.results) ? data.results : [];
+    } catch {
+      return [];
+    }
+  });
 }
 
 // Top tracks for a single artist (used for non-catalog followed artists).
