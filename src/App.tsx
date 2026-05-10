@@ -48,7 +48,7 @@ const Downloads = lazy(() => import("./pages/Downloads"));
 const DownloadQueuePanel = lazy(() => import("./components/DownloadQueuePanel"));
 const PrerollAd = lazy(() => import("./components/ads/PrerollAd"));
 const PWAInstallBanner = lazy(() => import("./components/PWAInstallBanner"));
-const ConnectionTroubleshoot = lazy(() => import("./components/ConnectionTroubleshoot"));
+
 const StructuredData = lazy(() => import("./components/StructuredData"));
 
 // Lazy load ALL admin routes
