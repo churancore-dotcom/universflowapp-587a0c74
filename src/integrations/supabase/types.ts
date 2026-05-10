@@ -1407,6 +1407,48 @@ export type Database = {
         }
         Relationships: []
       }
+      viral_picks: {
+        Row: {
+          artist: string
+          audio_url: string | null
+          cover_url: string | null
+          id: string
+          is_active: boolean
+          pinned_at: string
+          pinned_by: string | null
+          position: number
+          source: string
+          title: string
+          track_id: string
+        }
+        Insert: {
+          artist: string
+          audio_url?: string | null
+          cover_url?: string | null
+          id?: string
+          is_active?: boolean
+          pinned_at?: string
+          pinned_by?: string | null
+          position?: number
+          source?: string
+          title: string
+          track_id: string
+        }
+        Update: {
+          artist?: string
+          audio_url?: string | null
+          cover_url?: string | null
+          id?: string
+          is_active?: boolean
+          pinned_at?: string
+          pinned_by?: string | null
+          position?: number
+          source?: string
+          title?: string
+          track_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
