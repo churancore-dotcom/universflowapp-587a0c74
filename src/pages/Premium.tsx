@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, Crown, Check, Sparkles, Download, Headphones,
   Zap, Gift, Copy, Loader2, ShieldCheck, Users, Sliders, Music2, Infinity as InfinityIcon, Clock,
-  Radio, Waves, Orbit, Building2,
+  Moon, Orbit, Building2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '@/components/BottomNav';
@@ -28,14 +28,13 @@ interface UpiSettings {
 const FEATURES = [
   { icon: Zap,         title: 'Zero Ads',                desc: 'No pre-rolls, banners or interruptions. Ever.' },
   { icon: Orbit,       title: 'Spatial 3D Audio',        desc: 'Cinema-grade surround that orbits the song around your head — only on Universflow.' },
-  { icon: Waves,       title: 'Adaptive Bass Engine',    desc: 'A reactive low-end that thickens drops and softens vocals in real time. Nothing else does this.' },
-  { icon: Radio,       title: 'Endless Personal Radio',  desc: 'Infinite stations that learn every track you love.' },
   { icon: Sliders,     title: '8-Band Studio Equalizer', desc: 'Studio-grade tuning with crafted presets — works on every stream.' },
   { icon: Building2,   title: 'Studio Spaces',           desc: 'Hear songs inside a Vinyl Booth, Cathedral, Stadium and more — a Universflow exclusive nobody else offers.' },
+  { icon: Moon,        title: 'Late Night Mode',         desc: 'Lifts whispered details and tames loud peaks so quiet listening still sounds full.' },
   { icon: Users,       title: 'Play With Mate',          desc: 'Premium-only sync rooms — listen together in real time with friends.' },
   { icon: Download,    title: 'Unlimited Downloads',     desc: 'Save anything. Listen offline. Anywhere.' },
   { icon: Music2,      title: 'AI Playlist Generator',   desc: 'Mood-matched playlists, made instantly.' },
-  { icon: InfinityIcon, title: 'Crossfade & Gapless',     desc: 'Seamless transitions, end to end.' },
+  { icon: InfinityIcon, title: 'Crossfade & Gapless',    desc: 'Seamless transitions, end to end.' },
   { icon: Sparkles,    title: 'Premium-Only Tracks',     desc: 'Early drops and exclusive releases.' },
   { icon: Crown,       title: 'Premium Badge',           desc: 'A subtle mark of support across the app.' },
   { icon: ShieldCheck, title: 'Priority Support',        desc: 'Skip the line — we answer first.' },

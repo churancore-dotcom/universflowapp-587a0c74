@@ -35,6 +35,7 @@ interface Engine {
   signature: string | null;
   mode: Mode;
   spatialEnabled: boolean;
+  lateNightEnabled: boolean;
   listeners: Set<(m: Mode) => void>;
   cachedIR: AudioBuffer | null;
 }
@@ -55,6 +56,7 @@ const engine: Engine = {
   signature: null,
   mode: 'idle',
   spatialEnabled: false,
+  lateNightEnabled: false,
   listeners: new Set(),
   cachedIR: null,
 };
@@ -294,6 +296,47 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   if (engine.spatialEnabled) startSpatialLfo();
   // Re-apply the persisted Studio Space on the fresh chain
   if (currentSpaceId !== 'off') setStudioSpace(currentSpaceId);
+  // Re-apply Late Night compression on the fresh chain
+  applyLateNightToLimiter();
+}
+
+/**
+ * Late Night Mode — heavy dynamic range compression so quiet listening
+ * keeps quiet vocals/details audible without loud peaks waking anyone.
+ * Re-tunes the always-on limiter into a transparent night compressor +
+ * makeup gain. Off restores brick-wall protection only.
+ */
+function applyLateNightToLimiter() {
+  if (!engine.ctx || !engine.limiter || !engine.preGain) return;
+  const ctx = engine.ctx;
+  const now = ctx.currentTime;
+  const c = engine.limiter;
+  if (engine.lateNightEnabled) {
+    c.threshold.setTargetAtTime(-28, now, SMOOTH);
+    c.knee.setTargetAtTime(18, now, SMOOTH);
+    c.ratio.setTargetAtTime(8, now, SMOOTH);
+    c.attack.setTargetAtTime(0.012, now, SMOOTH);
+    c.release.setTargetAtTime(0.18, now, SMOOTH);
+    // Makeup gain — quiet content now sits ~6dB louder
+    engine.preGain.gain.setTargetAtTime(1.6, now, SMOOTH);
+  } else {
+    c.threshold.setTargetAtTime(-1, now, SMOOTH);
+    c.knee.setTargetAtTime(0, now, SMOOTH);
+    c.ratio.setTargetAtTime(20, now, SMOOTH);
+    c.attack.setTargetAtTime(0.003, now, SMOOTH);
+    c.release.setTargetAtTime(0.1, now, SMOOTH);
+    engine.preGain.gain.setTargetAtTime(0.92, now, SMOOTH);
+  }
+}
+
+export function setLateNight(enabled: boolean) {
+  engine.lateNightEnabled = enabled;
+  if (engine.mode !== 'processed') return;
+  applyLateNightToLimiter();
+}
+
+export function getLateNight(): boolean {
+  return engine.lateNightEnabled;
 }
 
 function buildDirectChain(source: MediaElementAudioSourceNode, ctx: AudioContext) {

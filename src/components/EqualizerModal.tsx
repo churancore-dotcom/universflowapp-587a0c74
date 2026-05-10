@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Globe, Radio, Disc3, Mic2, Home, Building2, Church, Trophy } from 'lucide-react';
+import { X, Sparkles, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Globe, Radio, Disc3, Mic2, Home, Building2, Church, Trophy, Moon } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { iosSpring } from '@/lib/animations';
@@ -15,6 +15,7 @@ import {
   setReverb as engineSetReverb,
   setSpatial as engineSetSpatial,
   setStudioSpace as engineSetStudioSpace,
+  setLateNight as engineSetLateNight,
   resume as engineResume,
   type StudioSpaceId,
 } from '@/lib/audioEngine';
@@ -88,6 +89,7 @@ function hasActiveProcessing(data: {
   playbackSpeed: number;
   spatialAudio: boolean;
   studioSpace: StudioSpaceId;
+  lateNight: boolean;
 }) {
   return Boolean(
     data.bands.some((band) => Math.abs(band.gain) >= 0.5) ||
@@ -95,7 +97,8 @@ function hasActiveProcessing(data: {
     data.reverb > 0 ||
     data.spatialAudio ||
     data.playbackSpeed !== 1 ||
-    data.studioSpace !== 'off'
+    data.studioSpace !== 'off' ||
+    data.lateNight
   );
 }
 
@@ -128,6 +131,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const [playbackSpeed, setPlaybackSpeed] = useState(saved?.playbackSpeed ?? 1);
   const [spatialAudio, setSpatialAudio] = useState(saved?.spatialAudio ?? false);
   const [studioSpace, setStudioSpace] = useState<StudioSpaceId>(saved?.studioSpace ?? 'off');
+  const [lateNight, setLateNight] = useState<boolean>(saved?.lateNight ?? false);
   const [activePreset, setActivePreset] = useState<string>(saved?.activePreset ?? 'flat');
 
   // Only route through Web Audio while EQ/effects are active. This prevents
@@ -135,7 +139,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   useEffect(() => {
     if (!isPremium) return;
     if (!audioElement) return;
-    const active = hasActiveProcessing({ bands, bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace });
+    const active = hasActiveProcessing({ bands, bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace, lateNight });
     if (active) {
       engineResume();
       connectAudioElement(audioElement);
@@ -144,20 +148,22 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
       if (studioSpace === 'off') engineSetReverb(reverb);
       engineSetStudioSpace(studioSpace);
       engineSetSpatial(spatialAudio);
+      engineSetLateNight(lateNight);
     } else {
       bypassAudioElement(audioElement);
       engineSetSpatial(false);
+      engineSetLateNight(false);
       audioElement.playbackRate = 1;
     }
-  }, [isPremium, audioElement, currentSong?.id, bands, bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace]);
+  }, [isPremium, audioElement, currentSong?.id, bands, bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace, lateNight]);
 
   // Push EQ band changes to the engine (smoothed, never rebuilds graph)
   useEffect(() => {
-    if (!isPremium || !audioElement || !hasActiveProcessing({ bands, bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace })) return;
+    if (!isPremium || !audioElement || !hasActiveProcessing({ bands, bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace, lateNight })) return;
     engineResume();
     connectAudioElement(audioElement);
     engineSetBands(bands.map(b => b.gain), bassBoost);
-  }, [isPremium, bands, bassBoost, audioElement, reverb, playbackSpeed, spatialAudio, studioSpace]);
+  }, [isPremium, bands, bassBoost, audioElement, reverb, playbackSpeed, spatialAudio, studioSpace, lateNight]);
 
   useEffect(() => {
     if (isPremium && studioSpace === 'off') engineSetReverb(reverb);
@@ -172,6 +178,10 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   }, [isPremium, spatialAudio]);
 
   useEffect(() => {
+    if (isPremium) engineSetLateNight(lateNight);
+  }, [isPremium, lateNight]);
+
+  useEffect(() => {
     if (isPremium && audioElement) audioElement.playbackRate = playbackSpeed;
   }, [isPremium, playbackSpeed, audioElement]);
 
@@ -184,9 +194,10 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
       playbackSpeed,
       spatialAudio,
       studioSpace,
+      lateNight,
       activePreset,
     });
-  }, [bands, bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace, activePreset]);
+  }, [bands, bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace, lateNight, activePreset]);
 
   const handleBandChange = useCallback((index: number, value: number) => {
     setBandsState(prev => prev.map((b, i) => i === index ? { ...b, gain: value } : b));
@@ -207,6 +218,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     setPlaybackSpeed(1);
     setSpatialAudio(false);
     setStudioSpace('off');
+    setLateNight(false);
     setActivePreset('flat');
     if (audioElement) audioElement.playbackRate = 1;
     toast.success('Equalizer reset');
@@ -519,6 +531,37 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
               <Switch
                 checked={spatialAudio}
                 onCheckedChange={setSpatialAudio}
+                className="data-[state=checked]:bg-primary"
+              />
+            </div>
+
+            {/* Late Night Mode */}
+            <div
+              className="flex items-center justify-between p-4 rounded-2xl"
+              style={{
+                background: 'rgba(28, 28, 30, 0.8)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{
+                    background: lateNight
+                      ? 'linear-gradient(135deg, hsl(var(--primary) / 0.4), hsl(220 70% 45% / 0.3))'
+                      : 'rgba(255,255,255,0.05)',
+                  }}
+                >
+                  <Moon className={`w-5 h-5 ${lateNight ? 'text-primary' : 'text-muted-foreground'}`} />
+                </div>
+                <div>
+                  <span className="text-sm font-medium">Late Night Mode</span>
+                  <p className="text-[11px] text-muted-foreground">Lifts whispers, tames peaks for quiet listening</p>
+                </div>
+              </div>
+              <Switch
+                checked={lateNight}
+                onCheckedChange={setLateNight}
                 className="data-[state=checked]:bg-primary"
               />
             </div>
