@@ -9,6 +9,7 @@ import { usePremium } from '@/hooks/usePremium';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { toast } from 'sonner';
 import SupportChatModal from '@/components/SupportChatModal';
+import EmailVerificationCard from '@/components/EmailVerificationCard';
 
 import { applyTheme, type ThemeMode } from '@/lib/themeBoot';
 
