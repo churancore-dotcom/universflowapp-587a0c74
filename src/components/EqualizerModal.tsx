@@ -206,10 +206,19 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     setReverb(0);
     setPlaybackSpeed(1);
     setSpatialAudio(false);
+    setStudioSpace('off');
     setActivePreset('flat');
     if (audioElement) audioElement.playbackRate = 1;
     toast.success('Equalizer reset');
   }, [audioElement]);
+
+  const handleSpaceSelect = useCallback((id: StudioSpaceId) => {
+    setStudioSpace(id);
+    if (id !== 'off') {
+      const name = STUDIO_SPACES.find(s => s.id === id)?.name;
+      if (name) toast.success(`Now playing in ${name}`);
+    }
+  }, []);
 
   if (!isOpen) return null;
 
