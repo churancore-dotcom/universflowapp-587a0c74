@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Star, X, Loader2, Heart } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEmailVerified } from '@/hooks/useEmailVerified';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { toast } from 'sonner';
 
