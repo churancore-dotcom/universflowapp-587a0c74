@@ -96,14 +96,33 @@ const CountryViralSection = memo(function CountryViralSection() {
       const seen = new Set(pinned.map((t) => t.id));
       const need = Math.max(0, TARGET - pinned.length);
 
-      // 2) Fill remainder with Last.fm geo-top
+      // 2) Fill remainder by racing Last.fm (geo) + Deezer (global) in parallel
       let filler: IndexedTrack[] = [];
       if (need > 0) {
         const name = COUNTRY_NAMES[country] || COUNTRY_NAMES.IN;
-        try {
-          const fetched = await getGeoTopTracks(name, need + pinned.length);
-          filler = fetched.filter((t) => !seen.has(t.id)).slice(0, need);
-        } catch { /* ignore */ }
+        const [lastfmRes, deezerRes] = await Promise.allSettled([
+          getGeoTopTracks(name, need + pinned.length),
+          getDeezerChart(need + pinned.length),
+        ]);
+        const lastfm = lastfmRes.status === 'fulfilled' ? lastfmRes.value : [];
+        const deezer = deezerRes.status === 'fulfilled' ? deezerRes.value : [];
+
+        // Interleave: prioritize Last.fm (geo-targeted) but mix in Deezer for freshness
+        const merged: IndexedTrack[] = [];
+        const seenKeys = new Set<string>();
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 60);
+        const max = Math.max(lastfm.length, deezer.length);
+        for (let i = 0; i < max && merged.length < need; i++) {
+          for (const t of [lastfm[i], deezer[i]]) {
+            if (!t) continue;
+            const k = norm(t.artist) + '|' + norm(t.title);
+            if (seen.has(t.id) || seenKeys.has(k)) continue;
+            seenKeys.add(k);
+            merged.push(t);
+            if (merged.length >= need) break;
+          }
+        }
+        filler = merged;
       }
 
       if (!cancelled) {
