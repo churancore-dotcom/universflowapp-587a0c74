@@ -35,8 +35,8 @@ const FEATURES = [
   { icon: Download,    title: 'Unlimited Downloads',     desc: 'Save anything. Listen offline. Anywhere.' },
   { icon: Music2,      title: 'AI Playlist Generator',   desc: 'Mood-matched playlists, made instantly.' },
   { icon: InfinityIcon, title: 'Crossfade & Gapless',    desc: 'Seamless transitions, end to end.' },
+  { icon: Copy,        title: 'Shareable Playlists',     desc: 'Share any playlist via a link — friends can save the whole thing to their library in one tap.' },
   { icon: Sparkles,    title: 'Premium-Only Tracks',     desc: 'Early drops and exclusive releases.' },
-  { icon: Crown,       title: 'Premium Badge',           desc: 'A subtle mark of support across the app.' },
   { icon: ShieldCheck, title: 'Priority Support',        desc: 'Skip the line — we answer first.' },
 ];
 
@@ -278,13 +278,6 @@ const PremiumPage = memo(function PremiumPage() {
                 <Sparkles className="w-5 h-5" fill="currentColor" />
               </motion.button>
 
-              <button
-                onClick={() => { haptics.light(); setShowRedeem(true); }}
-                className="w-full py-3 text-[14px] font-semibold text-primary flex items-center justify-center gap-1.5"
-              >
-                <Gift className="w-4 h-4" />
-                I have a redeem code
-              </button>
             </motion.section>
           )}
 
