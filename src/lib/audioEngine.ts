@@ -103,7 +103,59 @@ function signature(el: HTMLAudioElement): string | null {
   return `${src}::${el.crossOrigin || 'none'}`;
 }
 
-/** Deterministic exponential-decay stereo IR — generated once and cached. */
+/** Studio Space presets — each defines an acoustic environment. */
+export type StudioSpaceId = 'off' | 'vinyl' | 'studio' | 'bedroom' | 'hall' | 'cathedral' | 'stadium';
+
+interface SpaceProfile {
+  duration: number;   // IR length in seconds
+  decay: number;      // exponential decay curve (higher = faster fade)
+  predelay: number;   // initial silence in seconds (room size cue)
+  density: number;    // 0..1 — early reflection density
+  damping: number;    // 0..1 — high-frequency damping (0 = bright, 1 = dark)
+  wet: number;        // recommended wet mix 0..1
+  dry: number;        // recommended dry gain
+}
+
+const SPACE_PROFILES: Record<Exclude<StudioSpaceId, 'off'>, SpaceProfile> = {
+  vinyl:     { duration: 0.4,  decay: 4.0, predelay: 0.001, density: 0.9, damping: 0.6, wet: 0.10, dry: 0.95 },
+  studio:    { duration: 0.6,  decay: 3.2, predelay: 0.005, density: 0.85, damping: 0.35, wet: 0.12, dry: 0.93 },
+  bedroom:   { duration: 0.9,  decay: 2.8, predelay: 0.008, density: 0.7, damping: 0.5, wet: 0.18, dry: 0.90 },
+  hall:      { duration: 2.4,  decay: 1.8, predelay: 0.025, density: 0.55, damping: 0.25, wet: 0.28, dry: 0.85 },
+  cathedral: { duration: 4.5,  decay: 1.2, predelay: 0.045, density: 0.4, damping: 0.15, wet: 0.34, dry: 0.80 },
+  stadium:   { duration: 3.5,  decay: 1.5, predelay: 0.080, density: 0.35, damping: 0.30, wet: 0.30, dry: 0.82 },
+};
+
+let currentSpaceId: StudioSpaceId = 'off';
+
+/** Build a stereo IR from a SpaceProfile. */
+function buildSpaceIR(ctx: AudioContext, p: SpaceProfile): AudioBuffer {
+  const length = Math.floor(ctx.sampleRate * p.duration);
+  const predelaySamples = Math.floor(ctx.sampleRate * p.predelay);
+  const buf = ctx.createBuffer(2, length, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buf.getChannelData(ch);
+    let seed = (ch + 1) * 9301;
+    const rand = () => {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    };
+    // Simple one-pole LP for damping
+    let lpState = 0;
+    const lpCoef = 1 - p.damping * 0.7;
+    for (let i = 0; i < length; i++) {
+      if (i < predelaySamples) { data[i] = 0; continue; }
+      const t = (i - predelaySamples) / (length - predelaySamples);
+      const decay = Math.pow(1 - t, p.decay);
+      // Sparser noise for less-dense spaces
+      const sample = rand() < p.density ? (rand() * 2 - 1) : 0;
+      lpState = lpState + lpCoef * (sample - lpState);
+      data[i] = lpState * decay * 0.55;
+    }
+  }
+  return buf;
+}
+
+/** Default fallback IR (used when no Studio Space is selected). */
 function getReverbIR(ctx: AudioContext): AudioBuffer {
   if (engine.cachedIR && engine.cachedIR.sampleRate === ctx.sampleRate) return engine.cachedIR;
   const duration = 1.6;
@@ -111,7 +163,6 @@ function getReverbIR(ctx: AudioContext): AudioBuffer {
   const buf = ctx.createBuffer(2, length, ctx.sampleRate);
   for (let ch = 0; ch < 2; ch++) {
     const data = buf.getChannelData(ch);
-    // Seeded pseudo-random for determinism
     let seed = (ch + 1) * 9301;
     const rand = () => {
       seed = (seed * 9301 + 49297) % 233280;
@@ -124,6 +175,35 @@ function getReverbIR(ctx: AudioContext): AudioBuffer {
   }
   engine.cachedIR = buf;
   return buf;
+}
+
+/**
+ * Apply a Studio Space — swaps the convolver IR and sets wet/dry to taste.
+ * 'off' restores the default IR and zero wet (caller's reverb slider takes over).
+ */
+export function setStudioSpace(spaceId: StudioSpaceId) {
+  currentSpaceId = spaceId;
+  if (engine.mode !== 'processed' || !engine.ctx || !engine.convolver || !engine.dryGain || !engine.wetGain) return;
+  const ctx = engine.ctx;
+  const now = ctx.currentTime;
+  if (spaceId === 'off') {
+    engine.convolver.buffer = getReverbIR(ctx);
+    engine.wetGain.gain.cancelScheduledValues(now);
+    engine.dryGain.gain.cancelScheduledValues(now);
+    engine.wetGain.gain.setTargetAtTime(0, now, SMOOTH);
+    engine.dryGain.gain.setTargetAtTime(1, now, SMOOTH);
+    return;
+  }
+  const profile = SPACE_PROFILES[spaceId];
+  engine.convolver.buffer = buildSpaceIR(ctx, profile);
+  engine.wetGain.gain.cancelScheduledValues(now);
+  engine.dryGain.gain.cancelScheduledValues(now);
+  engine.wetGain.gain.setTargetAtTime(profile.wet, now, SMOOTH);
+  engine.dryGain.gain.setTargetAtTime(profile.dry, now, SMOOTH);
+}
+
+export function getStudioSpace(): StudioSpaceId {
+  return currentSpaceId;
 }
 
 function disconnectAll() {
