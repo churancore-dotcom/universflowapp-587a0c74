@@ -147,19 +147,26 @@ const AdminLayout = () => {
   const { signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Close drawer ONLY when the path actually changes (not on every render).
+  // Safety net: close drawer if the route ever changes underneath us
+  // (e.g. browser back/forward or programmatic navigation).
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
 
   const handleLogout = async () => {
+    setSidebarOpen(false);
     await signOut();
     navigate('/auth');
   };
 
+  // Close the drawer FIRST, then navigate on the next frame.
+  // This prevents the touchend → synthetic click from landing on the
+  // Menu button that sits exactly behind the tapped nav item once the
+  // drawer disappears (the cause of the auto-reopen bug).
   const handleNavigation = (path: string) => {
     setSidebarOpen(false);
-    if (path !== location.pathname) navigate(path);
+    if (path === location.pathname) return;
+    requestAnimationFrame(() => navigate(path));
   };
 
   const closeSidebar = () => setSidebarOpen(false);
@@ -174,13 +181,17 @@ const AdminLayout = () => {
           </div>
           <span className="font-display font-bold">Admin</span>
         </div>
-        <button
-          className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-          onClick={() => setSidebarOpen(true)}
-          aria-label="Open menu"
-        >
-          <Menu className="w-6 h-6" />
-        </button>
+        {/* Hide Menu button while drawer is open so a ghost-click after
+            tapping a nav item cannot fall through and reopen it. */}
+        {!sidebarOpen && (
+          <button
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        )}
       </div>
 
       {/* Mobile Sidebar Overlay */}
