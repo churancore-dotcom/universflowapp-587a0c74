@@ -4,7 +4,6 @@
  */
 
 const INVIDIOUS_INSTANCES = [
-  'https://web-production-e41f0.up.railway.app', // self-hosted (Railway) — primary
   'https://inv.nadeko.net',
   'https://invidious.nerdvpn.de',
   'https://iv.datura.network',
