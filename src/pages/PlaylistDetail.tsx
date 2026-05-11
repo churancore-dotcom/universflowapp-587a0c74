@@ -93,7 +93,7 @@ const PlaylistDetail = () => {
     }));
     setQueue(songsForQueue);
     const offlineUrl = getDownloadedUrl(songs[0].id);
-    playSong(songsForQueue[0], offlineUrl);
+    playSong(songsForQueue[0], offlineUrl, songsForQueue);
   };
 
   const handleShufflePlay = () => {
@@ -110,7 +110,7 @@ const PlaylistDetail = () => {
     }));
     setQueue(songsForQueue);
     const offlineUrl = getDownloadedUrl(shuffled[0].id);
-    playSong(songsForQueue[0], offlineUrl);
+    playSong(songsForQueue[0], offlineUrl, songsForQueue);
   };
 
   const handlePlaySong = (song: PlaylistSong) => {
