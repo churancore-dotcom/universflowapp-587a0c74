@@ -104,6 +104,17 @@ const AddSongsToPlaylistModal = ({
       console.error('Error adding songs:', error);
       toast.error('Failed to add songs');
     } else {
+      const firstCover = selected.find((song) => song.cover_url)?.cover_url;
+      if (firstCover) {
+        const { data: playlist } = await supabase
+          .from('playlists')
+          .select('cover_url')
+          .eq('id', playlistId)
+          .maybeSingle();
+        if (!playlist?.cover_url) {
+          await supabase.from('playlists').update({ cover_url: firstCover }).eq('id', playlistId);
+        }
+      }
       toast.success(`Added ${selectedSongs.size} song${selectedSongs.size > 1 ? 's' : ''} to playlist! 🎵`);
       onSongsAdded();
     }
