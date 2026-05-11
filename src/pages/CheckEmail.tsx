@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Mail, ArrowLeft, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,9 +10,11 @@ import appLogo from '@/assets/app-logo.png';
 const CheckEmail = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [params] = useSearchParams();
   const state = (location.state || {}) as { email?: string; username?: string };
-  const email = state.email || '';
-  const username = state.username || '';
+  // Prefer router state, fall back to URL query (survives reloads / direct opens)
+  const email = state.email || params.get('email') || '';
+  const username = state.username || params.get('u') || '';
 
   const [cooldown, setCooldown] = useState(60);
   const [resending, setResending] = useState(false);
