@@ -183,9 +183,9 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
         <CreatePlaylistModal
           isOpen={showCreatePlaylist}
           onClose={() => setShowCreatePlaylist(false)}
+            initialSong={song}
           onCreated={() => {
             setShowCreatePlaylist(false);
-            setShowAddToPlaylist(true);
           }}
         />
       )}
