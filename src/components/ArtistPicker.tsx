@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { toast } from 'sonner';
+import { CURATED_ARTISTS } from '@/lib/curatedArtists';
 
 interface ArtistOption {
   name: string;
@@ -17,47 +18,31 @@ interface Props {
   onComplete: () => void;
 }
 
-const FALLBACK_ARTISTS: ArtistOption[] = [
-  // Indian
-  { name: 'Arijit Singh', source: 'lastfm', category: 'Indian', image: 'https://lastfm.freetls.fastly.net/i/u/300x300/2a96cbd8b46e442fc41c2b86b821562f.png' },
-  { name: 'A.R. Rahman', source: 'lastfm', category: 'Indian' },
-  { name: 'Pritam', source: 'lastfm', category: 'Indian' },
-  { name: 'Shreya Ghoshal', source: 'lastfm', category: 'Indian' },
-  { name: 'Diljit Dosanjh', source: 'lastfm', category: 'Indian' },
-  { name: 'AP Dhillon', source: 'lastfm', category: 'Indian' },
-  { name: 'Karan Aujla', source: 'lastfm', category: 'Indian' },
-  { name: 'Sidhu Moose Wala', source: 'lastfm', category: 'Indian' },
-  // Global Pop
-  { name: 'Taylor Swift', source: 'lastfm', category: 'Global Pop' },
-  { name: 'Ed Sheeran', source: 'lastfm', category: 'Global Pop' },
-  { name: 'Billie Eilish', source: 'lastfm', category: 'Global Pop' },
-  { name: 'The Weeknd', source: 'lastfm', category: 'Global Pop' },
-  { name: 'Dua Lipa', source: 'lastfm', category: 'Global Pop' },
-  { name: 'Bruno Mars', source: 'lastfm', category: 'Global Pop' },
-  // Hip-Hop
-  { name: 'Drake', source: 'lastfm', category: 'Hip-Hop' },
-  { name: 'Kendrick Lamar', source: 'lastfm', category: 'Hip-Hop' },
-  { name: 'Travis Scott', source: 'lastfm', category: 'Hip-Hop' },
-  { name: 'Eminem', source: 'lastfm', category: 'Hip-Hop' },
-  { name: 'J. Cole', source: 'lastfm', category: 'Hip-Hop' },
-  // K-Pop
-  { name: 'BTS', source: 'lastfm', category: 'K-Pop' },
-  { name: 'BLACKPINK', source: 'lastfm', category: 'K-Pop' },
-  { name: 'Stray Kids', source: 'lastfm', category: 'K-Pop' },
-  { name: 'NewJeans', source: 'lastfm', category: 'K-Pop' },
-  // Rock / Alt
-  { name: 'Coldplay', source: 'lastfm', category: 'Rock & Alt' },
-  { name: 'Imagine Dragons', source: 'lastfm', category: 'Rock & Alt' },
-  { name: 'Arctic Monkeys', source: 'lastfm', category: 'Rock & Alt' },
-  { name: 'Linkin Park', source: 'lastfm', category: 'Rock & Alt' },
-  // Latin
-  { name: 'Bad Bunny', source: 'lastfm', category: 'Latin' },
-  { name: 'Karol G', source: 'lastfm', category: 'Latin' },
-  { name: 'Shakira', source: 'lastfm', category: 'Latin' },
-];
+// Build the full fallback list from the curated catalog (~60 artists across genres)
+const FALLBACK_ARTISTS: ArtistOption[] = CURATED_ARTISTS.map(a => ({
+  name: a.name,
+  source: 'lastfm',
+  category: a.category,
+}));
 
 const MIN = 3;
 const MAX = 10;
+
+// Fetch a real artist photo from Deezer (CORS-friendly, no key required)
+async function fetchDeezerImage(name: string): Promise<string | null> {
+  try {
+    const r = await fetch(
+      `https://api.deezer.com/search/artist?q=${encodeURIComponent(name)}&limit=1`,
+      { signal: AbortSignal.timeout(6000) }
+    );
+    if (!r.ok) return null;
+    const j = await r.json();
+    const a = j?.data?.[0];
+    return a?.picture_xl || a?.picture_big || a?.picture_medium || null;
+  } catch {
+    return null;
+  }
+}
 
 const ArtistPicker = ({ onComplete }: Props) => {
   const { user } = useAuth();
@@ -67,30 +52,49 @@ const ArtistPicker = ({ onComplete }: Props) => {
   const [activeCat, setActiveCat] = useState<string>('All');
   const [saving, setSaving] = useState(false);
 
-  // Merge catalog artists in
+  // Merge catalog artists in (with their photos) + hydrate Deezer images for the rest
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // 1) Pull catalog artists (these have real photo_url)
       const { data } = await supabase
         .from('artists')
         .select('name, photo_url, genre')
-        .limit(40);
-      if (cancelled || !data?.length) return;
-      const catalogArtists: ArtistOption[] = data.map((a: any) => ({
-        name: a.name,
-        image: a.photo_url || undefined,
-        source: 'catalog',
-        category: a.genre || 'On Universflow',
-      }));
-      // dedupe
-      setArtists(prev => {
-        const seen = new Set(prev.map(p => p.name.toLowerCase()));
-        const merged = [...catalogArtists.filter(a => !seen.has(a.name.toLowerCase())), ...prev];
-        return merged;
-      });
+        .limit(60);
+      if (!cancelled && data?.length) {
+        const catalogArtists: ArtistOption[] = data.map((a: any) => ({
+          name: a.name,
+          image: a.photo_url || undefined,
+          source: 'catalog',
+          category: a.genre || 'On Universflow',
+        }));
+        setArtists(prev => {
+          const seen = new Set(prev.map(p => p.name.toLowerCase()));
+          return [...catalogArtists.filter(a => !seen.has(a.name.toLowerCase())), ...prev];
+        });
+      }
+
+      // 2) Hydrate missing photos from Deezer in small concurrent batches
+      const list = FALLBACK_ARTISTS;
+      const BATCH = 6;
+      for (let i = 0; i < list.length; i += BATCH) {
+        if (cancelled) return;
+        const batch = list.slice(i, i + BATCH);
+        const results = await Promise.all(
+          batch.map(async a => ({ name: a.name, img: await fetchDeezerImage(a.name) }))
+        );
+        if (cancelled) return;
+        setArtists(prev =>
+          prev.map(a => {
+            const hit = results.find(r => r.name === a.name);
+            return hit?.img && !a.image ? { ...a, image: hit.img } : a;
+          })
+        );
+      }
     })();
     return () => { cancelled = true; };
   }, []);
+
 
   const categories = useMemo(() => {
     const set = new Set<string>(['All']);
