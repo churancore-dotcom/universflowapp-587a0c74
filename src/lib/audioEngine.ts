@@ -79,7 +79,18 @@ function ensureCtx(): AudioContext | null {
   const AC = window.AudioContext || (window as any).webkitAudioContext;
   if (!AC) return null;
   try {
-    engine.ctx = new AC({ latencyHint: 'playback' });
+    const ctx = new AC({ latencyHint: 'playback' });
+    // Auto-resume if the OS suspends the context (common on Android background)
+    ctx.addEventListener?.('statechange', () => {
+      if (ctx.state === 'suspended') {
+        // Only auto-resume when the page is visible; otherwise let the
+        // visibility handler restore it on foreground.
+        if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+          ctx.resume().catch(() => {});
+        }
+      }
+    });
+    engine.ctx = ctx;
     return engine.ctx;
   } catch {
     return null;
