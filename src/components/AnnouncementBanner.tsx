@@ -65,7 +65,7 @@ const AnnouncementBanner = () => {
 
     const { data, error } = await supabase
       .from('announcements')
-      .select('id, title, message, type, target_audience, deep_link, starts_at, ends_at')
+      .select('id, title, message, type, target_audience, starts_at, ends_at')
       .eq('is_active', true)
       .lte('starts_at', new Date().toISOString())
       .in('target_audience', audienceFilter)
@@ -74,7 +74,7 @@ const AnnouncementBanner = () => {
     if (error) return;
     const now = Date.now();
     const fresh = (data ?? []).filter((a: any) => !a.ends_at || new Date(a.ends_at).getTime() > now);
-    setItems(fresh as Announcement[]);
+    setItems(fresh as unknown as Announcement[]);
   }, [user, isPremium]);
 
   useEffect(() => {
