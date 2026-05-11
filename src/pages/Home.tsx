@@ -11,6 +11,7 @@ import AllSongsSection from '@/components/AllSongsSection';
 
 import GlobalTopTracksSection from '@/components/GlobalTopTracksSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
+import AutoMixSection from '@/components/AutoMixSection';
 
 import CountryViralSection from '@/components/CountryViralSection';
 import SleepTimerModal from '@/components/SleepTimerModal';
@@ -363,6 +364,9 @@ const Home = () => {
               {/* Online-only discovery sections — hidden when offline */}
               {!isOffline && (
                 <>
+                  {/* Auto-generated mixes from listening history */}
+                  <AutoMixSection />
+
                   {/* Artist discovery */}
                   <FeaturedArtistsSection />
 
