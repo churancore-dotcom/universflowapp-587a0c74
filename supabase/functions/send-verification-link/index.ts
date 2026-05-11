@@ -128,30 +128,40 @@ Deno.serve(async (req) => {
     const verifyUrl = `${APP_ORIGIN}/verify?token=${token}`;
     const safeName = escape(username);
 
-    const html = `<!doctype html><html><body style="margin:0;background:#000;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;color:#fff">
-  <div style="max-width:560px;margin:0 auto;padding:48px 28px;text-align:center">
-    <div style="font-size:28px;font-weight:700;letter-spacing:-0.5px">
-      <span style="background:linear-gradient(135deg,#FF2D55,#BF5AF2,#5E5CE6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;color:transparent">Univers</span><span style="color:#fff;font-weight:300;margin-left:4px">Flow</span>
+    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#0a0a0b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff">
+  <div style="max-width:600px;margin:0 auto;padding:40px 20px">
+    <div style="background:linear-gradient(180deg,#15151a 0%,#0a0a0b 100%);border:1px solid rgba(255,255,255,0.08);border-radius:24px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,0.5)">
+      <div style="padding:48px 32px 8px;text-align:center">
+        <div style="font-size:30px;font-weight:700;letter-spacing:-0.6px;line-height:1">
+          <span style="background:linear-gradient(135deg,#FF2D55,#BF5AF2,#5E5CE6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;color:#FF2D55">Univers</span><span style="color:#fff;font-weight:300;margin-left:4px">Flow</span>
+        </div>
+        <div style="margin-top:10px;font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:#6e6e73">Premium Music Experience</div>
+      </div>
+      <div style="padding:32px 36px 8px;text-align:center">
+        <div style="display:inline-block;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#FF2D55,#BF5AF2);line-height:64px;font-size:30px;margin-bottom:20px">✉️</div>
+        <h1 style="margin:0 0 12px;font-size:24px;font-weight:700;letter-spacing:-0.4px">Hey ${safeName},<br/>let's confirm it's you</h1>
+        <p style="font-size:15px;line-height:1.6;color:#a1a1a6;margin:0 0 32px;max-width:420px;margin-left:auto;margin-right:auto">
+          Tap the button below to verify your email and unlock millions of songs, curated playlists and a world of music.
+        </p>
+        <a href="${verifyUrl}"
+           style="display:inline-block;background:linear-gradient(135deg,#FF2D55,#BF5AF2);color:#fff;text-decoration:none;padding:16px 40px;border-radius:999px;font-weight:600;font-size:15px;letter-spacing:.01em;box-shadow:0 10px 30px rgba(255,45,85,0.35)">
+          Confirm my email
+        </a>
+        <p style="margin:20px 0 0;font-size:12px;color:#6e6e73">This link works once and expires in 24 hours.</p>
+      </div>
+      <div style="margin:36px 36px 0;padding:18px 20px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:14px">
+        <p style="margin:0 0 6px;font-size:11px;color:#6e6e73;letter-spacing:.05em;text-transform:uppercase">Or paste this link</p>
+        <a href="${verifyUrl}" style="color:#FF6B8A;text-decoration:none;font-size:12px;word-break:break-all">${verifyUrl}</a>
+      </div>
+      <div style="padding:32px 36px 36px;text-align:center">
+        <p style="margin:0;font-size:11px;color:#48484a;line-height:1.6">
+          Didn't sign up for Universflow? You can safely ignore this email — no account will be created.
+        </p>
+      </div>
     </div>
-    <div style="margin-top:8px;font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:#777">Premium Music Experience</div>
-
-    <h1 style="margin:36px 0 12px;font-size:22px;font-weight:600">Hey ${safeName}, confirm your email</h1>
-    <p style="font-size:15px;line-height:1.55;color:#bbb;margin:0 0 28px">
-      Tap the button below to confirm this is you. The link works once and expires in 24 hours.
-    </p>
-
-    <a href="${verifyUrl}"
-       style="display:inline-block;background:#FF2D55;color:#fff;text-decoration:none;padding:14px 32px;border-radius:999px;font-weight:600;font-size:14px;letter-spacing:.02em">
-      Confirm my email
-    </a>
-
-    <p style="margin:32px 0 0;font-size:12px;color:#666;line-height:1.5;word-break:break-all">
-      Or paste this link into your browser:<br>
-      <a href="${verifyUrl}" style="color:#FF2D55;text-decoration:none">${verifyUrl}</a>
-    </p>
-    <p style="margin:40px 0 0;font-size:11px;color:#444">
-      Didn't sign up for Universflow? You can safely ignore this email.
-    </p>
+    <div style="text-align:center;margin-top:24px;font-size:11px;color:#48484a">
+      © Universflow · <a href="https://universflow.in" style="color:#6e6e73;text-decoration:none">universflow.in</a>
+    </div>
   </div>
 </body></html>`;
 
@@ -163,6 +173,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: FROM_ADDRESS,
+        reply_to: REPLY_TO,
         to: [email],
         subject: 'Confirm your Universflow email',
         html,
