@@ -106,57 +106,69 @@ const AIPlaylistGenerator = memo(({ isOpen, onClose, onPlaylistCreated }: AIPlay
     setIsGenerating(true);
     
     try {
-      const mood = moodOptions.find(m => m.id === selectedMood);
-      const prompt = customPrompt.trim() || mood?.prompt || '';
-      
-      setGenerationStep('Analyzing your mood...');
-      await new Promise(r => setTimeout(r, 800));
-      
-      setGenerationStep('Finding matching songs...');
-      
-      // Fetch all available songs
-      const { data: allSongs, error: songsError } = await supabase
-        .from('songs')
-        .select('id, title, artist, genre, mood')
-        .eq('is_visible', true);
+      const mood = moodOptions.find((m) => m.id === selectedMood);
+      const customQuery = customPrompt.trim();
+      const queries = customQuery
+        ? [customQuery, `${customQuery} songs`, `${customQuery} hits`, `best ${customQuery}`]
+        : mood?.queries || [];
 
-      if (songsError) throw songsError;
+      setGenerationStep('Searching YouTube...');
 
-      if (!allSongs || allSongs.length === 0) {
-        toast.error('No songs available to create playlist');
+      // Run searches in parallel across all queries
+      const searchResults = await Promise.all(
+        queries.map((q) => searchYTMusic(q).catch(() => [] as YTMusicResult[])),
+      );
+
+      // Interleave results so the playlist mixes from each query, then dedupe
+      const seen = new Set<string>();
+      const interleaved: YTMusicResult[] = [];
+      const maxLen = Math.max(...searchResults.map((r) => r.length), 0);
+      for (let i = 0; i < maxLen; i++) {
+        for (const list of searchResults) {
+          const item = list[i];
+          if (!item || seen.has(item.videoId)) continue;
+          // Skip very short clips (per content sourcing preference)
+          if (item.duration && item.duration < 120) continue;
+          seen.add(item.videoId);
+          interleaved.push(item);
+        }
+      }
+
+      const picked = interleaved.slice(0, 20);
+
+      if (picked.length === 0) {
+        toast.error('No tracks found. Try a different vibe.');
         return;
       }
 
-      setGenerationStep('Curating your playlist...');
-      await new Promise(r => setTimeout(r, 600));
+      setGenerationStep('Saving tracks...');
 
-      // Filter songs based on mood/genre matching
-      const keywords = prompt.toLowerCase().split(/[,\s]+/);
-      let matchingSongs = allSongs.filter(song => {
-        const songText = `${song.genre || ''} ${song.mood || ''} ${song.title} ${song.artist}`.toLowerCase();
-        return keywords.some(kw => songText.includes(kw));
-      });
+      // Persist as stream songs (audio_url resolved on play)
+      await Promise.all(
+        picked.map((r) =>
+          persistStreamSong({
+            id: r.id,
+            title: r.title,
+            artist: r.artist,
+            cover_url: r.cover_url,
+            audio_url: 'resolving',
+            duration: r.duration,
+            source: 'indexed',
+          } as any),
+        ),
+      );
 
-      // If no matches, use random selection
-      if (matchingSongs.length < 5) {
-        matchingSongs = allSongs.sort(() => Math.random() - 0.5).slice(0, 15);
-      }
+      setGenerationStep('Creating playlist...');
 
-      // Limit to 15 songs
-      matchingSongs = matchingSongs.slice(0, 15);
-
-      setGenerationStep('Creating your playlist...');
-      
-      // Create the playlist
-      const playlistTitle = customPrompt.trim() 
-        ? `AI: ${customPrompt.slice(0, 30)}${customPrompt.length > 30 ? '...' : ''}`
+      const playlistTitle = customQuery
+        ? `AI: ${customQuery.slice(0, 30)}${customQuery.length > 30 ? '…' : ''}`
         : `AI: ${mood?.label} Mix`;
 
       const { data: newPlaylist, error: playlistError } = await supabase
         .from('playlists')
         .insert({
           title: playlistTitle,
-          description: `AI-generated playlist for ${prompt}`,
+          description: `AI-generated from YouTube · ${queries[0]}`,
           user_id: user.id,
           is_public: false,
         })
@@ -165,11 +177,11 @@ const AIPlaylistGenerator = memo(({ isOpen, onClose, onPlaylistCreated }: AIPlay
 
       if (playlistError) throw playlistError;
 
-      // Add songs to playlist
-      const playlistSongs = matchingSongs.map((song, index) => ({
+      const playlistSongs = picked.map((r, index) => ({
         playlist_id: newPlaylist.id,
-        song_id: song.id,
+        song_id: r.id,
         position: index,
+        track_source: 'indexed',
       }));
 
       const { error: songsInsertError } = await supabase
@@ -179,9 +191,9 @@ const AIPlaylistGenerator = memo(({ isOpen, onClose, onPlaylistCreated }: AIPlay
       if (songsInsertError) throw songsInsertError;
 
       setGenerationStep('Done! ✨');
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 400));
 
-      toast.success(`Created "${playlistTitle}" with ${matchingSongs.length} songs!`);
+      toast.success(`Created "${playlistTitle}" with ${picked.length} songs!`);
       onPlaylistCreated?.();
       onClose();
     } catch (error) {
