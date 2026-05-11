@@ -4,6 +4,7 @@
  */
 
 const INVIDIOUS_INSTANCES = [
+  'https://invidious-production-d29a.up.railway.app',
   'https://inv.nadeko.net',
   'https://invidious.nerdvpn.de',
   'https://iv.datura.network',
