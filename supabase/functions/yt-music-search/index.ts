@@ -40,6 +40,14 @@ function meaningfulTokens(query: string) {
     .filter((token) => token.length > 1 && !GENERIC_QUERY_WORDS.has(token));
 }
 
+function queryMatchesResult(item: any, query: string) {
+  const tokens = meaningfulTokens(query);
+  if (tokens.length === 0) return true;
+  const haystack = normalize(`${String(item?.title || '')} ${String(item?.author || item?.channelTitle || '')}`);
+  const hits = tokens.filter((token) => haystack.includes(token)).length;
+  return hits > 0 && (tokens.length < 2 || hits / tokens.length >= 0.5);
+}
+
 function looksSpammy(item: any, query: string) {
   const rawTitle = String(item?.title || '');
   const rawAuthor = String(item?.author || '');
@@ -63,6 +71,8 @@ function scoreResult(item: any, query: string, index: number) {
   const published = Number(item?.published || 0);
   const ageDays = published > 0 ? Math.max(0, (Date.now() / 1000 - published) / 86400) : 9999;
   let score = 100 - index;
+
+    if (!queryMatchesResult(item, query)) return -999;
 
   if (q && haystack.includes(q)) score += 80;
   score += tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 34 : -28), 0);
