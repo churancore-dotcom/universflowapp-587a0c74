@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { toast } from 'sonner';
 import { CURATED_ARTISTS } from '@/lib/curatedArtists';
+import { enrichArtistImages, getTopArtistsByTag } from '@/lib/musicIndexer';
 
 interface ArtistOption {
   name: string;
@@ -28,22 +29,6 @@ const FALLBACK_ARTISTS: ArtistOption[] = CURATED_ARTISTS.map(a => ({
 const MIN = 3;
 const MAX = 10;
 
-// Fetch a real artist photo from Deezer (CORS-friendly, no key required)
-async function fetchDeezerImage(name: string): Promise<string | null> {
-  try {
-    const r = await fetch(
-      `https://api.deezer.com/search/artist?q=${encodeURIComponent(name)}&limit=1`,
-      { signal: AbortSignal.timeout(6000) }
-    );
-    if (!r.ok) return null;
-    const j = await r.json();
-    const a = j?.data?.[0];
-    return a?.picture_xl || a?.picture_big || a?.picture_medium || null;
-  } catch {
-    return null;
-  }
-}
-
 const ArtistPicker = ({ onComplete }: Props) => {
   const { user } = useAuth();
   const [artists, setArtists] = useState<ArtistOption[]>(FALLBACK_ARTISTS);
@@ -56,40 +41,45 @@ const ArtistPicker = ({ onComplete }: Props) => {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // 1) Pull catalog artists (these have real photo_url)
-      const { data } = await supabase
-        .from('artists')
-        .select('name, photo_url, genre')
-        .limit(60);
-      if (!cancelled && data?.length) {
-        const catalogArtists: ArtistOption[] = data.map((a: any) => ({
+      const [catalogRes, trendingArtists] = await Promise.all([
+        supabase.from('artists').select('name, photo_url, genre').limit(120),
+        getTopArtistsByTag('pop', 36).catch(() => []),
+      ]);
+
+      if (cancelled) return;
+
+      const map = new Map<string, ArtistOption>();
+      for (const a of catalogRes.data || []) {
+        map.set(String(a.name).toLowerCase(), {
           name: a.name,
           image: a.photo_url || undefined,
           source: 'catalog',
           category: a.genre || 'On Universflow',
-        }));
-        setArtists(prev => {
-          const seen = new Set(prev.map(p => p.name.toLowerCase()));
-          return [...catalogArtists.filter(a => !seen.has(a.name.toLowerCase())), ...prev];
         });
       }
+      for (const a of FALLBACK_ARTISTS) {
+        if (!map.has(a.name.toLowerCase())) map.set(a.name.toLowerCase(), a);
+      }
+      for (const a of trendingArtists) {
+        const key = a.name.toLowerCase();
+        const existing = map.get(key);
+        if (existing) {
+          if (!existing.image && a.image_url) existing.image = a.image_url;
+        } else {
+          map.set(key, { name: a.name, image: a.image_url, source: 'lastfm', category: 'Trending' });
+        }
+      }
 
-      // 2) Hydrate missing photos from Deezer in small concurrent batches
-      const list = FALLBACK_ARTISTS;
-      const BATCH = 6;
-      for (let i = 0; i < list.length; i += BATCH) {
+      const merged = Array.from(map.values());
+      setArtists(merged);
+
+      const missing = merged.filter(a => !a.image).map(a => a.name);
+      const BATCH = 30;
+      for (let i = 0; i < missing.length; i += BATCH) {
         if (cancelled) return;
-        const batch = list.slice(i, i + BATCH);
-        const results = await Promise.all(
-          batch.map(async a => ({ name: a.name, img: await fetchDeezerImage(a.name) }))
-        );
-        if (cancelled) return;
-        setArtists(prev =>
-          prev.map(a => {
-            const hit = results.find(r => r.name === a.name);
-            return hit?.img && !a.image ? { ...a, image: hit.img } : a;
-          })
-        );
+        const images = await enrichArtistImages(missing.slice(i, i + BATCH));
+        if (cancelled || !Object.keys(images).length) continue;
+        setArtists(prev => prev.map(a => !a.image && images[a.name] ? { ...a, image: images[a.name] } : a));
       }
     })();
     return () => { cancelled = true; };
@@ -156,8 +146,8 @@ const ArtistPicker = ({ onComplete }: Props) => {
       triggerHaptic('success');
       toast.success('Your feed is being personalized 🎶');
       onComplete();
-    } catch (e: any) {
-      toast.error(e.message || 'Could not save your picks');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Could not save your picks');
     } finally {
       setSaving(false);
     }
