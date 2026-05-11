@@ -95,7 +95,7 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     const artist = normalizeText(track.artist || '');
     const exactArtist = tokens.length > 0 && tokens.every((token) => artist.includes(token));
     const exactTitle = normalizeText(query).length > 2 && title.includes(normalizeText(query));
-    const relevance = (phraseHit ? 220 : 0) + (exactTitle ? 160 : 0) + (exactArtist ? 150 : 0) + (allTokens ? 140 : 0) + tokenHits * 34;
+    const relevance = (exactArtist ? 520 : 0) + (exactTitle ? 180 : 0) + (phraseHit ? 150 : 0) + (allTokens ? 140 : 0) + tokenHits * 34;
     const score = base + relevance + popularity - index * 0.6;
     const existing = rows.get(key);
     if (!existing || score > existing.score || (score === existing.score && sourcePriority > existing.sourcePriority)) {
@@ -103,9 +103,9 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     }
   };
 
-  youtube.forEach((track, index) => add(track, 700, index, 3));
-  literal.forEach((track, index) => add(track, 360, index, 2));
-  tagSets.forEach((set, setIndex) => set.forEach((track, index) => add(track, 260 + setIndex * 40, index, 1)));
+  youtube.forEach((track, index) => add(track, 360, index, 3));
+  literal.forEach((track, index) => add(track, 520, index, 2));
+  tagSets.forEach((set, setIndex) => set.forEach((track, index) => add(track, 220 + setIndex * 40, index, 1)));
 
   return Array.from(rows.values())
     .sort((a, b) => b.score - a.score || b.sourcePriority - a.sourcePriority || a.firstSeen - b.firstSeen || a.track.title.localeCompare(b.track.title) || a.track.artist.localeCompare(b.track.artist))
