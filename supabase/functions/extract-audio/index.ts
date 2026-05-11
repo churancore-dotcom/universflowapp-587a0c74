@@ -21,6 +21,7 @@ const PIPED_INSTANCES = [
 ];
 
 const INVIDIOUS_INSTANCES = [
+  'https://invidious-production-d29a.up.railway.app',
   'https://inv.nadeko.net',
   'https://invidious.private.coffee',
   'https://invidious.nerdvpn.de',
