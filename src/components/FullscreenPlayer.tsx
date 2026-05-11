@@ -394,11 +394,11 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
               {/* Volume slider */}
               <VolumeSlider value={volume} onChange={setVolume} />
 
-              {combinedSuggestions.length > 0 && (
+              {vibeSuggestions.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/40 px-1">{suggestionsLabel}</p>
                   <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1 -mx-1 px-1">
-                    {combinedSuggestions.map((song) => (
+                    {vibeSuggestions.map((song) => (
                       <button
                         key={song.id}
                         type="button"
