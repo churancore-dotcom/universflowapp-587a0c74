@@ -120,6 +120,7 @@ const Search = () => {
   const [source, setSource] = useState<SearchSource>('all');
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [searchHistory, setSearchHistory] = useState<SongHistoryEntry[]>(() => getSongHistory());
+  const [hiddenResults, setHiddenResults] = useState<HiddenSearchEntry[]>(() => loadHiddenResults());
   const { playSong, currentSong, isPlaying } = usePlayer();
   const { getDownloadedUrl } = useDownloads();
 
@@ -141,9 +142,9 @@ const Search = () => {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const cached = getCached<IndexedTrack[]>('stable-search-v2', trimmedQuery);
+        const cached = getCached<IndexedTrack[]>(SEARCH_CACHE_NAMESPACE, trimmedQuery);
         if (cached) {
-          if (!cancelled) setIndexedResults(cached);
+          if (!cancelled) setIndexedResults(cached.filter((track) => !isHiddenTrack(track, hiddenResults)));
           return;
         }
         // YouTube-style: detect mood + language separately. e.g. "hindi sad
@@ -165,8 +166,10 @@ const Search = () => {
         const [youtube, literal, ...tagSets] = await Promise.all([youtubeJob, literalJob, ...tagJobs]);
         if (cancelled) return;
 
-        const merged = rankAndDedupeResults(trimmedQuery, youtube, literal, tagSets).slice(0, 120);
-        setCached('stable-search-v2', trimmedQuery, merged);
+        const merged = rankAndDedupeResults(trimmedQuery, youtube, literal, tagSets, pureBrowse)
+          .filter((track) => !isHiddenTrack(track, hiddenResults))
+          .slice(0, 120);
+        setCached(SEARCH_CACHE_NAMESPACE, trimmedQuery, merged);
 
         setIndexedResults(merged);
         setSearchHistory(getSongHistory());
@@ -181,7 +184,7 @@ const Search = () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, hiddenResults]);
 
   useEffect(() => {
     indexedResults.slice(0, 6).forEach((track) => {
@@ -192,6 +195,13 @@ const Search = () => {
   const libraryResults: Song[] = [];
 
   const visibleIndexedResults = source === 'all' || source === 'indexer' ? indexedResults : [];
+
+  const handleHideIndexed = useCallback((track: IndexedTrack) => {
+    hideSearchTrack(track);
+    const nextHidden = loadHiddenResults();
+    setHiddenResults(nextHidden);
+    setIndexedResults((results) => results.filter((item) => !isHiddenTrack(item, nextHidden)));
+  }, []);
 
   const handlePlayIndexed = useCallback((track: IndexedTrack) => {
     const song: Song = {
