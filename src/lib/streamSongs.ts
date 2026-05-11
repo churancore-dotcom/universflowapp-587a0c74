@@ -120,17 +120,25 @@ export const hydratePlaylistCoverUrls = async <T extends { id: string; cover_url
   (catalogRes.data || []).forEach((song: any) => song.cover_url && coverBySongId.set(song.id, song.cover_url));
   (streamRes.data || []).forEach((song: any) => song.cover_url && coverBySongId.set(song.track_id, song.cover_url));
 
-  const coverByPlaylistId = new Map<string, string>();
+  // Collect up to 3 distinct artworks per playlist (in song order) for stacked cover
+  const coversByPlaylistId = new Map<string, string[]>();
   rows.forEach((row: any) => {
-    if (coverByPlaylistId.has(row.playlist_id)) return;
     const cover = coverBySongId.get(row.song_id);
-    if (cover) coverByPlaylistId.set(row.playlist_id, cover);
+    if (!cover) return;
+    const list = coversByPlaylistId.get(row.playlist_id) || [];
+    if (list.length >= 3 || list.includes(cover)) return;
+    list.push(cover);
+    coversByPlaylistId.set(row.playlist_id, list);
   });
 
-  return playlists.map((playlist) => ({
-    ...playlist,
-    cover_url: playlist.cover_url || coverByPlaylistId.get(playlist.id) || null,
-  }));
+  return playlists.map((playlist) => {
+    const stack = coversByPlaylistId.get(playlist.id) || [];
+    return {
+      ...playlist,
+      cover_url: playlist.cover_url || stack[0] || null,
+      cover_urls: stack,
+    } as T & { cover_urls: string[] };
+  });
 };
 
 export const loadPlaylistSongs = async (playlistId: string) => {
