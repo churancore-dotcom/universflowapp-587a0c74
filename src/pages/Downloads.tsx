@@ -11,6 +11,7 @@ import { useDownloads } from '@/contexts/DownloadContext';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { toast } from 'sonner';
+import SEOHead from '@/components/SEOHead';
 
 // Soft cap shown to user — IndexedDB is browser-managed but we surface a friendly ceiling.
 const STORAGE_BUDGET_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
@@ -74,6 +75,11 @@ const DownloadsPage = memo(function DownloadsPage() {
 
   return (
     <PageTransition>
+      <SEOHead
+        title="Downloads — Univers Flow"
+        description="Manage your offline downloads and queued songs in Univers Flow. Listen anywhere without using mobile data."
+        keywords="offline music, music downloads, Univers Flow offline"
+      />
       <motion.div
         className="min-h-screen bg-background pb-44 relative overflow-hidden"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}

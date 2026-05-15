@@ -15,6 +15,7 @@ import { triggerHaptic } from '@/hooks/useHaptics';
 import { toast } from 'sonner';
 import { usePremium } from '@/hooks/usePremium';
 import PremiumLockOverlay from '@/components/PremiumLockOverlay';
+import SEOHead from '@/components/SEOHead';
 
 const QUICK_REACTIONS = ['❤️', '🔥', '😂', '🎶', '🥹', '🙌'];
 
@@ -76,6 +77,11 @@ const PlayWithMate = () => {
 
   return (
     <PageTransition>
+      <SEOHead
+        title="Listen Together — Univers Flow"
+        description="Sync songs in real time with friends in a private Univers Flow listening room. Premium feature."
+        keywords="listen together, sync music, Univers Flow rooms, listening party"
+      />
       <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
         <header className="flex-shrink-0 z-30 px-2 pt-3 pb-2 flex items-center safe-area-pt bg-background/90 backdrop-blur-xl">
           <button onClick={() => navigate(-1)} className="flex items-center gap-1 px-2 py-2 -ml-1 text-primary">

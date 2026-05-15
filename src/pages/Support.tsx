@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
 import Footer from '@/components/Footer';
 import SupportChatModal from '@/components/SupportChatModal';
+import SEOHead from '@/components/SEOHead';
 
 const Support = () => {
   const navigate = useNavigate();
@@ -25,6 +26,11 @@ const Support = () => {
 
   return (
     <PageTransition>
+      <SEOHead
+        title="Support & Help Center — Univers Flow"
+        description="Get help with Univers Flow: chat with support, report issues, request features and learn about premium benefits."
+        keywords="Univers Flow support, help center, contact, music app help"
+      />
       <motion.div 
         className="min-h-screen bg-background pb-44"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}

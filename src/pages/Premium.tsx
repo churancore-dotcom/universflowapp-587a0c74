@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEmailVerified } from '@/hooks/useEmailVerified';
 import { toast } from '@/hooks/use-toast';
+import SEOHead from '@/components/SEOHead';
 
 type PlanId = 'monthly' | 'quarterly';
 
@@ -137,6 +138,11 @@ const PremiumPage = memo(function PremiumPage() {
 
   return (
     <PageTransition>
+      <SEOHead
+        title="Univers Flow Premium — Ad-Free Music & Spatial Audio"
+        description="Upgrade to Univers Flow Premium for zero ads, spatial 3D audio, studio EQ, unlimited downloads and exclusive tracks."
+        keywords="Univers Flow Premium, premium music, ad-free streaming, spatial audio, music download"
+      />
       <motion.div
         className="min-h-screen bg-background pb-44 relative overflow-hidden"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}

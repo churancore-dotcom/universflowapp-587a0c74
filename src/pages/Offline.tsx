@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import BottomNav from '@/components/BottomNav';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { iosSpring, staggerContainer, staggerItem } from '@/lib/animations';
+import SEOHead from '@/components/SEOHead';
 
 interface CachedSong {
   id: string;
@@ -106,6 +107,12 @@ const Offline = memo(function Offline() {
   };
 
   return (
+    <>
+    <SEOHead
+      title="Offline Library — Univers Flow"
+      description="Play your downloaded songs without internet. Your offline Univers Flow library, ready when you are."
+      keywords="offline player, downloaded songs, Univers Flow offline library"
+    />
     <div className="min-h-screen bg-background flex flex-col pb-40 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
       {/* Header */}
       <div className="sticky top-0 z-40 px-4 pt-4 pb-3 bg-background/80 backdrop-blur-xl safe-area-pt">
@@ -243,6 +250,7 @@ const Offline = memo(function Offline() {
       {/* Bottom Navigation */}
       <BottomNav />
     </div>
+    </>
   );
 });
 

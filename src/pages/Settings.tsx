@@ -12,6 +12,7 @@ import SupportChatModal from '@/components/SupportChatModal';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
 
 import { applyTheme, type ThemeMode } from '@/lib/themeBoot';
+import SEOHead from '@/components/SEOHead';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -102,6 +103,11 @@ const Settings = () => {
 
   return (
     <PageTransition>
+      <SEOHead
+        title="Settings — Univers Flow"
+        description="Tune playback, audio quality, themes, notifications and storage controls inside your Univers Flow account."
+        keywords="Univers Flow settings, music app preferences, audio quality, theme, notifications"
+      />
       <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
         <header
           className="flex-shrink-0 z-30 px-2 pt-3 pb-2 flex items-center safe-area-pt"

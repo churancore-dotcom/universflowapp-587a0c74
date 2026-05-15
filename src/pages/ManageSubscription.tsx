@@ -19,6 +19,7 @@ import PageTransition from '@/components/PageTransition';
 import { iosSpring, iosBounce } from '@/lib/animations';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
+import SEOHead from '@/components/SEOHead';
 
 const formatDate = (iso: string | null) => {
   if (!iso) return 'Lifetime';
@@ -109,6 +110,11 @@ const ManageSubscription = () => {
 
   return (
     <PageTransition>
+      <SEOHead
+        title="Manage Subscription — Univers Flow"
+        description="Review and manage your Univers Flow Premium subscription, billing details and renewal options."
+        keywords="manage subscription, Universflow premium plan, billing"
+      />
       <motion.div
         className="min-h-screen bg-background pb-44"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
