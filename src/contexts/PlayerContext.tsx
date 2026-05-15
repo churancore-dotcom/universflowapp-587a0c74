@@ -103,6 +103,13 @@ const shouldUseAnonymousCors = (audioUrl?: string | null) => {
 };
 
 const configureAudioElementSource = (audio: HTMLAudioElement, sourceUrl: string) => {
+  // Guard: never assign empty/whitespace src — that triggers a spurious
+  // MEDIA_ERR_SRC_NOT_SUPPORTED ("Empty src attribute") which then cascades
+  // into the auto-skip handler and creates a skip-storm.
+  if (!sourceUrl || !sourceUrl.trim()) {
+    return;
+  }
+
   if (shouldUseAnonymousCors(sourceUrl)) {
     audio.crossOrigin = 'anonymous';
   } else {
