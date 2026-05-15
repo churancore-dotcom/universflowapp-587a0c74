@@ -232,6 +232,11 @@ const Search = () => {
   return (
     <TabTransition>
       <div className="h-[100dvh] bg-background flex flex-col overflow-hidden relative">
+        <SEOHead
+          title="Search Music — Univers Flow"
+          description="Search any song, artist, or album worldwide. Discover and play tracks instantly on Univers Flow."
+          path="/search"
+        />
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute inset-0" style={{
             background: `radial-gradient(ellipse 80% 50% at 50% 0%, hsl(260 100% 60% / 0.05), transparent),

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff, AtSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { FadeTransition } from '@/components/PageTransition';
+import SEOHead from '@/components/SEOHead';
 import appLogo from '@/assets/app-logo.png';
 
 function detectCountryCode(): string | undefined {
@@ -138,6 +139,7 @@ const Auth = () => {
                 Univers
               </span>
               <span className="text-foreground ml-1.5 font-light">Flow</span>
+              <span className="sr-only"> — Premium Music Experience</span>
             </motion.h1>
             <motion.p
               className="mt-1.5 text-[12px] tracking-[0.15em] uppercase font-medium text-muted-foreground"

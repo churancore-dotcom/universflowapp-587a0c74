@@ -14,6 +14,7 @@ import FollowedArtistSongsSection from '@/components/FollowedArtistSongsSection'
 import LikeButton from '@/components/LikeButton';
 import DownloadButton from '@/components/DownloadButton';
 import { TabTransition } from '@/components/PageTransition';
+import SEOHead from '@/components/SEOHead';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LibrarySkeleton, LibraryArtistsSkeleton } from '@/components/PageSkeletons';
 import PlaylistCover from '@/components/PlaylistCover';
@@ -206,6 +207,11 @@ const Library = () => {
   return (
     <TabTransition>
       <div className="h-[100dvh] bg-background flex flex-col overflow-hidden relative">
+        <SEOHead
+          title="Your Library — Univers Flow"
+          description="Your liked songs, downloads, followed artists, and personal playlists — all in one place."
+          path="/library"
+        />
         {/* Ambient background */}
         <div className="absolute inset-0 pointer-events-none">
           <div
