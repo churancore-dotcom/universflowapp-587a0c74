@@ -81,6 +81,13 @@ Allow: /
 
 User-agent: *
 Allow: /
+# Private / auth-walled routes — intentionally excluded from sitemap too.
+Disallow: /admin
+Disallow: /admin/
+Disallow: /upload
+Disallow: /p/
+Disallow: /playlist/
+Disallow: /artist/
 
 # Sitemap location
 Sitemap: https://universflow.in/sitemap.xml
