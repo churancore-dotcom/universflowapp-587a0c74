@@ -201,7 +201,8 @@ public class MediaNotificationService extends Service {
             }
             case ACTION_STATE: {
                 isPlaying = intent.getBooleanExtra("isPlaying", isPlaying);
-                if (isPlaying) acquireWakeLockIfNeeded(); else releaseWakeLock();
+                if (isPlaying) { acquireWakeLockIfNeeded(); requestAudioFocus(); registerNoisyReceiver(); }
+                else { releaseWakeLock(); }
                 if (intent.hasExtra("position")) {
                     positionMs = intent.getLongExtra("position", 0L);
                 }
