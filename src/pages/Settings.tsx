@@ -94,8 +94,9 @@ const Settings = () => {
     { id: 'light', label: 'Pearl', preview: 'linear-gradient(135deg, #ffffff 0%, #f4f1ec 100%)', ring: '#ff2d55' },
     { id: 'default', label: 'Dark', preview: 'linear-gradient(135deg, #1c1c1e 0%, #0a0a0a 100%)', ring: '#ff2d55' },
     { id: 'black', label: 'Onyx', preview: 'linear-gradient(135deg, #000000 0%, #0a0a0a 100%)', ring: '#ff2d55' },
-    { id: 'sunset', label: 'Sunset', preview: 'linear-gradient(135deg, #ff6a00 0%, #ee0979 100%)', ring: '#ff7a3a' },
-    { id: 'ocean', label: 'Ocean', preview: 'linear-gradient(135deg, #0093E9 0%, #00d4ff 100%)', ring: '#00aaff' },
+    { id: 'sunset', label: 'Orange', preview: 'linear-gradient(135deg, #ff7a1a 0%, #4a1a05 100%)', ring: '#ff7a3a' },
+    { id: 'ocean', label: 'Blue', preview: 'linear-gradient(135deg, #1a9fff 0%, #03132d 100%)', ring: '#1a9fff' },
+    { id: 'crimson', label: 'Red', preview: 'linear-gradient(135deg, #ff1f4d 0%, #4d0518 100%)', ring: '#ff1f4d' },
     { id: 'midnight-gold', label: 'Gold', preview: 'linear-gradient(135deg, #1a1a2e 0%, #d4af37 100%)', ring: '#d4af37' },
   ];
 
