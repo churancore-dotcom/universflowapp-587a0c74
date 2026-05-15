@@ -20,7 +20,7 @@ interface ProfileData {
 
 const Profile = () => {
   const { user, isAdmin, signOut } = useAuth();
-  const { isPremium } = usePremium();
+  const { isPremium, isLoading: premiumLoading } = usePremium();
   const navigate = useNavigate();
   const [stats, setStats] = useState({ likedSongs: 0, recentPlays: 0, playlists: 0 });
   const [showRedeemCode, setShowRedeemCode] = useState(false);
@@ -301,7 +301,7 @@ const Profile = () => {
           </div>
 
           {/* Premium Section */}
-          {!isPremium && (
+          {!premiumLoading && !isPremium && (
             <button
               onClick={() => navigate('/premium')}
               className="w-full mt-4 rounded-xl p-4 text-left"
