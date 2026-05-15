@@ -680,3 +680,24 @@ html.light [style*="box-shadow: 0 6px 24px rgba(0,0,0,0.4)"],
 html.light [style*="boxShadow: 0 6px 24px rgba(0,0,0,0.4)"] {
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.10) !important;
 }
+
+/* === ThemeAura — animated radial glows for color-rich themes === */
+@keyframes aura-drift-1 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.85; }
+  50%      { transform: translate3d(40px, 30px, 0) scale(1.12); opacity: 1; }
+}
+@keyframes aura-drift-2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.7; }
+  50%      { transform: translate3d(-50px, -25px, 0) scale(1.18); opacity: 0.95; }
+}
+@keyframes aura-pulse {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(0.9); opacity: 0.5; }
+  50%      { transform: translate3d(0, -20px, 0) scale(1.1); opacity: 0.85; }
+}
+.aura-blob-1 { animation: aura-drift-1 14s ease-in-out infinite; }
+.aura-blob-2 { animation: aura-drift-2 18s ease-in-out infinite; }
+.aura-blob-3 { animation: aura-pulse  10s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aura-blob-1, .aura-blob-2, .aura-blob-3 { animation: none; }
+}
