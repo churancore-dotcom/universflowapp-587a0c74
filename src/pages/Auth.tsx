@@ -122,6 +122,10 @@ const Auth = () => {
                 <img
                   src={appLogo}
                   alt="UniversFlow"
+                  width={96}
+                  height={96}
+                  fetchPriority="high"
+                  decoding="async"
                   className="w-full h-full object-cover scale-[1.04]"
                   style={{ filter: 'contrast(1.04)' }}
                 />
