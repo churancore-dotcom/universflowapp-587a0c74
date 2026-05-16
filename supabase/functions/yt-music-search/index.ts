@@ -298,11 +298,13 @@ serve(async (req) => {
 
     let data: any = null;
     let lastErr = '';
-    for (const freshOnly of [true, false]) {
+    // Lyric queries: skip the freshOnly pass entirely (most lyrics are older songs).
+    const freshOnlyPasses = lyricMode ? [false] : [true, false];
+    for (const freshOnly of freshOnlyPasses) {
       for (const apiKey of apiKeys) {
         const url = new URL('https://www.googleapis.com/youtube/v3/search');
         url.searchParams.set('part', 'snippet');
-        url.searchParams.set('q', `${cleanQuery} music`);
+        url.searchParams.set('q', providerQuery);
         url.searchParams.set('type', 'video');
         url.searchParams.set('videoCategoryId', '10');
         url.searchParams.set('maxResults', String(limit));
