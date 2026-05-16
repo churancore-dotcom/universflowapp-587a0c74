@@ -283,27 +283,6 @@ const Profile = () => {
               </button>
             )}
             <button
-              onClick={async () => {
-                const url = 'https://universflow.in';
-                const text = `🎧 I'm using Universflow — millions of songs, no ads, totally free. Try it: ${url}`;
-                try {
-                  if (navigator.share) {
-                    await navigator.share({ title: 'Universflow', text, url });
-                  } else {
-                    await navigator.clipboard.writeText(text);
-                    toast.success('Invite copied — paste it anywhere');
-                  }
-                } catch { /* user cancelled */ }
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-white/[0.06] active:bg-white/5"
-            >
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/20">
-                <Share2 className="w-4 h-4 text-primary" />
-              </div>
-              <span className="flex-1 text-sm font-medium">Invite a friend</span>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </button>
-            <button
               onClick={() => setShowReviewsList(true)}
               className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-white/[0.06] active:bg-white/5"
             >

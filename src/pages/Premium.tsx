@@ -37,7 +37,7 @@ const FEATURES = [
   { icon: Download,    title: 'Unlimited Downloads',     desc: 'Save anything. Listen offline. Anywhere.' },
   { icon: Music2,      title: 'AI Playlist Generator',   desc: 'Mood-matched playlists, made instantly.' },
   { icon: InfinityIcon, title: 'Crossfade & Gapless',    desc: 'Seamless transitions, end to end.' },
-  { icon: Copy,        title: 'Shareable Playlists',     desc: 'Share any playlist via a link — friends can save the whole thing to their library in one tap.' },
+  
   { icon: Sparkles,    title: 'Premium-Only Tracks',     desc: 'Early drops and exclusive releases.' },
   { icon: ShieldCheck, title: 'Priority Support',        desc: 'Skip the line — we answer first.' },
 ];
