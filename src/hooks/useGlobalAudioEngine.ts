@@ -42,9 +42,10 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
   useEffect(() => {
     if (!audioElement) return;
 
-    try {
-      localStorage.setItem('uf_audio_fx_allowed', isPremium ? '1' : '0');
-    } catch {}
+    // NOTE: premium status flows through the runtime flag in
+    // src/lib/premiumState.ts (set by usePremium after a server fetch).
+    // We intentionally no longer write `uf_audio_fx_allowed` to
+    // localStorage — that key was trivially editable from DevTools.
 
     // Track whether processed chain is "wanted" so we can switch to direct
     // when backgrounded (to avoid Android throttling glitches) and restore
