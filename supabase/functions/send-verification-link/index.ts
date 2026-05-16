@@ -119,9 +119,7 @@ Deno.serve(async (req) => {
     if (!upsert.ok) {
       const t = await upsert.text();
       console.error('upsert verification failed', upsert.status, t);
-      return new Response(JSON.stringify({ error: 'Could not create verification' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return UNIFORM_OK;
     }
 
     const verifyUrl = `${APP_ORIGIN}/verify?token=${token}`;
