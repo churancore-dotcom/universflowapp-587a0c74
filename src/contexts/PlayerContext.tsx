@@ -1251,9 +1251,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setExpanded(false);
   }, [teardownYouTubePlayback]);
 
-  const nextSong = useCallback(() => {
-    // Free-tier skip cap (Spotify-style): 6/hour, unlimited on Premium
-    const { allowed, remaining } = recordSkipAndCheck();
+  const nextSong = useCallback(async () => {
+    // Free-tier skip cap (Spotify-style): 6/hour, unlimited on Premium.
+    // Enforced server-side via the consume_free_skip RPC so a tampered
+    // client cannot bypass it.
+    const { allowed, remaining, premium } = await consumeServerSkip();
     if (!allowed) {
       toast.error('Skip limit reached', {
         description: 'Upgrade to Premium for unlimited skips.',
@@ -1264,7 +1266,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
       return;
     }
-    if (Number.isFinite(remaining) && remaining <= 2) {
+    if (!premium && remaining !== null && remaining <= 2) {
       toast.message(`${remaining} skip${remaining === 1 ? '' : 's'} left this hour`, {
         description: 'Premium = unlimited skips',
       });
