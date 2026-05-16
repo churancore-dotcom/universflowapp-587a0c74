@@ -55,5 +55,13 @@ function generateSitemap(items: SitemapEntry[]) {
   ].join("\n");
 }
 
-writeFileSync(resolve("public/sitemap.xml"), generateSitemap(entries));
-console.log(`sitemap.xml written (${entries.length} entries)`);
+try {
+  const outPath = resolve("public/sitemap.xml");
+  writeFileSync(outPath, generateSitemap(entries));
+  console.log(`[sitemap] OK — wrote ${entries.length} entries to ${outPath}`);
+} catch (err) {
+  console.error("[sitemap] FAILED to generate public/sitemap.xml");
+  console.error("[sitemap] Reason:", err instanceof Error ? err.message : err);
+  if (err instanceof Error && err.stack) console.error(err.stack);
+  process.exit(1);
+}
