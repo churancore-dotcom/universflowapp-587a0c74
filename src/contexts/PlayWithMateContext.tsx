@@ -804,8 +804,8 @@ export const PlayWithMateProvider = ({ children }: { children: ReactNode }) => {
   const inviteUrl = useMemo(() => {
     if (!room?.sessionCode) return null;
     try {
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://universflow.in';
-      return `${origin}/listen-together?join=${room.sessionCode}`;
+      // Always build invite links on the public domain so pasting elsewhere works.
+      return `https://universflow.in/listen-together?join=${room.sessionCode}`;
     } catch {
       return null;
     }
