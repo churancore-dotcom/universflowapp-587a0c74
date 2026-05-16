@@ -1037,23 +1037,10 @@ serve(async (req) => {
     const requestUrl = new URL(req.url);
     const audioTarget = requestUrl.searchParams.get('audio');
 
-    // ── Auth check (must run BEFORE the audio proxy path) ──
-    // Allow JWT in either Authorization header OR `?token=` query param,
-    // because <audio src> tags cannot send custom headers.
-    const headerAuth = req.headers.get('authorization');
-    const queryToken = requestUrl.searchParams.get('token');
-    const bearer = headerAuth?.startsWith('Bearer ')
-      ? headerAuth.slice(7)
-      : (queryToken ?? null);
-
-    if (!bearer) {
-      return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    // Accept either a user JWT or the project anon key. Discovery actions
-    // (top/geo-top/resolve) and the host-allowlisted audio proxy are safe to
-    // serve to unauthenticated visitors so /home stays publicly indexable.
+    // Audio proxy is host-allowlisted and safe for unauthenticated access.
+    // <audio> tags cannot send Authorization headers, so requiring a token
+    // here causes streams to fail and the player auto-pauses. Discovery
+    // actions (top/geo-top/resolve) are also public so /home stays indexable.
 
 
     if ((req.method === 'GET' || req.method === 'HEAD') && audioTarget) {
