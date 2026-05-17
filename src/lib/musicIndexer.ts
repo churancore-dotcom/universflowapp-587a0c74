@@ -120,12 +120,24 @@ async function cachedSearch(key: string, fetcher: () => Promise<IndexedTrack[]>)
 function getCachedStream(key: string): { url: string; meta?: Partial<ResolveTrackResponse> } | null {
   const hit = streamCache.get(key);
   if (!hit || hit.expiresAt < Date.now()) { streamCache.delete(key); return null; }
+  if (isKnownBrokenStreamUrl(hit.url)) { streamCache.delete(key); return null; }
   return { url: hit.url, meta: hit.meta };
 }
 
 function setCachedStream(key: string, url: string, meta?: Partial<ResolveTrackResponse>) {
+  if (isKnownBrokenStreamUrl(url)) return;
   streamCache.set(key, { url, expiresAt: Date.now() + STREAM_CACHE_TTL, meta });
   persistCache();
+}
+
+function isKnownBrokenStreamUrl(url?: string | null) {
+  if (!url || url.startsWith('yt-video:')) return false;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host.startsWith('proxy.piped.');
+  } catch {
+    return false;
+  }
 }
 
 // Try to grab a cached audio_url directly from the DB (stream_songs table) before
@@ -142,6 +154,7 @@ async function tryDbCachedStream(artist: string, title: string): Promise<Resolve
       .maybeSingle();
 
     if (!data?.audio_url) return null;
+    if (isKnownBrokenStreamUrl(data.audio_url)) return null;
     // Treat audio_url as fresh if seen in last 4h (server refreshes on resolve)
     const ageMs = Date.now() - new Date(data.last_seen_at).getTime();
     if (ageMs > 4 * 60 * 60 * 1000) return null;
