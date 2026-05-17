@@ -984,13 +984,13 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
   }
 }
 
-async function resolveStream(artist: string, title: string): Promise<ResolveResult> {
+async function resolveStream(artist: string, title: string, forceRefresh = false): Promise<ResolveResult> {
   const ck = `resolve:${artist}:${title}`;
   const cached = getCached<ResolveResult>(ck);
-  if (cached) return cached;
+  if (!forceRefresh && cached) return cached;
 
   // ── Persistent DB cache (survives cold starts; shared across users) ──
-  const dbCached = await getDbCachedStream(artist, title);
+  const dbCached = forceRefresh ? null : await getDbCachedStream(artist, title);
   if (dbCached?.streamUrl) {
     const result: ResolveResult = {
       success: true,
@@ -1328,12 +1328,13 @@ serve(async (req) => {
     if (action === 'resolve') {
       const artist = typeof body.artist === 'string' ? body.artist.trim() : '';
       const title = typeof body.title === 'string' ? body.title.trim() : '';
+      const forceRefresh = body.forceRefresh === true;
       if (!artist || !title) {
         return new Response(JSON.stringify({ success: false, error: 'Artist and title are required' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      const result = await resolveStream(artist, title);
+      const result = await resolveStream(artist, title, forceRefresh);
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
