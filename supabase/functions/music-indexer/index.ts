@@ -876,7 +876,7 @@ function pickBestStream(data: Record<string, any>, instance: string) {
   return raw;
 }
 
-async function probePlayableStream(url: string, timeoutMs = 5000) {
+async function probePlayableStream(url: string, timeoutMs = 4000) {
   if (isKnownBrokenStreamUrl(url)) return false;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -884,11 +884,11 @@ async function probePlayableStream(url: string, timeoutMs = 5000) {
     const response = await fetch(url, {
       method: 'GET',
       signal: controller.signal,
-      headers: { range: 'bytes=0-1', 'user-agent': 'Mozilla/5.0 (UniversFlow Audio Probe)', accept: '*/*' },
+      headers: { range: 'bytes=0-1', 'user-agent': 'Mozilla/5.0', accept: '*/*' },
     });
-    const type = response.headers.get('content-type') || '';
     await response.body?.cancel().catch(() => undefined);
-    return (response.ok || response.status === 206) && type.startsWith('audio/');
+    // Accept any 2xx — content-type checks are unreliable cross-instance
+    return response.ok || response.status === 206;
   } catch {
     return false;
   } finally {
@@ -906,9 +906,17 @@ async function pickBestPipedStream(data: Record<string, any>, instance: string) 
       if (am !== bm) return bm - am;
       return (b.bitrate || 0) - (a.bitrate || 0);
     });
+  // Prefer proxyUrl (instance-hosted, CORS-friendly) without probing —
+  // server-side probes fail for googlevideo due to UA/geo, but the
+  // instance proxy works in browsers.
   for (const stream of ranked) {
-    const url = normalizeUrl(stream?.proxyUrl || stream?.url, instance);
-    if (url && await probePlayableStream(url)) return url;
+    const proxied = normalizeUrl(stream?.proxyUrl, instance);
+    if (proxied && !isKnownBrokenStreamUrl(proxied)) return proxied;
+  }
+  // Last resort: probe direct googlevideo URLs
+  for (const stream of ranked) {
+    const url = normalizeUrl(stream?.url, instance);
+    if (url && !isKnownBrokenStreamUrl(url) && await probePlayableStream(url)) return url;
   }
   return undefined;
 }
