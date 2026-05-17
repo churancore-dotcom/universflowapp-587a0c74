@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserArtistPrefs } from '@/lib/userArtistPrefs';
-import { prefetchIndexedTrack, resolveIndexedTrack, type IndexedTrack } from '@/lib/musicIndexer';
+import { prefetchIndexedTrack, resolveIndexedTrack, getArtistTopTracksByName, type IndexedTrack } from '@/lib/musicIndexer';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -32,7 +32,7 @@ const GlobalTopTracksSection = () => {
       const names = prefs.map(p => p.artist_name).filter(Boolean);
 
       try {
-        // Query stream_songs directly by followed-artist names (case-insensitive).
+        // 1) Pull whatever we already have cached in stream_songs (instant)
         const { data, error } = await supabase
           .from('stream_songs')
           .select('track_id, title, artist, album, cover_url, duration')
@@ -41,15 +41,40 @@ const GlobalTopTracksSection = () => {
           .limit(30);
         if (error) throw error;
         if (cancelled) return;
-        const mapped: IndexedTrack[] = (data || []).map((r: any) => ({
-          id: r.track_id,
-          title: r.title,
-          artist: r.artist,
-          album: r.album ?? undefined,
-          cover_url: r.cover_url ?? undefined,
-          duration: r.duration ?? undefined,
-        }));
+        const seen = new Set<string>();
+        const mapped: IndexedTrack[] = [];
+        for (const r of (data || [])) {
+          const key = `${(r.artist || '').toLowerCase()}::${(r.title || '').toLowerCase()}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          mapped.push({
+            id: r.track_id, title: r.title, artist: r.artist,
+            album: r.album ?? undefined, cover_url: r.cover_url ?? undefined,
+            duration: r.duration ?? undefined,
+          });
+        }
         setTracks(mapped);
+
+        // 2) If the cache is thin (< 30), fan out and pull live top tracks per
+        // followed artist via the Piped/Last.fm indexer so the rail always fills.
+        if (mapped.length < 30) {
+          const perArtist = Math.max(2, Math.ceil((30 - mapped.length) / Math.max(1, names.length)));
+          const lists = await Promise.all(
+            names.slice(0, 12).map((n) => getArtistTopTracksByName(n, perArtist).catch(() => [] as IndexedTrack[]))
+          );
+          if (cancelled) return;
+          for (const list of lists) {
+            for (const t of list) {
+              const key = `${(t.artist || '').toLowerCase()}::${(t.title || '').toLowerCase()}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              mapped.push(t);
+              if (mapped.length >= 30) break;
+            }
+            if (mapped.length >= 30) break;
+          }
+          if (!cancelled) setTracks([...mapped]);
+        }
       } catch (e) {
         console.error('top-30 followed load failed', e);
       } finally {
@@ -65,26 +90,41 @@ const GlobalTopTracksSection = () => {
 
   const handlePlay = useCallback(async (track: IndexedTrack) => {
     setResolvingId(track.id);
+    const startIdx = tracks.findIndex(t => t.id === track.id);
+    // Try the clicked track, then walk forward through the rail on failure.
+    // Max 5 attempts so a regional outage doesn't spin forever.
+    const order = [track, ...tracks.slice(startIdx + 1)].slice(0, 5);
+    let lastErr: unknown = null;
     try {
-      const resolved = await resolveIndexedTrack(track.artist, track.title);
-      if (!resolved.streamUrl) throw new Error('No stream available for this track');
-      const song: Song = {
-        id: track.id,
-        title: resolved.title || track.title,
-        artist: resolved.artist || track.artist,
-        album: track.album,
-        cover_url: resolved.cover_url || track.cover_url,
-        audio_url: resolved.streamUrl,
-        duration: resolved.duration || track.duration,
-        source: 'indexed',
-      };
-      const queue: Song[] = tracks.map(t => ({
-        id: t.id, title: t.title, artist: t.artist, album: t.album,
-        cover_url: t.cover_url, audio_url: 'resolving', source: 'indexed' as const,
-      }));
-      playSong(song, undefined, queue);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not play this track');
+      for (const candidate of order) {
+        try {
+          const resolved = await resolveIndexedTrack(candidate.artist, candidate.title);
+          if (!resolved.streamUrl) throw new Error('No stream');
+          const song: Song = {
+            id: candidate.id,
+            title: resolved.title || candidate.title,
+            artist: resolved.artist || candidate.artist,
+            album: candidate.album,
+            cover_url: resolved.cover_url || candidate.cover_url,
+            audio_url: resolved.streamUrl,
+            duration: resolved.duration || candidate.duration,
+            source: 'indexed',
+          };
+          const queue: Song[] = tracks.map(t => ({
+            id: t.id, title: t.title, artist: t.artist, album: t.album,
+            cover_url: t.cover_url, audio_url: 'resolving', source: 'indexed' as const,
+          }));
+          if (candidate.id !== track.id) {
+            toast.message(`Skipped to "${candidate.title}" — original stream unavailable`);
+          }
+          playSong(song, undefined, queue);
+          return;
+        } catch (e) {
+          lastErr = e;
+          // try next
+        }
+      }
+      toast.error(lastErr instanceof Error ? lastErr.message : 'Could not play this track');
     } finally {
       setResolvingId(null);
     }
