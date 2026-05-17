@@ -970,22 +970,20 @@ async function resolveViaCobalt(videoId: string): Promise<{ streamUrl: string } 
 }
 
 async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; duration?: number } | null> {
-  // FAST PATH: Cobalt API extracts a direct CDN audio URL — works when
-  // Piped/Invidious instances are rate-limited or returning bot-check HTML.
-  const cobalt = await resolveViaCobalt(videoId);
-  if (cobalt) return { streamUrl: cobalt.streamUrl };
+  // NOTE: Cobalt is disabled — its hosts (co.wuk.sh / cobalt.tools) are not
+  // resolvable from the edge runtime (DNS NXDOMAIN), and the 8s timeout
+  // added massive latency to every resolve. Go straight to Piped/Invidious.
 
-  // Priority: try piped.private.coffee FIRST (most reliable), then race others
   const piped = getPipedInstances().filter(isHealthy);
   const inv = getInvidiousInstances().filter(isHealthy);
 
-  // Put the known-reliable instance first (pipedapi.kavin.rocks per integration spec)
-  const primaryPiped = 'https://pipedapi.kavin.rocks';
+  // Put the known-reliable instance first
+  const primaryPiped = 'https://pipedapi.adminforge.de';
   const orderedPiped = [primaryPiped, ...piped.filter(i => i !== primaryPiped)].slice(0, 4);
 
   // Try primary first (fast path)
   try {
-    const data = await fetchJson(`${primaryPiped}/streams/${videoId}`, 8000);
+    const data = await fetchJson(`${primaryPiped}/streams/${videoId}`, 6000);
     const url = await pickBestPipedStream(data, primaryPiped);
     if (url) {
       console.log(`[resolve] ✓ ${videoId} via ${primaryPiped}`);
