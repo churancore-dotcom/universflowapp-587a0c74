@@ -47,6 +47,7 @@ async function getDbCachedStream(artist: string, title: string): Promise<{ strea
     if (isKnownBrokenStreamUrl(data.audio_url as string)) return null;
     const ageMs = Date.now() - new Date(data.last_seen_at as string).getTime();
     if (ageMs > STREAM_DB_CACHE_TTL_MS) return null;
+    if (!(await probePlayableStream(data.audio_url as string, 2500))) return null;
     const meta = (data.metadata as Record<string, unknown>) || {};
     return {
       streamUrl: data.audio_url as string,
@@ -102,6 +103,7 @@ const AUDIO_PROXY_ALLOWED_HOST_SUFFIXES = [
   '.protokolla.fi',
   '.invidious.f5.si',
   '.f5.si',
+  '.thepixora.com',
   '.yewtu.be',
 ];
 
@@ -129,6 +131,7 @@ const PIPED_INSTANCES = [
 ];
 
 const INVIDIOUS_INSTANCES = [
+  'https://inv.thepixora.com',
   'https://invidious.f5.si',
   'https://invidious.protokolla.fi',
 ];
@@ -888,9 +891,17 @@ async function probePlayableStream(url: string, timeoutMs = 4000) {
       signal: controller.signal,
       headers: { range: 'bytes=0-1', 'user-agent': 'Mozilla/5.0', accept: '*/*' },
     });
+    const contentType = response.headers.get('content-type')?.toLowerCase() || '';
+    if (!response.ok && response.status !== 206) {
+      await response.body?.cancel().catch(() => undefined);
+      return false;
+    }
+    if (contentType.includes('text/html') || contentType.includes('application/json')) {
+      await response.body?.cancel().catch(() => undefined);
+      return false;
+    }
     await response.body?.cancel().catch(() => undefined);
-    // Accept any 2xx — content-type checks are unreliable cross-instance
-    return response.ok || response.status === 206;
+    return true;
   } catch {
     return false;
   } finally {

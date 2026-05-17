@@ -43,7 +43,7 @@ interface YoutubeSearchResponse {
 const streamCache = new Map<string, { url: string; expiresAt: number; meta?: Partial<ResolveTrackResponse> }>();
 const inFlightResolutions = new Map<string, Promise<ResolveTrackResponse>>();
 const STREAM_CACHE_TTL = 55 * 60 * 1000; // 55 min
-const LS_KEY = 'uf_stream_cache_v1';
+const LS_KEY = 'uf_stream_cache_v2';
 const LS_MAX_ENTRIES = 200;
 const SEARCH_CACHE_TTL = 20 * 60 * 1000;
 const SEARCH_LS_KEY = 'uf_indexed_search_cache_v4';
@@ -135,6 +135,15 @@ function isKnownBrokenStreamUrl(_url?: string | null) {
   return false;
 }
 
+function isSafeSharedCachedStream(url?: string | null) {
+  if (!url) return false;
+  if (url.startsWith('yt-video:')) return true;
+  // Public proxy URLs can expire or start returning bot-check HTML within minutes.
+  // The edge resolver must re-probe those live instead of trusting shared DB cache.
+  if (url.includes('/latest_version') || url.includes('proxy.piped.')) return false;
+  return true;
+}
+
 // Try to grab a cached audio_url directly from the DB (stream_songs table) before
 // hitting the edge function. This is shared across ALL users — instant warm cache.
 async function tryDbCachedStream(artist: string, title: string): Promise<ResolveTrackResponse | null> {
@@ -149,6 +158,7 @@ async function tryDbCachedStream(artist: string, title: string): Promise<Resolve
       .maybeSingle();
 
     if (!data?.audio_url) return null;
+    if (!isSafeSharedCachedStream(data.audio_url)) return null;
     if (isKnownBrokenStreamUrl(data.audio_url)) return null;
     // Treat audio_url as fresh if seen in last 4h (server refreshes on resolve)
     const ageMs = Date.now() - new Date(data.last_seen_at).getTime();
