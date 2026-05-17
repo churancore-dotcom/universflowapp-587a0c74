@@ -27,13 +27,10 @@ function dbCacheKey(artist: string, title: string) {
 }
 
 function isKnownBrokenStreamUrl(url?: string | null) {
-  if (!url || url.startsWith('yt-video:')) return false;
-  try {
-    const host = new URL(url).hostname.toLowerCase();
-    return host.startsWith('proxy.piped.');
-  } catch {
-    return false;
-  }
+  // Only obvious placeholders; per-URL liveness is determined by probing
+  if (!url) return false;
+  if (url.startsWith('yt-video:')) return false;
+  return false;
 }
 
 async function getDbCachedStream(artist: string, title: string): Promise<{ streamUrl: string; videoId?: string; cover_url?: string; duration?: number } | null> {
