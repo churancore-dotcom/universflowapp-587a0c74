@@ -92,6 +92,7 @@ const AUDIO_PROXY_ALLOWED_HOST_SUFFIXES = [
   '.piped.video',
   '.piped.privacydev.net',
   '.piped.kavin.rocks',
+  '.kavin.rocks',
   '.piped.tokhmi.xyz',
   '.piped.adminforge.de',
   '.projectsegfau.lt',
