@@ -43,7 +43,7 @@ interface YoutubeSearchResponse {
 const streamCache = new Map<string, { url: string; expiresAt: number; meta?: Partial<ResolveTrackResponse> }>();
 const inFlightResolutions = new Map<string, Promise<ResolveTrackResponse>>();
 const STREAM_CACHE_TTL = 55 * 60 * 1000; // 55 min
-const LS_KEY = 'uf_stream_cache_v1';
+const LS_KEY = 'uf_stream_cache_v2';
 const LS_MAX_ENTRIES = 200;
 const SEARCH_CACHE_TTL = 20 * 60 * 1000;
 const SEARCH_LS_KEY = 'uf_indexed_search_cache_v4';
