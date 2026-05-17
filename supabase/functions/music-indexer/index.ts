@@ -884,17 +884,41 @@ function pickBestStream(data: Record<string, any>, instance: string) {
   return raw;
 }
 
-function pickBestPipedStream(data: Record<string, any>, instance: string) {
+async function probePlayableStream(url: string, timeoutMs = 5000) {
+  if (isKnownBrokenStreamUrl(url)) return false;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { range: 'bytes=0-1', 'user-agent': 'Mozilla/5.0 (UniversFlow Audio Probe)', accept: '*/*' },
+    });
+    const type = response.headers.get('content-type') || '';
+    await response.body?.cancel().catch(() => undefined);
+    return (response.ok || response.status === 206) && type.startsWith('audio/');
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function pickBestPipedStream(data: Record<string, any>, instance: string) {
   const streams = Array.isArray(data.audioStreams) ? data.audioStreams : [];
-  const best = streams
+  const ranked = streams
     .filter((s: any) => typeof s?.url === 'string')
     .sort((a: any, b: any) => {
       const am = a.mimeType?.includes('mp4') || a.format === 'm4a' ? 1 : 0;
       const bm = b.mimeType?.includes('mp4') || b.format === 'm4a' ? 1 : 0;
       if (am !== bm) return bm - am;
       return (b.bitrate || 0) - (a.bitrate || 0);
-    })[0];
-  return normalizeUrl(best?.proxyUrl || best?.url, instance);
+    });
+  for (const stream of ranked) {
+    const url = normalizeUrl(stream?.proxyUrl || stream?.url, instance);
+    if (url && await probePlayableStream(url)) return url;
+  }
+  return undefined;
 }
 
 async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; duration?: number } | null> {
