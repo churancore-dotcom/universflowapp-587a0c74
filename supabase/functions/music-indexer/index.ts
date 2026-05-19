@@ -986,13 +986,13 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
   // resolvable from the edge runtime (DNS NXDOMAIN), and the 8s timeout
   // added massive latency to every resolve. Go straight to Piped/Invidious.
 
-  const piped = getPipedInstances().filter(isHealthy);
-  const inv = getInvidiousInstances().filter(isHealthy);
+  const piped = getPipedInstances();
+  const inv = getInvidiousInstances();
 
   // Piped adminforge currently redirects /streams to the invalid host
   // "adminforge.destreams". Use the working Invidious audio proxy first.
   const primaryInvidious = 'https://inv.thepixora.com';
-  const orderedInvidious = [primaryInvidious, ...inv.filter(i => i !== primaryInvidious)].slice(0, 3);
+  const orderedInvidious = [primaryInvidious, ...inv.filter(i => i !== primaryInvidious)].slice(0, 7);
 
   // Try primary first (fast path)
   try {
@@ -1021,7 +1021,7 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
         return { streamUrl: url, duration: Number(data.lengthSeconds || 0) || undefined };
       } catch (e) { markFailed(inst); throw e; }
     }),
-    ...piped.slice(0, 2).map(async (inst) => {
+    ...piped.slice(0, 8).map(async (inst) => {
       try {
         const data = await fetchJson(`${inst}/streams/${videoId}`, 7000);
         const url = await pickBestPipedStream(data, inst);
