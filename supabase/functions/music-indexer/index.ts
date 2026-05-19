@@ -127,12 +127,26 @@ const LASTFM_BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
 // ── Instance lists (verified working May 2026) ──
 
 const PIPED_INSTANCES = [
+  'https://pipedapi.adminforge.de',
   'https://api.piped.private.coffee',
+  'https://pipedapi.tokhmi.xyz',
+  'https://pipedapi.moomoo.me',
+  'https://pipedapi.syncpundit.io',
+  'https://api-piped.mha.fi',
+  'https://pipedapi.leptons.xyz',
+  'https://pipedapi.r4fo.com',
+  'https://api.piped.yt',
 ];
 
 const INVIDIOUS_INSTANCES = [
   'https://inv.thepixora.com',
   'https://invidious.f5.si',
+  'https://invidious.nerdvpn.de',
+  'https://invidious.private.coffee',
+  'https://invidious.privacyredirect.com',
+  'https://invidious.protokolla.fi',
+  'https://invidious.jing.rocks',
+  'https://yewtu.be',
 ];
 
 // ── Dynamic instance discovery (cached 30 min) ──
@@ -165,13 +179,13 @@ async function refreshInstances() {
 
 function getPipedInstances(): string[] {
   const all = [...new Set([...dynamicPiped, ...PIPED_INSTANCES])];
-  // deprioritize recently-failed
-  return all.sort((a, b) => (failedUntil.get(a) || 0) - (failedUntil.get(b) || 0));
+  // Prefer explicit known instances; dynamic instances follow as extra fallbacks.
+  return all.sort((a, b) => (PIPED_INSTANCES.includes(a) ? 0 : 1) - (PIPED_INSTANCES.includes(b) ? 0 : 1));
 }
 
 function getInvidiousInstances(): string[] {
   const all = [...new Set([...dynamicInvidious, ...INVIDIOUS_INSTANCES])];
-  return all.sort((a, b) => (failedUntil.get(a) || 0) - (failedUntil.get(b) || 0));
+  return all.sort((a, b) => (INVIDIOUS_INSTANCES.includes(a) ? 0 : 1) - (INVIDIOUS_INSTANCES.includes(b) ? 0 : 1));
 }
 
 // ── Health tracking: skip instances that failed recently ──
