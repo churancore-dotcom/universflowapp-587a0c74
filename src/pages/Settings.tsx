@@ -81,6 +81,22 @@ const Settings = () => {
   };
   const handleHaptics = (val: boolean) => { setHaptics(val); localStorage.setItem('uf_haptics', String(val)); };
 
+  const handlePlaybackSpeed = (speed: number) => {
+    setPlaybackSpeed(speed);
+    writeEq({ playbackSpeed: speed });
+    if (audioElement) {
+      try { audioElement.playbackRate = speed; } catch { /* ignore */ }
+    }
+  };
+
+  const handleResetPlayback = () => {
+    handlePlaybackSpeed(1);
+    handleGapless(true);
+    handleAutoplay(true);
+    if (cfEnabled) toggleCrossfade();
+    toast.success('Playback settings restored');
+  };
+
   const handleTheme = (t: ThemeMode) => {
     setTheme(t);
     applyTheme(t);
