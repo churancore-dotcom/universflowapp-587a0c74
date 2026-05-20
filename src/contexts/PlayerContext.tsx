@@ -1335,6 +1335,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const setVolume = useCallback((vol: number) => {
     setVolumeState(vol);
+    try { localStorage.setItem('uf_volume', String(vol)); } catch { /* ignore */ }
   }, []);
 
   const setQueue = useCallback((songs: Song[]) => {
