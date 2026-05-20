@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { findSongStreamUrl } from '@/lib/jiosaavn';
 
 export interface IndexedTrack {
   id: string;
@@ -43,7 +44,7 @@ interface YoutubeSearchResponse {
 const streamCache = new Map<string, { url: string; expiresAt: number; meta?: Partial<ResolveTrackResponse> }>();
 const inFlightResolutions = new Map<string, Promise<ResolveTrackResponse>>();
 const STREAM_CACHE_TTL = 55 * 60 * 1000; // 55 min
-const LS_KEY = 'uf_stream_cache_v2';
+const LS_KEY = 'uf_stream_cache_v3';
 const LS_MAX_ENTRIES = 200;
 const SEARCH_CACHE_TTL = 20 * 60 * 1000;
 const SEARCH_LS_KEY = 'uf_indexed_search_cache_v4';
@@ -326,8 +327,24 @@ export async function resolveIndexedTrack(
   if (existing) return existing;
 
   const pending = (async () => {
-    // FAST PATH: try DB cache first (shared across all users, ~80ms)
-    // before falling back to the slow Invidious resolver (~1-2s).
+    // FAST PATH: use the deployed JioSaavn API first. It returns direct CDN
+    // audio URLs with CORS, avoiding the stale/proxy YouTube streams that were
+    // causing silent playback / MEDIA_ELEMENT format errors.
+    const saavnHit = await findSongStreamUrl(title, artist, opts).catch(() => null);
+    if (saavnHit?.streamUrl) {
+      const result: ResolveTrackResponse = {
+        success: true,
+        streamUrl: saavnHit.streamUrl,
+        title: saavnHit.title || title,
+        artist: saavnHit.artist || artist,
+        cover_url: saavnHit.image,
+        duration: Number(saavnHit.duration) || undefined,
+      };
+      setCachedStream(cacheKey, result.streamUrl!, result);
+      return result;
+    }
+
+    // Fallback: try DB cache (shared across all users) before the slower indexer.
     const dbHit = opts.forceRefresh ? null : await tryDbCachedStream(artist, title);
     if (dbHit?.streamUrl) {
       setCachedStream(cacheKey, dbHit.streamUrl, {
