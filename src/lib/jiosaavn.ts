@@ -3,13 +3,23 @@ import type { IndexedTrack } from './musicIndexer';
 const API = 'https://jiosaavn-api.universflow.workers.dev';
 
 const cache = new Map<string, any>();
+const SEARCH_TIMEOUT_MS = 8000;
+
+async function fetchJson(url: string) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
+    if (!res.ok) return null;
+    return await res.json();
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
 
 export async function searchSongs(query: string, limit = 20) {
   try {
-    const res = await fetch(
-      `${API}/api/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`
-    );
-    const data = await res.json();
+    const data = await fetchJson(`${API}/api/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`);
     return data.data?.results ?? [];
   } catch {
     return [];
@@ -98,8 +108,7 @@ export async function getSongStreamUrl(songId: string, opts: { forceRefresh?: bo
   if (!opts.forceRefresh && cache.has(id)) return cache.get(id);
 
   try {
-    const res = await fetch(`${API}/api/songs/${id}`);
-    const data = await res.json();
+    const data = await fetchJson(`${API}/api/songs/${id}`);
     const song = data.data?.[0] || data.data;
     if (!song) return null;
 
