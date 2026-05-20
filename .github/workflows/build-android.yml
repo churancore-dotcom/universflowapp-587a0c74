@@ -177,22 +177,22 @@ jobs:
 
           mkdir -p "$(dirname "$MAIN_ACTIVITY")"
           cat > "$MAIN_ACTIVITY" <<EOF
-package ${PKG};
+          package ${PKG};
 
-import android.os.Bundle;
-import com.getcapacitor.BridgeActivity;
-import ${PKG}.widgets.WidgetBridgePlugin;
-import ${PKG}.media.MediaNotificationPlugin;
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+          import ${PKG}.widgets.WidgetBridgePlugin;
+          import ${PKG}.media.MediaNotificationPlugin;
 
-public class MainActivity extends BridgeActivity {
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        registerPlugin(WidgetBridgePlugin.class);
-        registerPlugin(MediaNotificationPlugin.class);
-        super.onCreate(savedInstanceState);
-    }
-}
-EOF
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  registerPlugin(WidgetBridgePlugin.class);
+                  registerPlugin(MediaNotificationPlugin.class);
+                  super.onCreate(savedInstanceState);
+              }
+          }
+          EOF
 
           echo "MainActivity registered at: $MAIN_ACTIVITY"
 
