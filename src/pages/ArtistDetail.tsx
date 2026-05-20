@@ -118,6 +118,27 @@ const ArtistDetail = () => {
             image={artist.photo_url || undefined}
             path={`/artist/${artist.id}`}
             type="profile"
+            jsonLdId="artist-jsonld"
+            jsonLd={{
+              '@context': 'https://schema.org',
+              '@type': 'MusicGroup',
+              '@id': `https://universflow.in/artist/${artist.id}#musicgroup`,
+              name: artist.name,
+              url: `https://universflow.in/artist/${artist.id}`,
+              ...(artist.photo_url ? { image: artist.photo_url } : {}),
+              ...(artist.bio ? { description: artist.bio } : {}),
+              ...(artist.genre ? { genre: artist.genre } : {}),
+              ...(songs.length
+                ? {
+                    track: songs.slice(0, 25).map((s) => ({
+                      '@type': 'MusicRecording',
+                      name: s.title,
+                      byArtist: { '@type': 'MusicGroup', name: artist.name },
+                      ...(s.album ? { inAlbum: { '@type': 'MusicAlbum', name: s.album } } : {}),
+                    })),
+                  }
+                : {}),
+            }}
           />
         )}
         {/* Hero Header */}
