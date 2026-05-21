@@ -113,32 +113,65 @@ const ArtistDetail = () => {
       <div className="min-h-screen bg-black pb-52">
         {artist && (
           <SEOHead
-            title={`${artist.name} — Univers Flow`}
-            description={artist.bio?.slice(0, 155) || `Listen to ${artist.name} on Univers Flow. Stream songs, follow the artist, and download for offline listening.`}
+            title={`${artist.name} — Songs, Albums & Bio | Univers Flow`}
+            description={artist.bio?.slice(0, 155) || `Listen to ${artist.name} on Univers Flow. Stream ${songs.length} songs, follow the artist, and download for offline listening.`}
             image={artist.photo_url || undefined}
             path={`/artist/${artist.id}`}
             type="profile"
             jsonLdId="artist-jsonld"
-            jsonLd={{
-              '@context': 'https://schema.org',
-              '@type': 'MusicGroup',
-              '@id': `https://universflow.in/artist/${artist.id}#musicgroup`,
-              name: artist.name,
-              url: `https://universflow.in/artist/${artist.id}`,
-              ...(artist.photo_url ? { image: artist.photo_url } : {}),
-              ...(artist.bio ? { description: artist.bio } : {}),
-              ...(artist.genre ? { genre: artist.genre } : {}),
-              ...(songs.length
-                ? {
-                    track: songs.slice(0, 25).map((s) => ({
-                      '@type': 'MusicRecording',
-                      name: s.title,
-                      byArtist: { '@type': 'MusicGroup', name: artist.name },
-                      ...(s.album ? { inAlbum: { '@type': 'MusicAlbum', name: s.album } } : {}),
-                    })),
-                  }
-                : {}),
-            }}
+            jsonLd={(() => {
+              const albumMap = new Map<string, typeof songs>();
+              for (const s of songs) {
+                if (!s.album) continue;
+                if (!albumMap.has(s.album)) albumMap.set(s.album, [] as any);
+                (albumMap.get(s.album) as any).push(s);
+              }
+              const albums = Array.from(albumMap.entries()).slice(0, 20).map(([name, tracks]) => ({
+                '@type': 'MusicAlbum',
+                name,
+                byArtist: { '@type': 'MusicGroup', name: artist.name },
+                numTracks: tracks.length,
+                ...(tracks[0]?.cover_url ? { image: tracks[0].cover_url } : {}),
+                track: tracks.slice(0, 25).map((t) => ({
+                  '@type': 'MusicRecording',
+                  name: t.title,
+                  ...(t.duration ? { duration: `PT${Math.floor(t.duration / 60)}M${t.duration % 60}S` } : {}),
+                  byArtist: { '@type': 'MusicGroup', name: artist.name },
+                })),
+              }));
+              return [
+                {
+                  '@context': 'https://schema.org',
+                  '@type': 'MusicGroup',
+                  '@id': `https://universflow.in/artist/${artist.id}#musicgroup`,
+                  name: artist.name,
+                  url: `https://universflow.in/artist/${artist.id}`,
+                  ...(artist.photo_url ? { image: artist.photo_url } : {}),
+                  ...(artist.bio ? { description: artist.bio } : {}),
+                  ...(artist.genre ? { genre: artist.genre } : {}),
+                  ...(albums.length ? { album: albums } : {}),
+                  ...(songs.length
+                    ? {
+                        track: songs.slice(0, 25).map((s) => ({
+                          '@type': 'MusicRecording',
+                          name: s.title,
+                          byArtist: { '@type': 'MusicGroup', name: artist.name },
+                          ...(s.album ? { inAlbum: { '@type': 'MusicAlbum', name: s.album } } : {}),
+                        })),
+                      }
+                    : {}),
+                },
+                {
+                  '@context': 'https://schema.org',
+                  '@type': 'BreadcrumbList',
+                  itemListElement: [
+                    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://universflow.in/' },
+                    { '@type': 'ListItem', position: 2, name: 'Artists', item: 'https://universflow.in/artists' },
+                    { '@type': 'ListItem', position: 3, name: artist.name, item: `https://universflow.in/artist/${artist.id}` },
+                  ],
+                },
+              ];
+            })()}
           />
         )}
         {/* Hero Header */}
