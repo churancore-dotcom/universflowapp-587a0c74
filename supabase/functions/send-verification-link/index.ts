@@ -59,6 +59,23 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
+    // Global per-IP throttle: max 10 send attempts / minute / IP.
+    // Silently swallow excess to avoid leaking which addresses are registered.
+    try {
+      const ipUuid = await idToUuid(clientIp(req));
+      const rl = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_and_increment_rate_limit`, {
+        method: 'POST',
+        headers: {
+          apikey: SERVICE_ROLE,
+          Authorization: `Bearer ${SERVICE_ROLE}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ _user_id: ipUuid, _endpoint: 'send_verification_link', _max_per_minute: 10 }),
+      });
+      const allowed = await rl.json().catch(() => true);
+      if (allowed === false) return UNIFORM_OK;
+    } catch (_) { /* fail-open on rate-limiter outage */ }
+
     if (!isEmail(email)) {
       // Still return uniform success for invalid emails — don't leak validity either.
       return UNIFORM_OK;
