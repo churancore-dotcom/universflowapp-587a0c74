@@ -36,7 +36,9 @@ interface NotifyBody {
 const ADMIN_ONLY_EVENTS = new Set(['premium_granted', 'payment_rejected']);
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCors(req);
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+
 
   try {
     // ── Auth check: every caller must be a signed-in user ──
