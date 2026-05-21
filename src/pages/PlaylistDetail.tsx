@@ -190,6 +190,35 @@ const PlaylistDetail = () => {
           image={playlist.cover_url || undefined}
           path={`/playlist/${playlist.id}`}
           type="music.playlist"
+          jsonLdId="playlist-jsonld"
+          jsonLd={[
+            {
+              '@context': 'https://schema.org',
+              '@type': 'MusicPlaylist',
+              '@id': `https://universflow.in/playlist/${playlist.id}#playlist`,
+              name: playlist.title,
+              url: `https://universflow.in/playlist/${playlist.id}`,
+              ...(playlist.description ? { description: playlist.description } : {}),
+              ...(playlist.cover_url ? { image: playlist.cover_url } : {}),
+              numTracks: songs.length,
+              track: songs.slice(0, 50).map((s: any) => ({
+                '@type': 'MusicRecording',
+                name: s.title,
+                ...(s.artist ? { byArtist: { '@type': 'MusicGroup', name: s.artist } } : {}),
+                ...(s.album ? { inAlbum: { '@type': 'MusicAlbum', name: s.album } } : {}),
+                ...(s.duration ? { duration: `PT${Math.floor(s.duration / 60)}M${s.duration % 60}S` } : {}),
+              })),
+            },
+            {
+              '@context': 'https://schema.org',
+              '@type': 'BreadcrumbList',
+              itemListElement: [
+                { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://universflow.in/' },
+                { '@type': 'ListItem', position: 2, name: 'Library', item: 'https://universflow.in/library' },
+                { '@type': 'ListItem', position: 3, name: playlist.title, item: `https://universflow.in/playlist/${playlist.id}` },
+              ],
+            },
+          ]}
         />
         {/* Header with back button */}
         <motion.header
