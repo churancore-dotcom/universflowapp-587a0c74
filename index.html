@@ -26,8 +26,7 @@
     <meta name="format-detection" content="telephone=no" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
-    <!-- Security headers (meta-equivalent; full headers are also set at the Cloudflare/Lovable edge) -->
-    <meta http-equiv="X-Frame-Options" content="SAMEORIGIN" />
+    <!-- Security policy. Frame protection is handled by CSP frame-ancestors below; X-Frame-Options cannot be set via meta. -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
     <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()" />
@@ -94,8 +93,7 @@
     <link rel="dns-prefetch" href="https://storage.googleapis.com" />
     <link rel="preconnect" href="https://kzaeahjeqlihmxrfhjqd.supabase.co" />
 
-    <!-- Preload above-the-fold LCP assets (splash video + app icon) -->
-    <link rel="preload" as="video" href="/logo-anim.mp4" type="video/mp4" fetchpriority="high" />
+    <!-- Preload above-the-fold LCP app icon only; avoid forcing splash video download on hot mobile starts. -->
     <link rel="preload" as="image" href="/pwa-192x192.png" fetchpriority="high" />
 
   <meta property="og:title" content="Universflow — Free Music Streaming, Download &amp; Offline Player" />
