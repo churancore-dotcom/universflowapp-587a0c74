@@ -3,7 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   // Must match google-services.json package_name for FCM to deliver pushes
   appId: 'app.lovable.id5acaae55bbc847a7bd32f3924d8ef986',
-  appName: 'UniversFlow',
+  appName: 'Univers Flow',
   webDir: 'dist',
   server: {
     // Hot reload from Lovable sandbox during development

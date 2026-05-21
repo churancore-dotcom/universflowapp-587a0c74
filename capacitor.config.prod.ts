@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   // .github/workflows/build-android.yml — changing this here without updating
   // both of those will break the Android build (MainActivity path mismatch).
   appId: 'app.lovable.id5acaae55bbc847a7bd32f3924d8ef986',
-  appName: 'Universflow',
+  appName: 'Univers Flow',
   webDir: 'dist',
   server: {
     androidScheme: 'https'
