@@ -114,21 +114,92 @@
 </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- SEO: indexable content for crawlers (Googlebot initial fetch, Bingbot, social previews, AI bots).
+           React replaces #root on hydration; this static payload is what search engines see first.
+           Positioned off-screen so it never flashes for real users. Do not remove. -->
+      <div id="seo-shell" style="position:absolute;left:-99999px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="false">
+        <header>
+          <h1>Universflow — Free Music Streaming, Download &amp; Offline Player</h1>
+          <p>Universflow is a free music streaming app where you can listen to millions of songs, follow your favourite artists, build playlists, download tracks for offline play, and enjoy a clean, Apple Music–inspired player on any phone or browser.</p>
+        </header>
+        <nav aria-label="Primary">
+          <ul>
+            <li><a href="https://universflow.in/">Home</a></li>
+            <li><a href="https://universflow.in/home">Discover music</a></li>
+            <li><a href="https://universflow.in/search">Search songs &amp; artists</a></li>
+            <li><a href="https://universflow.in/artists">All artists</a></li>
+            <li><a href="https://universflow.in/library">Your library</a></li>
+            <li><a href="https://universflow.in/premium">Universflow Premium</a></li>
+            <li><a href="https://universflow.in/support">Support</a></li>
+            <li><a href="https://universflow.in/auth">Sign in / Create account</a></li>
+          </ul>
+        </nav>
+        <main>
+          <section>
+            <h2>Free music streaming, the way it should be</h2>
+            <p>Universflow lets you stream unlimited music for free — no credit card, no hidden trial. Discover trending songs, new releases, top charts, and curated playlists across pop, hip-hop, Bollywood, rock, lo-fi, electronic, indie, and more. Save songs to your library, follow artists, and pick up listening across devices.</p>
+          </section>
+          <section>
+            <h2>Download songs &amp; listen offline</h2>
+            <p>Save your favourite tracks to your phone and play them with zero internet. Universflow's offline player works in airplane mode, on flights, in the metro, anywhere. Download whole playlists with one tap.</p>
+          </section>
+          <section>
+            <h2>Discover artists &amp; playlists</h2>
+            <p>Explore millions of artists, full discographies, albums, and EPs. Build your own playlists, share them with friends, and get smart recommendations based on what you actually listen to.</p>
+          </section>
+          <section>
+            <h2>Universflow Premium</h2>
+            <p>Upgrade to Universflow Premium for ad-free listening, higher quality audio, unlimited downloads, exclusive content, and priority support. Lifetime promo codes and one-time payment options available.</p>
+          </section>
+          <section>
+            <h2>Frequently asked questions</h2>
+            <h3>Is Universflow really free?</h3>
+            <p>Yes. Universflow is free to use with optional Premium upgrades. Create an account with email to start listening instantly.</p>
+            <h3>Can I download songs to listen offline?</h3>
+            <p>Yes. Tap the download icon on any song or playlist and it will be saved for offline playback inside the app.</p>
+            <h3>Does Universflow work on Android and iPhone?</h3>
+            <p>Universflow works in any modern browser and ships as a native Android app. iPhone users can install it as a home-screen web app.</p>
+            <h3>How do I create an account?</h3>
+            <p>Visit <a href="https://universflow.in/auth">the sign-up page</a>, enter your email and password, verify your email, and you're in.</p>
+          </section>
+          <footer>
+            <p>© Universflow. Free music streaming &amp; download app. Visit <a href="https://universflow.in/">universflow.in</a>.</p>
+          </footer>
+        </main>
+        <script type="application/ld+json">
+        {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+          {"@type":"Question","name":"Is Universflow really free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Universflow is free to use with optional Premium upgrades. Create an account with email to start listening instantly."}},
+          {"@type":"Question","name":"Can I download songs to listen offline?","acceptedAnswer":{"@type":"Answer","text":"Yes. Tap the download icon on any song or playlist and it will be saved for offline playback inside the app."}},
+          {"@type":"Question","name":"Does Universflow work on Android and iPhone?","acceptedAnswer":{"@type":"Answer","text":"Universflow works in any modern browser and ships as a native Android app. iPhone users can install it as a home-screen web app."}},
+          {"@type":"Question","name":"How do I create a Universflow account?","acceptedAnswer":{"@type":"Answer","text":"Visit the Universflow sign-up page, enter your email and password, verify your email, and start listening."}}
+        ]}
+        </script>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
-    
-    <!-- WebView fallback: show basic loading if JS fails -->
+
+    <!-- Fallback for users (and crawlers) without JS -->
     <noscript>
       <style>
-        body { background: #000; color: #fff; font-family: -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .fallback { text-align: center; padding: 24px; }
-        .fallback h1 { font-size: 24px; margin-bottom: 8px; }
-        .fallback p { opacity: 0.6; font-size: 14px; }
+        body { background:#000; color:#fff; font-family:-apple-system,sans-serif; margin:0; padding:24px; line-height:1.5; }
+        .nf { max-width:680px; margin:40px auto; }
+        .nf h1 { font-size:28px; margin:0 0 12px; }
+        .nf h2 { font-size:18px; margin:24px 0 6px; opacity:.9; }
+        .nf p { opacity:.75; font-size:15px; }
+        .nf a { color:#FF2D55; }
       </style>
-      <div class="fallback">
-        <h1>Univers Flow - Free Music Streaming</h1>
-        <p>Stream and download unlimited music for free. </p>
-        <p>Please enable JavaScript to use this app.</p>
+      <div class="nf">
+        <h1>Universflow — Free Music Streaming &amp; Download</h1>
+        <p>Stream millions of songs free, follow artists, build playlists, and listen offline on Android, iPhone, and the web.</p>
+        <h2>Explore</h2>
+        <p>
+          <a href="/home">Discover</a> · <a href="/search">Search</a> · <a href="/artists">Artists</a> ·
+          <a href="/library">Library</a> · <a href="/premium">Premium</a> · <a href="/support">Support</a> ·
+          <a href="/auth">Sign in</a>
+        </p>
+        <h2>Enable JavaScript</h2>
+        <p>Universflow is a music player — please enable JavaScript to listen.</p>
       </div>
     </noscript>
   </body>
