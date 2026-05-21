@@ -238,9 +238,17 @@ const Search = () => {
     <TabTransition>
       <div className="h-[100dvh] bg-background flex flex-col overflow-hidden relative">
         <SEOHead
-          title="Search Music — Univers Flow"
+          title="Search Music — Songs, Artists & Albums | Univers Flow"
           description="Search any song, artist, or album worldwide. Discover and play tracks instantly on Univers Flow."
           path="/search"
+          jsonLdId="search-jsonld"
+          jsonLd={{
+            '@context': 'https://schema.org',
+            '@type': 'SearchResultsPage',
+            name: 'Search — Univers Flow',
+            url: 'https://universflow.in/search',
+            isPartOf: { '@type': 'WebSite', name: 'Univers Flow', url: 'https://universflow.in' },
+          }}
         />
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute inset-0" style={{
