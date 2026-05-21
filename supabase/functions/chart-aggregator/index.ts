@@ -159,8 +159,46 @@ function countryNameFromCode(cc: string): string {
   return map[cc] ?? "United States";
 }
 
+const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
+
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
+
+async function isAdminCaller(req: Request): Promise<boolean> {
+  const auth = req.headers.get("Authorization") ?? "";
+  if (!auth.startsWith("Bearer ")) return false;
+  const jwt = auth.slice(7);
+  const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+    global: { headers: { Authorization: `Bearer ${jwt}` } },
+  });
+  const { data: claims } = await userClient.auth.getClaims(jwt).catch(() => ({ data: null as any }));
+  const uid = claims?.claims?.sub;
+  if (!uid) return false;
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+  const { data, error } = await admin.rpc("has_role", { _user_id: uid, _role: "admin" });
+  if (error) return false;
+  return data === true;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  // Authorize: matching CRON_SECRET header (scheduler) OR admin JWT (manual trigger).
+  const cronHeader = req.headers.get("x-cron-secret") ?? "";
+  const cronOk = CRON_SECRET.length > 0 && safeEqual(cronHeader, CRON_SECRET);
+  if (!cronOk) {
+    const adminOk = await isAdminCaller(req);
+    if (!adminOk) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
   const startedAt = Date.now();
