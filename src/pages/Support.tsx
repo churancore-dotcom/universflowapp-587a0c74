@@ -30,6 +30,15 @@ const Support = () => {
         title="Support & Help Center — Univers Flow"
         description="Get help with Univers Flow: chat with support, report issues, request features and learn about premium benefits."
         keywords="Univers Flow support, help center, contact, music app help"
+        path="/support"
+        jsonLdId="support-jsonld"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'ContactPage',
+          name: 'Univers Flow — Support',
+          url: 'https://universflow.in/support',
+          isPartOf: { '@type': 'WebSite', name: 'Univers Flow', url: 'https://universflow.in' },
+        }}
       />
       <motion.div 
         className="min-h-screen bg-background pb-44"
