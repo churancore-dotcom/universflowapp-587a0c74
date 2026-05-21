@@ -321,40 +321,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch { /* quota or disabled */ }
   }, [queue, currentIndex, currentSong]);
 
-  // Check premium status on mount — server-authoritative via RPC.
-  // The boolean here only controls pre-roll ad frequency UX; actual premium
-  // content access is enforced by RLS policies (has_premium_subscription RPC)
-  // on every read of premium-only songs/sessions. A user who flips this client
-  // flag will still hit RLS denials on premium tracks.
-  useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setIsPremiumUser(false);
-          return;
-        }
-
-        // Use the security-definer RPC instead of trusting client-readable
-        // subscription rows. Identical logic, but it's the same source of truth
-        // RLS uses — so client + server can never disagree.
-        const { data, error } = await supabase.rpc('has_premium_subscription', { _user_id: user.id });
-        setIsPremiumUser(!error && data === true);
-      } catch {
-        setIsPremiumUser(false);
-      }
-    };
-    checkStatus();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      checkStatus();
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-
   // Track whether audio was playing before going to background
   const wasPlayingRef = useRef(false);
   const keepAliveRef = useRef<number | null>(null);
