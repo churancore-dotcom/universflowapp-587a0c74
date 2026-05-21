@@ -208,9 +208,17 @@ const Library = () => {
     <TabTransition>
       <div className="h-[100dvh] bg-background flex flex-col overflow-hidden relative">
         <SEOHead
-          title="Your Library — Univers Flow"
-          description="Your liked songs, downloads, followed artists, and personal playlists — all in one place."
+          title="Your Library — Liked Songs, Playlists & Downloads | Univers Flow"
+          description="Your liked songs, downloads, followed artists, and personal playlists — all in one place on Univers Flow."
           path="/library"
+          jsonLdId="library-jsonld"
+          jsonLd={{
+            '@context': 'https://schema.org',
+            '@type': 'CollectionPage',
+            name: 'Your Library — Univers Flow',
+            url: 'https://universflow.in/library',
+            isPartOf: { '@type': 'WebSite', name: 'Univers Flow', url: 'https://universflow.in' },
+          }}
         />
         {/* Ambient background */}
         <div className="absolute inset-0 pointer-events-none">
