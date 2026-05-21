@@ -202,70 +202,28 @@ jobs:
           echo "Notification icon installed."
 
 
-      - name: Beef up APK size (all ABIs + real deps + bundled assets)
+      - name: Configure APK (universal ABI, no splits, debug unminified)
         run: |
           APP_GRADLE="android/app/build.gradle"
 
-          # 1) Force-include all 4 CPU architectures in a SINGLE universal APK.
+          # Single universal APK that runs on every Android device
+          # (armv7 = old phones, arm64 = modern phones, x86/x86_64 = emulators).
           if ! grep -q "ndk {" "$APP_GRADLE"; then
             sed -i "s|defaultConfig {|defaultConfig {\n        ndk {\n            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'\n        }|" "$APP_GRADLE"
           fi
 
-          # 1b) Hard-disable APK splits so Gradle cannot produce per-ABI slices.
+          # Never produce per-ABI / per-density slices.
           if ! grep -q "splits {" "$APP_GRADLE"; then
             sed -i "s|android {|android {\n    splits {\n        abi { enable false }\n        density { enable false }\n    }|" "$APP_GRADLE"
           fi
 
-          # 2) Disable shrinking, keep debug symbols, ship every density.
-          if ! grep -q "packagingOptions {" "$APP_GRADLE"; then
-            sed -i "s|android {|android {\n    packagingOptions {\n        jniLibs {\n            useLegacyPackaging true\n            keepDebugSymbols += ['**/*.so']\n        }\n    }\n    bundle {\n        language { enableSplit = false }\n        density  { enableSplit = false }\n        abi      { enableSplit = false }\n    }|" "$APP_GRADLE"
-          fi
-
-          # 2b) Force debug build to NOT minify and NOT shrink resources.
+          # Debug build = unminified so stack traces are readable.
           if ! grep -q "buildTypes {" "$APP_GRADLE"; then
             sed -i "s|android {|android {\n    buildTypes {\n        debug {\n            minifyEnabled false\n            shrinkResources false\n            debuggable true\n        }\n    }|" "$APP_GRADLE"
           fi
 
-          # 3) Heavy stack of REAL production libs: ExoPlayer/Media3 full set,
-          #    ML Kit (lang ID + translate), CameraX, Room, Glide, Play
-          #    services, Firebase Perf/Crashlytics/Config/InAppMessaging.
-          if ! grep -q "androidx.work:work-runtime" "$APP_GRADLE"; then
-            sed -i "s|dependencies {|dependencies {\n    implementation 'androidx.work:work-runtime:2.9.1'\n    implementation 'androidx.browser:browser:1.8.0'\n    implementation 'androidx.webkit:webkit:1.12.1'\n    implementation 'androidx.lifecycle:lifecycle-process:2.8.7'\n    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.7'\n    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7'\n    implementation 'androidx.media3:media3-exoplayer:1.4.1'\n    implementation 'androidx.media3:media3-exoplayer-dash:1.4.1'\n    implementation 'androidx.media3:media3-exoplayer-hls:1.4.1'\n    implementation 'androidx.media3:media3-exoplayer-smoothstreaming:1.4.1'\n    implementation 'androidx.media3:media3-session:1.4.1'\n    implementation 'androidx.media3:media3-ui:1.4.1'\n    implementation 'androidx.media3:media3-datasource-okhttp:1.4.1'\n    implementation 'androidx.media3:media3-extractor:1.4.1'\n    implementation 'androidx.media3:media3-decoder:1.4.1'\n    implementation 'androidx.room:room-runtime:2.6.1'\n    implementation 'androidx.camera:camera-core:1.3.4'\n    implementation 'androidx.camera:camera-camera2:1.3.4'\n    implementation 'androidx.camera:camera-lifecycle:1.3.4'\n    implementation 'androidx.camera:camera-view:1.3.4'\n    implementation 'com.google.android.material:material:1.12.0'\n    implementation 'com.google.android.play:review:2.0.2'\n    implementation 'com.google.android.play:app-update:2.1.0'\n    implementation 'com.google.android.gms:play-services-auth:21.2.0'\n    implementation 'com.google.android.gms:play-services-base:18.5.0'\n    implementation 'com.google.firebase:firebase-analytics'\n    implementation 'com.google.firebase:firebase-crashlytics'\n    implementation 'com.google.firebase:firebase-config'\n    implementation 'com.google.firebase:firebase-perf'\n    implementation 'com.google.firebase:firebase-inappmessaging-display'\n    implementation 'com.google.mlkit:language-id:17.0.6'\n    implementation 'com.google.mlkit:translate:17.0.3'\n    implementation 'com.github.bumptech.glide:glide:4.16.0'\n    implementation 'com.squareup.okhttp3:okhttp:4.12.0'\n    implementation 'com.squareup.retrofit2:retrofit:2.11.0'|" "$APP_GRADLE"
-          fi
-
           echo "=== Patched app build.gradle ==="
-          sed -n '1,120p' "$APP_GRADLE"
-
-      - name: Bundle extra assets (fonts)
-        run: |
-          ASSETS_DIR="android/app/src/main/assets/fonts"
-          mkdir -p "$ASSETS_DIR"
-
-          # Open-source Google Fonts (real, licensed) — adds usable typography.
-          BASE="https://github.com/google/fonts/raw/main/ofl"
-          for f in \
-            "inter/Inter%5Bslnt%2Cwght%5D.ttf" \
-            "spacegrotesk/SpaceGrotesk%5Bwght%5D.ttf" \
-            "dmsans/DMSans%5Bopsz%2Cwght%5D.ttf" \
-            "manrope/Manrope%5Bwght%5D.ttf" \
-            "outfit/Outfit%5Bwght%5D.ttf" \
-            "sora/Sora%5Bwght%5D.ttf" \
-            "jetbrainsmono/JetBrainsMono%5Bwght%5D.ttf" \
-            "playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf" \
-            "poppins/Poppins-Regular.ttf" \
-            "poppins/Poppins-Bold.ttf" \
-            "montserrat/Montserrat%5Bwght%5D.ttf" \
-            "raleway/Raleway%5Bwght%5D.ttf" \
-            "nunito/Nunito%5Bwght%5D.ttf" \
-            "robotoslab/RobotoSlab%5Bwght%5D.ttf" \
-            "merriweather/Merriweather-Regular.ttf" \
-            "lora/Lora%5Bwght%5D.ttf"
-          do
-            name=$(basename "$f")
-            curl -fsSL -o "$ASSETS_DIR/$name" "$BASE/$f" || echo "skip $name"
-          done
-
-          ls -la "$ASSETS_DIR" || true
+          sed -n '1,80p' "$APP_GRADLE"
 
       - name: Build Debug APK
         working-directory: android
