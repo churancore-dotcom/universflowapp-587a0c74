@@ -117,6 +117,24 @@ serve(async (req) => {
 
     console.log('AI Metadata extraction for video ID:', videoId);
 
+    // ── Fetch real video title/author from YouTube oEmbed (no API key, public) ──
+    // Without this, the model gets only the opaque 11-char ID and hallucinates.
+    let oembedTitle = '';
+    let oembedAuthor = '';
+    try {
+      const oe = await fetch(
+        `https://www.youtube.com/oembed?url=${encodeURIComponent('https://www.youtube.com/watch?v=' + videoId)}&format=json`,
+        { signal: AbortSignal.timeout(4000) },
+      );
+      if (oe.ok) {
+        const j = await oe.json();
+        oembedTitle = String(j.title ?? '').slice(0, 200);
+        oembedAuthor = String(j.author_name ?? '').slice(0, 120);
+      }
+    } catch (e) {
+      console.log('oEmbed lookup failed (non-fatal):', (e as Error).message);
+    }
+
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       console.error('LOVABLE_API_KEY not configured');
@@ -126,17 +144,19 @@ serve(async (req) => {
       );
     }
 
-    const prompt = `Analyze this YouTube video and extract song metadata. Video ID: ${videoId}
+    const prompt = `Clean and normalise this YouTube song into structured metadata.
 
-Based on the video ID and any identifiable information (common title formats), provide your best guess for the song metadata.
+Raw YouTube title: ${oembedTitle || '(unknown)'}
+YouTube channel:   ${oembedAuthor || '(unknown)'}
+Video ID:          ${videoId}
 
-Return a JSON object with these fields:
-- title: The song title (clean, without extra info like "Official Video", "Lyrics", etc.)
-- artist: The artist/performer name
-- genre: The likely genre (Pop, Rock, Hip Hop, R&B, Electronic, Jazz, Classical, Country, Indie, Metal, Phonk, Lo-Fi, Bollywood, Punjabi, or Haryanvi)
+Return ONLY a JSON object with:
+- title:  the clean song title — strip "(Official Video)", "[Lyrics]", "HD", "Audio", "Full Song", featured-artist parentheticals, etc.
+- artist: the primary performing artist (NOT the YouTube channel name unless that IS the artist).
+- genre:  one of Pop, Rock, Hip Hop, R&B, Electronic, Jazz, Classical, Country, Indie, Metal, Phonk, Lo-Fi, Bollywood, Punjabi, Haryanvi.
 
-If you can't determine a field with reasonable confidence, use null for that field.
-Only return the JSON object, nothing else.`;
+If a field is genuinely unknowable, use null. JSON only, no markdown.`;
+
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
