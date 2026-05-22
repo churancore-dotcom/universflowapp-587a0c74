@@ -175,12 +175,29 @@ export function usePushRegistration() {
 export async function requestPushPermissionAndRegister(): Promise<'granted' | 'denied' | 'unsupported'> {
   if (!isNative()) return 'unsupported';
   try {
+    if (setupPromise) return await setupPromise;
+
     const { PushNotifications } = await import('@capacitor/push-notifications');
     let perm = await PushNotifications.checkPermissions();
     if (perm.receive !== 'granted') {
       perm = await PushNotifications.requestPermissions();
     }
     if (perm.receive !== 'granted') return 'denied';
+
+    try {
+      await PushNotifications.createChannel({
+        id: 'universflow_default',
+        name: 'UniversFlow Notifications',
+        description: 'Messages and updates from UniversFlow',
+        importance: 5,
+        visibility: 1,
+      });
+    } catch (channelError) {
+      console.warn('[Push] notification channel setup failed', channelError);
+    }
+
+    const deviceMeta = await collectDeviceMeta();
+    await setupPushListeners(PushNotifications, deviceMeta);
     await PushNotifications.register();
     return 'granted';
   } catch (e) {
