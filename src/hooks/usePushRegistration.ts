@@ -15,8 +15,8 @@ import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 const isNative = () =>
-  typeof (window as any).Capacitor !== 'undefined' &&
-  (window as any).Capacitor.isNativePlatform?.() === true;
+  typeof window.Capacitor !== 'undefined' &&
+  window.Capacitor.isNativePlatform?.() === true;
 
 // Module-level so other callers (e.g. a "Re-register device" button) can
 // trigger a manual retry without needing to remount the hook.
