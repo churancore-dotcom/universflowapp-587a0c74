@@ -36,6 +36,15 @@ declare global {
   }
 }
 
+interface CapacitorAppModule {
+  App?: {
+    addListener: (
+      eventName: 'appStateChange',
+      callback: (state: { isActive: boolean }) => void,
+    ) => Promise<{ remove?: () => void }>;
+  };
+}
+
 export interface Song {
   id: string;
   title: string;
@@ -368,7 +377,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     keepAliveRef.current = window.setInterval(() => {
       if (audioRef.current && !audioRef.current.paused && audioRef.current.readyState >= 2) {
         // Touch the currentTime to keep the audio pipeline active
-        const _ = audioRef.current.currentTime;
+        void audioRef.current.currentTime;
       }
     }, 5000);
 
@@ -393,7 +402,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     (async () => {
       try {
         const modName = '@capacitor/app';
-        const mod: any = await import(/* @vite-ignore */ modName).catch(() => null);
+        const mod = await import(/* @vite-ignore */ modName).catch(() => null) as CapacitorAppModule | null;
         if (!mod?.App) return;
         const handle = await mod.App.addListener('appStateChange', (state: { isActive: boolean }) => {
           if (!state?.isActive) return;
@@ -405,14 +414,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const a = audioRef.current;
           if (!a) return;
           if (a.src && a.readyState < 2) {
-            try { a.currentTime = a.currentTime; } catch {}
+            try { void a.currentTime; } catch { /* ignore */ }
           }
           if (wasPlayingRef.current && a.src && a.paused) {
             a.play().catch(() => {});
           }
         });
-        appResumeRemove = () => { try { handle.remove?.(); } catch {} };
-      } catch {}
+        appResumeRemove = () => { try { handle.remove?.(); } catch { /* ignore */ } };
+      } catch { /* ignore */ }
     })();
 
     return () => {
