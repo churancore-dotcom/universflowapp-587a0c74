@@ -1002,10 +1002,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (nextIdx === null && repeat === 'all') nextIdx = 0;
       if (nextIdx === null && queue.length > 1) nextIdx = (currentIndex + 1) % queue.length;
 
-      if (errorBelongsToActiveSong && nextIdx !== null && nextIdx !== currentIndex) {
-        toast.info('Trying another source…');
-        playSongAtIndex(nextIdx, queue);
-      } else if (errorBelongsToActiveSong) {
+      if (errorBelongsToActiveSong) {
         setIsPlaying(false);
         toast.error('This song could not start right now.');
       }
