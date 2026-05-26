@@ -868,11 +868,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (playPromise) {
       playPromise.catch(err => {
         console.warn('Playback failed:', err.message);
-        if (mySeq === playRequestSeqRef.current && activeSongIdentityRef.current === intendedIdentity && songQueue.length > 1) {
-          const fallbackIdx = getNextIndex(index, songQueue.length, shuffle, repeat) ?? ((index + 1) % songQueue.length);
-          playSongAtIndex(fallbackIdx, songQueue);
-          return;
-        }
         setIsPlaying(false);
       });
     }
