@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS trg_premium_activated ON public.user_subscriptions;
