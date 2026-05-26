@@ -14,9 +14,15 @@ interface Subscription {
   platform: string;
 }
 
+type SubscriptionRow = Record<string, unknown> | null;
+
 interface UsePremiumReturn {
   isPremium: boolean;
   subscription: Subscription | null;
+  verifiedStatus: boolean;
+  subscriptionRow: SubscriptionRow;
+  lastRealtimeUpdate: string | null;
+  lastCheckedAt: string | null;
   isLoading: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
@@ -63,14 +69,20 @@ export const usePremium = (): UsePremiumReturn => {
   // through the server RPC on every app start/refetch.
   const cached = readCache(user?.id);
   const [subscription, setSubscription] = useState<Subscription | null>(cached ?? null);
+  const [subscriptionRow, setSubscriptionRow] = useState<SubscriptionRow>(null);
   const [verifiedPremium, setVerifiedPremium] = useState(false);
+  const [lastRealtimeUpdate, setLastRealtimeUpdate] = useState<string | null>(null);
+  const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const fetchSubscription = useCallback(async () => {
     if (!user) {
       setSubscription(null);
+      setSubscriptionRow(null);
       setVerifiedPremium(false);
+      setLastRealtimeUpdate(null);
+      setLastCheckedAt(null);
       setIsLoading(false);
       try { localStorage.removeItem(CACHE_KEY); } catch { /* ignore */ }
       return;
@@ -92,6 +104,7 @@ export const usePremium = (): UsePremiumReturn => {
       setVerifiedPremium(premiumResult.data === true);
 
       if (subscriptionResult.error) throw subscriptionResult.error;
+      setSubscriptionRow((subscriptionResult.data ?? null) as SubscriptionRow);
 
       let next: Subscription | null = null;
       if (subscriptionResult.data) {
@@ -106,6 +119,7 @@ export const usePremium = (): UsePremiumReturn => {
       }
       setSubscription(next);
       writeCache(user.id, next);
+      setLastCheckedAt(new Date().toISOString());
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to fetch subscription'));
       // Fail closed for unlocks. Cached subscription text may remain visible,
@@ -131,12 +145,23 @@ export const usePremium = (): UsePremiumReturn => {
         table: 'user_subscriptions',
         filter: `user_id=eq.${user.id}`,
       }, () => {
+        setLastRealtimeUpdate(new Date().toISOString());
         fetchSubscription();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [user, fetchSubscription]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const poll = window.setInterval(() => {
+      fetchSubscription();
+    }, verifiedPremium ? 30000 : 4000);
+
+    return () => window.clearInterval(poll);
+  }, [user, verifiedPremium, fetchSubscription]);
 
   const isPremium = verifiedPremium;
 
@@ -151,6 +176,10 @@ export const usePremium = (): UsePremiumReturn => {
   return {
     isPremium,
     subscription,
+    verifiedStatus: verifiedPremium,
+    subscriptionRow,
+    lastRealtimeUpdate,
+    lastCheckedAt,
     isLoading,
     error,
     refetch: fetchSubscription,
