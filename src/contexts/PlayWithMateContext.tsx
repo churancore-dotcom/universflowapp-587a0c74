@@ -372,7 +372,7 @@ export const PlayWithMateProvider = ({ children }: { children: ReactNode }) => {
       clearRealtime();
 
       const channel = supabase
-        .channel(`mate-room:${nextRoom.sessionId}`)
+        .channel(`mate-room:${nextRoom.sessionId}`, { config: { private: true } })
         .on('presence', { event: 'sync' }, () => syncParticipants(channel))
         .on('broadcast', { event: 'playback-state' }, ({ payload }) => {
           if (nextRoom.role === 'guest') {
