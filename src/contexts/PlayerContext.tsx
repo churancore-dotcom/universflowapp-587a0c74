@@ -1378,6 +1378,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     teardownYouTubePlayback();
 
     if (audioRef.current) {
+      markIntentionalPause();
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       audioRef.current.src = '';
@@ -1395,7 +1396,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCurrentIndex(0);
     setExpanded(false);
     activeSongIdentityRef.current = null;
-  }, [teardownYouTubePlayback]);
+  }, [teardownYouTubePlayback, markIntentionalPause]);
 
   const nextSong = useCallback(async () => {
     if (queue.length === 0) return;
