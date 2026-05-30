@@ -235,14 +235,14 @@ const PremiumPage = memo(function PremiumPage() {
             </motion.div>
 
             <h1 className="text-[42px] font-bold leading-[0.95] tracking-tight mb-4">
-              Listen the way<br />
+              Univers Flow<br />
               <span style={{
                 background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))',
                 WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-              }}>it was meant to be.</span>
+              }}>Premium</span>
             </h1>
             <p className="text-muted-foreground text-[15px] max-w-[320px] mx-auto leading-relaxed">
-              Studio-grade audio. No interruptions. Built for people who really listen.
+              Listen the way it was meant to be. Studio-grade audio. No interruptions. Built for people who really listen.
             </p>
           </motion.section>
 

@@ -294,6 +294,7 @@ const Library = () => {
                 </div>
               )}
               <TabsContent value="liked" className="mt-0 h-full">
+                <h2 className="sr-only">Liked Songs</h2>
                 {loading ? (
                   <LibrarySkeleton />
                 ) : likedSongs.length === 0 ? (
@@ -306,6 +307,7 @@ const Library = () => {
               </TabsContent>
 
               <TabsContent value="artists" className="mt-0">
+                <h2 className="sr-only">Followed Artists</h2>
                 {loading ? (
                   <LibraryArtistsSkeleton />
                 ) : artists.length === 0 ? (
@@ -371,6 +373,7 @@ const Library = () => {
               </TabsContent>
 
               <TabsContent value="downloads" className="mt-0">
+                <h2 className="sr-only">Saved Downloads</h2>
                 {downloads.length === 0 ? (
                   <div className="space-y-3">
                     <EmptyState icon={CloudOff} text="No downloads yet" />
@@ -449,6 +452,7 @@ const Library = () => {
               </TabsContent>
 
               <TabsContent value="playlists" className="mt-0">
+                <h2 className="sr-only">Your Playlists</h2>
                 <div className="grid grid-cols-2 gap-2.5 mb-3">
                   <motion.button
                     className="flex items-center gap-3 p-3.5 rounded-xl"
