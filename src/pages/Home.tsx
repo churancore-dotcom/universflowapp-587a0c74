@@ -278,7 +278,7 @@ const Home = () => {
                   border: '1.5px solid hsl(var(--primary) / 0.3)',
                 }}
               >
-                <img src={appLogo} alt="UniversFlow" width={40} height={40} {...({ fetchpriority: "high" } as any)} decoding="async" className="w-full h-full object-cover" />
+                <img src={appLogo} alt="Univers Flow logo" width={40} height={40} {...({ fetchpriority: "high" } as any)} decoding="async" className="w-full h-full object-cover" />
               </div>
               <div>
                 <p className="text-[16px] font-bold text-foreground tracking-tight">{greeting()}</p>
