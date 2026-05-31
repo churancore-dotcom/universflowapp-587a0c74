@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useState } from 'react';
-import { motion, AnimatePresence, Reorder, useMotionValue, useTransform, PanInfo } from 'framer-motion';
+import { motion, AnimatePresence, Reorder, useMotionValue, useTransform, useDragControls, PanInfo } from 'framer-motion';
 import { X, GripVertical, Play, Pause, Trash2 } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { iosSpring } from '@/lib/animations';
