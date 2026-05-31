@@ -540,7 +540,114 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [currentSong?.audio_url]);
 
+  // ---------------------------------------------------------------------------
+  // Endless auto-queue (YouTube-style mix). When the queue ends with no manual
+  // next track and repeat is off, we pull more songs from the catalog:
+  //   1) same artist (not already in the queue/seen)
+  //   2) same genre OR mood
+  //   3) trending fallback (most-played)
+  // The result is appended to the queue so playback never stops.
+  // ---------------------------------------------------------------------------
+  const mapSongRow = (s: any): Song => {
+    const artistData = s.artists as { id: string; name: string; photo_url: string | null } | null;
+    return {
+      id: s.id,
+      title: s.title,
+      artist: s.artist,
+      album: s.album || undefined,
+      cover_url: s.cover_url || undefined,
+      audio_url: s.audio_url,
+      duration: s.duration || undefined,
+      artist_id: artistData?.id || s.artist_id || undefined,
+      artist_photo_url: artistData?.photo_url || undefined,
+      genre: s.genre || undefined,
+      mood: s.mood || undefined,
+      created_at: s.created_at || undefined,
+      play_count: s.play_count || undefined,
+      source: 'library',
+    } as Song;
+  };
 
+  const extendQueueWithMix = useCallback(async (seed: Song | null): Promise<Song[]> => {
+    if (!seed || autoMixInFlightRef.current) return [];
+    autoMixInFlightRef.current = true;
+    try {
+      const existing = new Set(queueRef.current.map((s) => s.id));
+      autoMixSeenRef.current.forEach((id) => existing.add(id));
+      // also avoid re-adding the seed
+      existing.add(seed.id);
+
+      const pool: Song[] = [];
+      const pushUnique = (rows: any[] | null) => {
+        for (const r of rows || []) {
+          if (!r?.id || existing.has(r.id)) continue;
+          if (!r.audio_url) continue;
+          existing.add(r.id);
+          pool.push(mapSongRow(r));
+          if (pool.length >= 25) break;
+        }
+      };
+
+      // 1) Same artist
+      if (pool.length < 25) {
+        const artistName = seed.artist?.trim();
+        if (artistName) {
+          const { data } = await supabase
+            .from('songs')
+            .select('*, artists(id, name, photo_url)')
+            .eq('is_visible', true)
+            .ilike('artist', artistName)
+            .limit(30);
+          pushUnique(data as any[]);
+        }
+      }
+
+      // 2) Same genre / mood
+      if (pool.length < 25 && (seed.genre || seed.mood)) {
+        let q = supabase
+          .from('songs')
+          .select('*, artists(id, name, photo_url)')
+          .eq('is_visible', true)
+          .limit(40);
+        if (seed.genre) q = q.eq('genre', seed.genre);
+        else if (seed.mood) q = q.eq('mood', seed.mood);
+        const { data } = await q;
+        // shuffle a bit for variety
+        const shuffled = [...((data as any[]) || [])].sort(() => Math.random() - 0.5);
+        pushUnique(shuffled);
+      }
+
+      // 3) Trending fallback
+      if (pool.length < 10) {
+        const { data } = await supabase
+          .from('songs')
+          .select('*, artists(id, name, photo_url)')
+          .eq('is_visible', true)
+          .order('play_count', { ascending: false, nullsFirst: false })
+          .limit(40);
+        const shuffled = [...((data as any[]) || [])].sort(() => Math.random() - 0.5);
+        pushUnique(shuffled);
+      }
+
+      pool.forEach((s) => autoMixSeenRef.current.add(s.id));
+
+      if (pool.length > 0) {
+        setQueueState((prev) => [...prev, ...pool]);
+      }
+      return pool;
+    } catch (e) {
+      console.warn('[autoMix] extend failed', e);
+      return [];
+    } finally {
+      autoMixInFlightRef.current = false;
+    }
+  }, []);
+
+  // Reset the auto-mix dedupe set whenever the user manually loads a new queue
+  // from a different entry point (so they get fresh recommendations).
+  useEffect(() => {
+    autoMixSeenRef.current = new Set(queue.map((s) => s.id));
+  }, [queue.length === 0]);
 
 
   // Progress is pushed via the audio element's native `timeupdate` event
